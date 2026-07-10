@@ -1,0 +1,108 @@
+@model Plannit.Models.ViewModels.TransactionListViewModel
+@{
+    ViewData["Title"] = "Transactions";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Transactions</h1>
+    <div>
+        <a asp-action="Import" class="btn btn-outline-primary me-2">Import CSV</a>
+        <a asp-action="Create" class="btn btn-primary">Add Transaction</a>
+    </div>
+</div>
+
+<form method="get" class="card card-body bg-light mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label for="accountId" class="form-label">Account</label>
+            <select name="accountId" id="accountId" class="form-select">
+                <option value="">All Accounts</option>
+                @foreach (var a in Model.Accounts)
+                {
+                    <option value="@a.Id" selected="@(Model.AccountId == a.Id)">@a.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label for="startDate" class="form-label">From</label>
+            <input type="date" name="startDate" id="startDate" class="form-control"
+                   value="@(Model.StartDate?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-md-2">
+            <label for="endDate" class="form-label">To</label>
+            <input type="date" name="endDate" id="endDate" class="form-control"
+                   value="@(Model.EndDate?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-md-3">
+            <label for="searchText" class="form-label">Search</label>
+            <input type="text" name="searchText" id="searchText" class="form-control"
+                   value="@Model.SearchText" placeholder="Description..." />
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-secondary w-100">Filter</button>
+        </div>
+    </div>
+</form>
+
+@if (!Model.Transactions.Any())
+{
+    <div class="alert alert-info">
+        No transactions found. <a asp-action="Import">Import a CSV</a> or <a asp-action="Create">add one manually</a>.
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Account</th>
+                    <th class="text-end">Amount</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in Model.Transactions)
+                {
+                    <tr>
+                        <td>@t.Date.ToString("MMM d, yyyy")</td>
+                        <td>@t.Description</td>
+                        <td>@t.AccountName</td>
+                        <td class="text-end @(t.Amount >= 0 ? "text-success" : "text-danger")">
+                            @t.Amount.ToString("C")
+                        </td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <form asp-action="Delete" asp-route-id="@t.Id" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                        onclick="return confirm('Delete this transaction?')">Del</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav>
+            <ul class="pagination justify-content-center">
+                @for (int p = 1; p <= Model.TotalPages; p++)
+                {
+                    <li class="page-item @(p == Model.Page ? "active" : "")">
+                        <a class="page-link" asp-action="Index"
+                           asp-route-accountId="@Model.AccountId"
+                           asp-route-startDate="@(Model.StartDate?.ToString("yyyy-MM-dd"))"
+                           asp-route-endDate="@(Model.EndDate?.ToString("yyyy-MM-dd"))"
+                           asp-route-searchText="@Model.SearchText"
+                           asp-route-page="@p">@p</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
+}

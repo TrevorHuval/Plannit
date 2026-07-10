@@ -1,0 +1,133 @@
+@model Plannit.Models.ViewModels.ImportMapViewModel
+@{
+    ViewData["Title"] = "Map CSV Columns";
+}
+
+<h1>Map Columns</h1>
+<p class="text-muted">Importing <strong>@Model.FileName</strong> into <strong>@Model.AccountName</strong></p>
+
+<div class="card mb-4">
+    <div class="card-header">CSV Preview</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0">
+                <thead class="table-light">
+                    <tr>
+                        @foreach (var col in Model.AvailableColumns)
+                        {
+                            <th>@col</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.PreviewRows)
+                    {
+                        <tr>
+                            @foreach (var cell in row)
+                            {
+                                <td>@cell</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <form asp-action="ConfirmImport" method="post">
+            <input type="hidden" asp-for="AccountId" />
+            <input type="hidden" asp-for="AccountName" />
+            <input type="hidden" asp-for="FileName" />
+            <input type="hidden" asp-for="TempFileId" />
+
+            <div asp-validation-summary="All" class="text-danger"></div>
+
+            <div class="card mb-4">
+                <div class="card-header">Column Mapping</div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="DateColumn" class="form-label"></label>
+                            <select asp-for="DateColumn" class="form-select">
+                                <option value="">Select...</option>
+                                @foreach (var col in Model.AvailableColumns)
+                                {
+                                    <option value="@col">@col</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="DateFormat" class="form-label"></label>
+                            <select asp-for="DateFormat" class="form-select">
+                                <option value="MM/dd/yyyy">MM/dd/yyyy</option>
+                                <option value="M/d/yyyy">M/d/yyyy</option>
+                                <option value="yyyy-MM-dd">yyyy-MM-dd</option>
+                                <option value="dd/MM/yyyy">dd/MM/yyyy</option>
+                                <option value="M/d/yy">M/d/yy</option>
+                                <option value="MM/dd/yy">MM/dd/yy</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="DescriptionColumn" class="form-label"></label>
+                        <select asp-for="DescriptionColumn" class="form-select">
+                            <option value="">Select...</option>
+                            @foreach (var col in Model.AvailableColumns)
+                            {
+                                <option value="@col">@col</option>
+                            }
+                        </select>
+                    </div>
+
+                    <hr />
+                    <p class="text-muted mb-3">Choose <strong>either</strong> a single Amount column (signed) <strong>or</strong> separate Debit/Credit columns.</p>
+
+                    <div class="mb-3">
+                        <label asp-for="AmountColumn" class="form-label"></label>
+                        <select asp-for="AmountColumn" class="form-select">
+                            <option value="">— Not used —</option>
+                            @foreach (var col in Model.AvailableColumns)
+                            {
+                                <option value="@col">@col</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="DebitColumn" class="form-label"></label>
+                            <select asp-for="DebitColumn" class="form-select">
+                                <option value="">— Not used —</option>
+                                @foreach (var col in Model.AvailableColumns)
+                                {
+                                    <option value="@col">@col</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="CreditColumn" class="form-label"></label>
+                            <select asp-for="CreditColumn" class="form-select">
+                                <option value="">— Not used —</option>
+                                @foreach (var col in Model.AvailableColumns)
+                                {
+                                    <option value="@col">@col</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Import Transactions</button>
+            <a asp-action="Import" class="btn btn-outline-secondary ms-2">Cancel</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

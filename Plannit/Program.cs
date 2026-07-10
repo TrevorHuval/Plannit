@@ -19,6 +19,8 @@ builder.Services.AddControllersWithViews();
 
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<NetWorthService>();
+builder.Services.AddScoped<TransactionService>();
+builder.Services.AddScoped<CsvImportService>();
 
 var app = builder.Build();
 
@@ -81,34 +83,80 @@ static async Task SeedDevDataAsync(IServiceProvider services)
 
     db.SetCurrentUser(devUser.Id);
 
-    if (await db.Accounts.AnyAsync()) return;
-
     var today = DateOnly.FromDateTime(DateTime.Today);
 
-    var checking = new Account { UserId = devUser.Id, Name = "Main Checking", Type = AccountType.Checking, Institution = "Chase" };
-    var savings = new Account { UserId = devUser.Id, Name = "Emergency Fund", Type = AccountType.Savings, Institution = "Ally Bank" };
-    var creditCard = new Account { UserId = devUser.Id, Name = "Visa Rewards", Type = AccountType.CreditCard, Institution = "Chase" };
-    var roth = new Account { UserId = devUser.Id, Name = "Roth IRA", Type = AccountType.RothIra, Institution = "Fidelity" };
-    var k401 = new Account { UserId = devUser.Id, Name = "Company 401(k)", Type = AccountType.Retirement401k, Institution = "Vanguard" };
-    var brokerage = new Account { UserId = devUser.Id, Name = "Brokerage", Type = AccountType.Brokerage, Institution = "Fidelity" };
+    Account checking, creditCard;
 
-    db.Accounts.AddRange(checking, savings, creditCard, roth, k401, brokerage);
-    await db.SaveChangesAsync();
-
-    var snapshots = new List<BalanceSnapshot>();
-    for (int i = 12; i >= 0; i--)
+    if (!await db.Accounts.AnyAsync())
     {
-        var date = today.AddMonths(-i);
-        var month = 12 - i;
+        checking = new Account { UserId = devUser.Id, Name = "Main Checking", Type = AccountType.Checking, Institution = "Chase" };
+        var savings = new Account { UserId = devUser.Id, Name = "Emergency Fund", Type = AccountType.Savings, Institution = "Ally Bank" };
+        creditCard = new Account { UserId = devUser.Id, Name = "Visa Rewards", Type = AccountType.CreditCard, Institution = "Chase" };
+        var roth = new Account { UserId = devUser.Id, Name = "Roth IRA", Type = AccountType.RothIra, Institution = "Fidelity" };
+        var k401 = new Account { UserId = devUser.Id, Name = "Company 401(k)", Type = AccountType.Retirement401k, Institution = "Vanguard" };
+        var brokerage = new Account { UserId = devUser.Id, Name = "Brokerage", Type = AccountType.Brokerage, Institution = "Fidelity" };
 
-        snapshots.Add(new BalanceSnapshot { AccountId = checking.Id, Date = date, Balance = 3200m + month * 50m });
-        snapshots.Add(new BalanceSnapshot { AccountId = savings.Id, Date = date, Balance = 15000m + month * 400m });
-        snapshots.Add(new BalanceSnapshot { AccountId = creditCard.Id, Date = date, Balance = 1800m - month * 30m });
-        snapshots.Add(new BalanceSnapshot { AccountId = roth.Id, Date = date, Balance = 42000m + month * 900m });
-        snapshots.Add(new BalanceSnapshot { AccountId = k401.Id, Date = date, Balance = 85000m + month * 1500m });
-        snapshots.Add(new BalanceSnapshot { AccountId = brokerage.Id, Date = date, Balance = 12000m + month * 350m });
+        db.Accounts.AddRange(checking, savings, creditCard, roth, k401, brokerage);
+        await db.SaveChangesAsync();
+
+        var snapshots = new List<BalanceSnapshot>();
+        for (int i = 12; i >= 0; i--)
+        {
+            var date = today.AddMonths(-i);
+            var month = 12 - i;
+
+            snapshots.Add(new BalanceSnapshot { AccountId = checking.Id, Date = date, Balance = 3200m + month * 50m });
+            snapshots.Add(new BalanceSnapshot { AccountId = savings.Id, Date = date, Balance = 15000m + month * 400m });
+            snapshots.Add(new BalanceSnapshot { AccountId = creditCard.Id, Date = date, Balance = 1800m - month * 30m });
+            snapshots.Add(new BalanceSnapshot { AccountId = roth.Id, Date = date, Balance = 42000m + month * 900m });
+            snapshots.Add(new BalanceSnapshot { AccountId = k401.Id, Date = date, Balance = 85000m + month * 1500m });
+            snapshots.Add(new BalanceSnapshot { AccountId = brokerage.Id, Date = date, Balance = 12000m + month * 350m });
+        }
+
+        db.BalanceSnapshots.AddRange(snapshots);
+        await db.SaveChangesAsync();
+    }
+    else
+    {
+        checking = await db.Accounts.FirstAsync(a => a.Type == AccountType.Checking);
+        creditCard = await db.Accounts.FirstAsync(a => a.Type == AccountType.CreditCard);
     }
 
-    db.BalanceSnapshots.AddRange(snapshots);
-    await db.SaveChangesAsync();
+    if (!await db.Transactions.AnyAsync())
+    {
+        var txns = new List<Transaction>();
+        var descriptions = new[]
+        {
+            ("Whole Foods Market", -87.43m), ("Shell Gas Station", -45.12m), ("Netflix", -15.99m),
+            ("Target", -62.30m), ("Starbucks", -5.75m), ("Electric Company", -142.00m),
+            ("Water Utility", -38.50m), ("Amazon.com", -29.99m), ("Kroger", -110.25m),
+            ("Uber Eats", -22.80m), ("Spotify", -9.99m), ("AT&T Wireless", -85.00m),
+            ("Payroll Deposit", 3200.00m), ("Interest Payment", 2.15m)
+        };
+        var rng = new Random(42);
+
+        for (int month = 0; month < 3; month++)
+        {
+            foreach (var (desc, baseAmt) in descriptions)
+            {
+                var date = today.AddMonths(-month).AddDays(-rng.Next(0, 28));
+                var acctId = baseAmt > 0 ? checking.Id : (rng.Next(2) == 0 ? checking.Id : creditCard.Id);
+                var variation = baseAmt * (1 + (rng.Next(-10, 11) / 100m));
+                var amount = Math.Round(variation, 2);
+
+                txns.Add(new Transaction
+                {
+                    AccountId = acctId,
+                    Date = date,
+                    Amount = amount,
+                    Description = desc,
+                    OriginalDescription = desc,
+                    ImportHash = CsvImportService.ComputeImportHash(acctId, date, amount, desc)
+                });
+            }
+        }
+
+        db.Transactions.AddRange(txns);
+        await db.SaveChangesAsync();
+    }
 }
