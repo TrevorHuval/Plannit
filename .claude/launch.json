@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "plannit",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "Plannit", "--launch-profile", "http"],
+      "port": 5103
+    }
+  ]
+}
