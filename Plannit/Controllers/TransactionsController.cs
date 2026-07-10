@@ -11,25 +11,29 @@ public class TransactionsController : Controller
     private readonly TransactionService _transactionService;
     private readonly AccountService _accountService;
     private readonly CsvImportService _csvImportService;
+    private readonly CategorizationService _categorizationService;
     private readonly string _tempUploadPath;
 
     public TransactionsController(
         TransactionService transactionService,
         AccountService accountService,
         CsvImportService csvImportService,
+        CategorizationService categorizationService,
         IWebHostEnvironment env)
     {
         _transactionService = transactionService;
         _accountService = accountService;
         _csvImportService = csvImportService;
+        _categorizationService = categorizationService;
         _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
     }
 
-    public async Task<IActionResult> Index(int? accountId, DateOnly? startDate, DateOnly? endDate, string? searchText, int page = 1)
+    public async Task<IActionResult> Index(int? accountId, DateOnly? startDate, DateOnly? endDate, string? searchText, int? categoryId, int page = 1)
     {
         const int pageSize = 50;
-        var (items, totalCount) = await _transactionService.GetFilteredAsync(accountId, startDate, endDate, searchText, page, pageSize);
+        var (items, totalCount) = await _transactionService.GetFilteredAsync(accountId, startDate, endDate, searchText, categoryId, page, pageSize);
         var accounts = await _accountService.GetAllAsync();
+        var categories = await _categorizationService.GetAllCategoriesAsync();
 
         var vm = new TransactionListViewModel
         {
@@ -37,9 +41,11 @@ public class TransactionsController : Controller
             StartDate = startDate,
             EndDate = endDate,
             SearchText = searchText,
+            CategoryId = categoryId,
             Page = page,
             TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize),
             Accounts = accounts.Select(a => new AccountOption { Id = a.Id, Name = a.Name }).ToList(),
+            Categories = categories.Select(c => new CategoryOption { Id = c.Id, Name = c.Name }).ToList(),
             Transactions = items.Select(t => new TransactionRowViewModel
             {
                 Id = t.Id,
@@ -47,7 +53,9 @@ public class TransactionsController : Controller
                 Amount = t.Amount,
                 Description = t.Description,
                 AccountName = t.Account.Name,
-                AccountType = t.Account.Type
+                AccountType = t.Account.Type,
+                CategoryId = t.CategoryId,
+                CategoryName = t.Category?.Name
             }).ToList()
         };
 
@@ -224,6 +232,12 @@ public class TransactionsController : Controller
             result = await _csvImportService.ImportAsync(stream, model.AccountId, model.FileName,
                 model.DateColumn, model.DateFormat, model.AmountColumn, model.DebitColumn,
                 model.CreditColumn, model.DescriptionColumn);
+        }
+
+        if (result.ImportedCount > 0)
+        {
+            var categorized = await _categorizationService.ApplyRulesToUncategorizedAsync();
+            result.CategorizedCount = categorized;
         }
 
         try { System.IO.File.Delete(tempFilePath); } catch { }

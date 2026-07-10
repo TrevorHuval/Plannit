@@ -13,5 +13,6 @@ public class Transaction
     public string? ImportHash { get; set; }
 
     public Account Account { get; set; } = null!;
+    public Category? Category { get; set; }
     public ImportBatch? ImportBatch { get; set; }
 }

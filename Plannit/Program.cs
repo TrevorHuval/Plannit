@@ -21,6 +21,8 @@ builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<NetWorthService>();
 builder.Services.AddScoped<TransactionService>();
 builder.Services.AddScoped<CsvImportService>();
+builder.Services.AddScoped<CategorizationService>();
+builder.Services.AddScoped<ReportsService>();
 
 var app = builder.Build();
 
@@ -122,6 +124,9 @@ static async Task SeedDevDataAsync(IServiceProvider services)
         creditCard = await db.Accounts.FirstAsync(a => a.Type == AccountType.CreditCard);
     }
 
+    var categorizationService = scope.ServiceProvider.GetRequiredService<CategorizationService>();
+    await categorizationService.EnsureDefaultCategoriesAsync(devUser.Id);
+
     if (!await db.Transactions.AnyAsync())
     {
         var txns = new List<Transaction>();
@@ -158,5 +163,7 @@ static async Task SeedDevDataAsync(IServiceProvider services)
 
         db.Transactions.AddRange(txns);
         await db.SaveChangesAsync();
+
+        await categorizationService.ApplyRulesToUncategorizedAsync();
     }
 }

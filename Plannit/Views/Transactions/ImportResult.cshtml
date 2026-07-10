@@ -9,21 +9,25 @@
     <div class="card-body">
         <h5 class="card-title">@Model.FileName &rarr; @Model.AccountName</h5>
         <div class="row text-center mt-3">
-            <div class="col-md-3">
+            <div class="col">
                 <div class="fs-3 fw-bold">@Model.TotalRows</div>
                 <div class="text-muted">Total Rows</div>
             </div>
-            <div class="col-md-3">
+            <div class="col">
                 <div class="fs-3 fw-bold text-success">@Model.ImportedCount</div>
                 <div class="text-muted">Imported</div>
             </div>
-            <div class="col-md-3">
+            <div class="col">
                 <div class="fs-3 fw-bold text-warning">@Model.DuplicateCount</div>
                 <div class="text-muted">Duplicates Skipped</div>
             </div>
-            <div class="col-md-3">
+            <div class="col">
                 <div class="fs-3 fw-bold text-danger">@Model.ErrorCount</div>
                 <div class="text-muted">Errors</div>
+            </div>
+            <div class="col">
+                <div class="fs-3 fw-bold text-info">@Model.CategorizedCount</div>
+                <div class="text-muted">Auto-Categorized</div>
             </div>
         </div>
     </div>

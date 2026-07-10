@@ -1,0 +1,248 @@
+@model Plannit.Models.ViewModels.ReportsViewModel
+@{
+    ViewData["Title"] = "Reports";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Spending Reports</h1>
+    <form method="get" class="d-flex align-items-center gap-2">
+        <label for="month" class="form-label mb-0 text-nowrap">Month:</label>
+        <input type="month" name="monthPicker" id="month" class="form-control" style="width:auto"
+               value="@($"{Model.Year:D4}-{Model.Month:D2}")"
+               onchange="var parts = this.value.split('-'); window.location.href='?year='+parts[0]+'&month='+parseInt(parts[1])" />
+        @{
+            var prevDate = new DateOnly(Model.Year, Model.Month, 1).AddMonths(-1);
+            var nextDate = new DateOnly(Model.Year, Model.Month, 1).AddMonths(1);
+        }
+        <a href="?year=@prevDate.Year&month=@prevDate.Month" class="btn btn-outline-secondary btn-sm">&laquo; Prev</a>
+        <a href="?year=@nextDate.Year&month=@nextDate.Month" class="btn btn-outline-secondary btn-sm">Next &raquo;</a>
+    </form>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h6 class="card-subtitle text-muted mb-2">Income</h6>
+                <h3 class="text-success">@Model.IncomeExpense.Income.ToString("C")</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h6 class="card-subtitle text-muted mb-2">Expenses</h6>
+                <h3 class="text-danger">@Model.IncomeExpense.Expenses.ToString("C")</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h6 class="card-subtitle text-muted mb-2">Net</h6>
+                <h3 class="@(Model.IncomeExpense.Net >= 0 ? "text-success" : "text-danger")">@Model.IncomeExpense.Net.ToString("C")</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Spending by Category &mdash; @Model.MonthLabel</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.SpendByCategory.Categories.Any())
+                {
+                    <canvas id="categoryChart" height="300"></canvas>
+                }
+                else
+                {
+                    <p class="text-muted">No spending data for this month.</p>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Monthly Spending &mdash; Trailing 12 Months</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.MonthlyHistory.Any(m => m.Total > 0))
+                {
+                    <canvas id="monthlyChart" height="300"></canvas>
+                }
+                else
+                {
+                    <p class="text-muted">No spending history available.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Category Breakdown</h5>
+                <span class="badge bg-secondary">Total: @Model.SpendByCategory.TotalSpend.ToString("C")</span>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.SpendByCategory.Categories.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Category</th>
+                                    <th class="text-end">Amount</th>
+                                    <th class="text-end">%</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var cat in Model.SpendByCategory.Categories)
+                                {
+                                    var pct = Model.SpendByCategory.TotalSpend > 0
+                                        ? (cat.Total / Model.SpendByCategory.TotalSpend * 100)
+                                        : 0;
+                                    <tr>
+                                        <td>@cat.CategoryName</td>
+                                        <td class="text-end">@cat.Total.ToString("C")</td>
+                                        <td class="text-end">@pct.ToString("F1")%</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted p-3">No spending data for this month.</p>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Top Merchants &mdash; @Model.MonthLabel</h5>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.TopMerchants.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Merchant</th>
+                                    <th class="text-end">Transactions</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var m in Model.TopMerchants)
+                                {
+                                    <tr>
+                                        <td>@m.MerchantName</td>
+                                        <td class="text-end">@m.TransactionCount</td>
+                                        <td class="text-end">@m.Total.ToString("C")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted p-3">No transactions for this month.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/lib/chart.js/chart.umd.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var categoryData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.SpendByCategory.Categories.Select(c => new { label = c.CategoryName, value = c.Total })));
+
+            if (categoryData.length > 0) {
+                var colors = [
+                    '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f',
+                    '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac',
+                    '#86bcb6', '#8cd17d', '#b6992d'
+                ];
+                new Chart(document.getElementById('categoryChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: categoryData.map(d => d.label),
+                        datasets: [{
+                            data: categoryData.map(d => d.value),
+                            backgroundColor: categoryData.map((_, i) => colors[i % colors.length])
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { boxWidth: 12 } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (ctx) {
+                                        var total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                        var pct = ((ctx.parsed / total) * 100).toFixed(1);
+                                        return ctx.label + ': $' + ctx.parsed.toLocaleString(undefined, { minimumFractionDigits: 2 }) + ' (' + pct + '%)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            var monthlyData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.MonthlyHistory.Select(m => new { label = m.Label, value = m.Total })));
+
+            if (monthlyData.some(d => d.value > 0)) {
+                new Chart(document.getElementById('monthlyChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: monthlyData.map(d => d.label),
+                        datasets: [{
+                            label: 'Spending',
+                            data: monthlyData.map(d => d.value),
+                            backgroundColor: '#4e79a7'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function (value) { return '$' + value.toLocaleString(); }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (ctx) {
+                                        return '$' + ctx.parsed.y.toLocaleString(undefined, { minimumFractionDigits: 2 });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+}

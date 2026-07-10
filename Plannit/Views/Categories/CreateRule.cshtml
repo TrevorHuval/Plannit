@@ -1,0 +1,51 @@
+@model Plannit.Models.ViewModels.CategoryRuleFormViewModel
+@{
+    ViewData["Title"] = "Add Rule";
+}
+
+<h1>Add Category Rule</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="CreateRule" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="mb-3">
+                <label asp-for="MatchText" class="form-label">Match Text</label>
+                <input asp-for="MatchText" class="form-control" />
+                <span asp-validation-for="MatchText" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="MatchType" class="form-label">Match Type</label>
+                <select asp-for="MatchType" asp-items="Html.GetEnumSelectList<Plannit.Models.Entities.MatchType>()" class="form-select"></select>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="CategoryId" class="form-label">Category</label>
+                <select asp-for="CategoryId" class="form-select">
+                    <option value="">Select category...</option>
+                    @foreach (var c in Model.Categories)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+                <span asp-validation-for="CategoryId" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Priority" class="form-label">Priority</label>
+                <input asp-for="Priority" type="number" class="form-control" />
+                <small class="text-muted">Higher priority rules are applied first.</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Create Rule</button>
+            <a asp-action="Rules" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

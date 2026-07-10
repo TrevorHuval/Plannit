@@ -14,10 +14,11 @@ public class TransactionService
     }
 
     public async Task<(List<Transaction> Items, int TotalCount)> GetFilteredAsync(
-        int? accountId, DateOnly? startDate, DateOnly? endDate, string? searchText, int page, int pageSize = 50)
+        int? accountId, DateOnly? startDate, DateOnly? endDate, string? searchText, int? categoryId, int page, int pageSize = 50)
     {
         var query = _db.Transactions
             .Include(t => t.Account)
+            .Include(t => t.Category)
             .AsQueryable();
 
         if (accountId.HasValue)
@@ -32,6 +33,14 @@ public class TransactionService
         if (!string.IsNullOrWhiteSpace(searchText))
             query = query.Where(t => t.Description.Contains(searchText) ||
                                      (t.OriginalDescription != null && t.OriginalDescription.Contains(searchText)));
+
+        if (categoryId.HasValue)
+        {
+            if (categoryId.Value == -1)
+                query = query.Where(t => t.CategoryId == null);
+            else
+                query = query.Where(t => t.CategoryId == categoryId.Value);
+        }
 
         var totalCount = await query.CountAsync();
 
@@ -49,6 +58,7 @@ public class TransactionService
     {
         return await _db.Transactions
             .Include(t => t.Account)
+            .Include(t => t.Category)
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 

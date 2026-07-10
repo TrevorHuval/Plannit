@@ -8,6 +8,7 @@ public class ImportResultViewModel
     public int ImportedCount { get; set; }
     public int DuplicateCount { get; set; }
     public int ErrorCount { get; set; }
+    public int CategorizedCount { get; set; }
     public List<ImportRowError> Errors { get; set; } = new();
 }
 
