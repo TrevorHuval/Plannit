@@ -1,0 +1,66 @@
+@model Plannit.Models.ViewModels.AccountListViewModel
+@{
+    ViewData["Title"] = "Accounts";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Accounts</h1>
+    <a asp-action="Create" class="btn btn-primary">Add Account</a>
+</div>
+
+@if (!Model.Groups.Any())
+{
+    <div class="alert alert-info">
+        No accounts yet. Click <strong>Add Account</strong> to get started.
+    </div>
+}
+else
+{
+    @foreach (var group in Model.Groups)
+    {
+        <h4 class="mt-4 mb-3">@group.TypeDisplayName</h4>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Institution</th>
+                        <th class="text-end">Latest Balance</th>
+                        <th>As Of</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var account in group.Accounts)
+                    {
+                        <tr>
+                            <td>
+                                <a asp-action="Details" asp-route-id="@account.Id">@account.Name</a>
+                            </td>
+                            <td>@(account.Institution ?? "—")</td>
+                            <td class="text-end">
+                                @if (account.LatestBalance.HasValue)
+                                {
+                                    @account.LatestBalance.Value.ToString("C")
+                                }
+                                else
+                                {
+                                    <span class="text-muted">No snapshots</span>
+                                }
+                            </td>
+                            <td>
+                                @if (account.LatestSnapshotDate.HasValue)
+                                {
+                                    @account.LatestSnapshotDate.Value.ToString("MMM d, yyyy")
+                                }
+                            </td>
+                            <td class="text-end">
+                                <a asp-action="Edit" asp-route-id="@account.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}

@@ -1,8 +1,111 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@model Plannit.Models.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<h1 class="mb-4">Dashboard</h1>
+
+@if (!Model.HasAccounts)
+{
+    <div class="alert alert-info">
+        Welcome to Plannit! <a asp-controller="Accounts" asp-action="Create">Add your first account</a> to get started.
+    </div>
+}
+else
+{
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Net Worth</h6>
+                    <h2 class="card-title @(Model.NetWorth >= 0 ? "text-success" : "text-danger")">
+                        @Model.NetWorth.ToString("C")
+                    </h2>
+                </div>
+            </div>
+        </div>
+        @foreach (var total in Model.TypeTotals)
+        {
+            <div class="col-md-4 mt-3 mt-md-0">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">@total.TypeDisplayName</h6>
+                        <h4 class="card-title">
+                            @if (total.IsLiability)
+                            {
+                                <span class="text-danger">-@total.Total.ToString("C")</span>
+                            }
+                            else
+                            {
+                                @total.Total.ToString("C")
+                            }
+                        </h4>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (Model.NetWorthHistory.Count >= 2)
+    {
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Net Worth Over Time</h5>
+                <canvas id="netWorthChart" height="100"></canvas>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts {
+    @if (Model.HasAccounts && Model.NetWorthHistory.Count >= 2)
+    {
+        <script src="~/lib/chart.js/chart.umd.min.js"></script>
+        <script>
+            const labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.NetWorthHistory.Select(h => h.Date)));
+            const data = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.NetWorthHistory.Select(h => h.NetWorth)));
+
+            new Chart(document.getElementById('netWorthChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Net Worth',
+                        data: data,
+                        borderColor: '#198754',
+                        backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return '$' + context.parsed.y.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2
+                                    });
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        </script>
+    }
+}
