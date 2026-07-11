@@ -1,0 +1,58 @@
+@model Plannit.Models.ViewModels.ScenarioListViewModel
+@{
+    ViewData["Title"] = "Projections";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Retirement Projections</h1>
+    <div>
+        @if (Model.Scenarios.Count >= 2)
+        {
+            <a asp-action="Compare" class="btn btn-outline-primary me-2">Compare Scenarios</a>
+        }
+        <a asp-action="Create" class="btn btn-primary">New Scenario</a>
+    </div>
+</div>
+
+@if (!Model.Scenarios.Any())
+{
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <h4 class="text-muted">No projection scenarios yet</h4>
+            <p class="text-muted">Create your first retirement scenario to see how your finances could grow over time.</p>
+            <a asp-action="Create" class="btn btn-primary btn-lg">Create Scenario</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row">
+        @foreach (var scenario in Model.Scenarios)
+        {
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">@scenario.Name</h5>
+                        <ul class="list-unstyled text-muted mb-3">
+                            <li>Retire at age @scenario.RetirementAge</li>
+                            <li>Plan to age @scenario.LifeExpectancy</li>
+                            <li>Spending: @scenario.AnnualRetirementSpending.ToString("C0")/yr</li>
+                            <li>@scenario.AccountCount account(s) modeled</li>
+                        </ul>
+                    </div>
+                    <div class="card-footer bg-transparent d-flex justify-content-between">
+                        <a asp-action="Results" asp-route-id="@scenario.Id" class="btn btn-sm btn-primary">View Results</a>
+                        <div>
+                            <a asp-action="Edit" asp-route-id="@scenario.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <form asp-action="Delete" asp-route-id="@scenario.Id" method="post" class="d-inline"
+                                  onsubmit="return confirm('Delete this scenario?')">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

@@ -24,6 +24,7 @@ builder.Services.AddScoped<CsvImportService>();
 builder.Services.AddScoped<OfxImportService>();
 builder.Services.AddScoped<CategorizationService>();
 builder.Services.AddScoped<ReportsService>();
+builder.Services.AddScoped<ProjectionService>();
 
 var app = builder.Build();
 

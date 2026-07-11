@@ -13,6 +13,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<ImportProfile> ImportProfiles => Set<ImportProfile>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<CategoryRule> CategoryRules => Set<CategoryRule>();
+    public DbSet<ProjectionScenario> ProjectionScenarios => Set<ProjectionScenario>();
+    public DbSet<ProjectionAccountAssumption> ProjectionAccountAssumptions => Set<ProjectionAccountAssumption>();
 
     private string? _currentUserId;
 
@@ -73,6 +75,25 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasOne(r => r.User).WithMany().HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(r => r.Category).WithMany(c => c.Rules).HasForeignKey(r => r.CategoryId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(r => _currentUserId == null || r.UserId == _currentUserId);
+        });
+
+        builder.Entity<ProjectionScenario>(e =>
+        {
+            e.HasIndex(s => s.UserId);
+            e.HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(s => s.AnnualRetirementSpending).HasColumnType("decimal(18,2)");
+            e.Property(s => s.InflationRate).HasColumnType("decimal(5,4)");
+            e.HasQueryFilter(s => _currentUserId == null || s.UserId == _currentUserId);
+        });
+
+        builder.Entity<ProjectionAccountAssumption>(e =>
+        {
+            e.HasIndex(a => new { a.ScenarioId, a.AccountId }).IsUnique();
+            e.Property(a => a.AnnualContribution).HasColumnType("decimal(18,2)");
+            e.Property(a => a.EmployerMatch).HasColumnType("decimal(18,2)");
+            e.Property(a => a.ExpectedReturnRate).HasColumnType("decimal(5,4)");
+            e.HasOne(a => a.Scenario).WithMany(s => s.AccountAssumptions).HasForeignKey(a => a.ScenarioId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(a => a.Account).WithMany().HasForeignKey(a => a.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

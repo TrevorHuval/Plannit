@@ -1,0 +1,132 @@
+@model Plannit.Models.ViewModels.ScenarioFormViewModel
+
+<form asp-action="@(Model.Id == 0 ? "Create" : "Edit")" method="post">
+    <input type="hidden" asp-for="Id" />
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Scenario Settings</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Name" class="form-label">Scenario Name</label>
+                    <input asp-for="Name" class="form-control" />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="BirthYear" class="form-label">Birth Year</label>
+                    <input asp-for="BirthYear" class="form-control" type="number" />
+                    <span asp-validation-for="BirthYear" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="RetirementAge" class="form-label">Retirement Age</label>
+                    <input asp-for="RetirementAge" class="form-control" type="number" />
+                    <span asp-validation-for="RetirementAge" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="LifeExpectancy" class="form-label">Life Expectancy</label>
+                    <input asp-for="LifeExpectancy" class="form-control" type="number" />
+                    <span asp-validation-for="LifeExpectancy" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="AnnualRetirementSpending" class="form-label">Annual Retirement Spending ($)</label>
+                    <input asp-for="AnnualRetirementSpending" class="form-control" type="number" step="1000" />
+                    <span asp-validation-for="AnnualRetirementSpending" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="InflationRate" class="form-label">Inflation Rate</label>
+                    <div class="input-group">
+                        <input id="inflationPct" class="form-control" type="number" step="0.1" min="0" max="20"
+                               value="@(Model.InflationRate * 100)" />
+                        <span class="input-group-text">%</span>
+                    </div>
+                    <input asp-for="InflationRate" type="hidden" />
+                    <span asp-validation-for="InflationRate" class="text-danger"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Account Assumptions</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Account</th>
+                            <th>Current Balance</th>
+                            <th>Annual Contribution ($)</th>
+                            <th>Employer Match ($)</th>
+                            <th>Expected Return</th>
+                            <th>Contribute Until Age</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < Model.Accounts.Count; i++)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@Model.Accounts[i].AccountName</strong>
+                                    <br /><small class="text-muted">@Plannit.Services.NetWorthService.FormatAccountType(Model.Accounts[i].AccountType)</small>
+                                    <input type="hidden" name="Accounts[@i].AccountId" value="@Model.Accounts[i].AccountId" />
+                                    <input type="hidden" name="Accounts[@i].AccountName" value="@Model.Accounts[i].AccountName" />
+                                    <input type="hidden" name="Accounts[@i].AccountType" value="@Model.Accounts[i].AccountType" />
+                                    <input type="hidden" name="Accounts[@i].CurrentBalance" value="@Model.Accounts[i].CurrentBalance" />
+                                </td>
+                                <td class="align-middle">@Model.Accounts[i].CurrentBalance.ToString("C")</td>
+                                <td>
+                                    <input name="Accounts[@i].AnnualContribution" class="form-control form-control-sm" type="number"
+                                           step="100" min="0" value="@Model.Accounts[i].AnnualContribution" />
+                                </td>
+                                <td>
+                                    <input name="Accounts[@i].EmployerMatch" class="form-control form-control-sm" type="number"
+                                           step="100" min="0" value="@Model.Accounts[i].EmployerMatch" />
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input class="form-control returnPct" type="number" step="0.1" min="0" max="100"
+                                               value="@(Model.Accounts[i].ExpectedReturnRate * 100)" data-index="@i" />
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                    <input type="hidden" name="Accounts[@i].ExpectedReturnRate"
+                                           class="returnDecimal" data-index="@i"
+                                           value="@Model.Accounts[i].ExpectedReturnRate" />
+                                </td>
+                                <td>
+                                    <input name="Accounts[@i].ContributionEndAge" class="form-control form-control-sm" type="number"
+                                           min="0" max="120" value="@Model.Accounts[i].ContributionEndAge" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">@(Model.Id == 0 ? "Create Scenario" : "Save & Run Projection")</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.getElementById('inflationPct').addEventListener('input', function () {
+            document.getElementById('InflationRate').value = (parseFloat(this.value) || 0) / 100;
+        });
+
+        document.querySelectorAll('.returnPct').forEach(function (el) {
+            el.addEventListener('input', function () {
+                var idx = this.dataset.index;
+                document.querySelector('.returnDecimal[data-index="' + idx + '"]').value =
+                    (parseFloat(this.value) || 0) / 100;
+            });
+        });
+    </script>
+}
