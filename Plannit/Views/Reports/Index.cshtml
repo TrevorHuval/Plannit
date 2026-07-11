@@ -6,16 +6,16 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Spending Reports</h1>
     <form method="get" class="d-flex align-items-center gap-2">
-        <label for="month" class="form-label mb-0 text-nowrap">Month:</label>
-        <input type="month" name="monthPicker" id="month" class="form-control" style="width:auto"
-               value="@($"{Model.Year:D4}-{Model.Month:D2}")"
-               onchange="var parts = this.value.split('-'); window.location.href='?year='+parts[0]+'&month='+parseInt(parts[1])" />
+        <label for="datePicker" class="form-label mb-0 text-nowrap">Date:</label>
+        <input type="date" name="date" id="datePicker" class="form-control" style="width:auto"
+               value="@Model.SelectedDate.ToString("yyyy-MM-dd")"
+               onchange="window.location.href='?date='+this.value" />
         @{
-            var prevDate = new DateOnly(Model.Year, Model.Month, 1).AddMonths(-1);
-            var nextDate = new DateOnly(Model.Year, Model.Month, 1).AddMonths(1);
+            var prevDate = Model.SelectedDate.AddDays(-1);
+            var nextDate = Model.SelectedDate.AddDays(1);
         }
-        <a href="?year=@prevDate.Year&month=@prevDate.Month" class="btn btn-outline-secondary btn-sm">&laquo; Prev</a>
-        <a href="?year=@nextDate.Year&month=@nextDate.Month" class="btn btn-outline-secondary btn-sm">Next &raquo;</a>
+        <a href="?date=@prevDate.ToString("yyyy-MM-dd")" class="btn btn-outline-secondary btn-sm">&laquo; Prev</a>
+        <a href="?date=@nextDate.ToString("yyyy-MM-dd")" class="btn btn-outline-secondary btn-sm">Next &raquo;</a>
     </form>
 </div>
 
@@ -50,7 +50,7 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Spending by Category &mdash; @Model.MonthLabel</h5>
+                <h5 class="mb-0">Spending by Category &mdash; @Model.DateLabel</h5>
             </div>
             <div class="card-body">
                 @if (Model.SpendByCategory.Categories.Any())
@@ -59,7 +59,7 @@
                 }
                 else
                 {
-                    <p class="text-muted">No spending data for this month.</p>
+                    <p class="text-muted">No spending data for this date.</p>
                 }
             </div>
         </div>
@@ -120,7 +120,7 @@
                 }
                 else
                 {
-                    <p class="text-muted p-3">No spending data for this month.</p>
+                    <p class="text-muted p-3">No spending data for this date.</p>
                 }
             </div>
         </div>
@@ -128,7 +128,7 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Top Merchants &mdash; @Model.MonthLabel</h5>
+                <h5 class="mb-0">Top Merchants &mdash; @Model.DateLabel</h5>
             </div>
             <div class="card-body p-0">
                 @if (Model.TopMerchants.Any())
@@ -157,7 +157,7 @@
                 }
                 else
                 {
-                    <p class="text-muted p-3">No transactions for this month.</p>
+                    <p class="text-muted p-3">No transactions for this date.</p>
                 }
             </div>
         </div>

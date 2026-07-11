@@ -4,9 +4,8 @@ namespace Plannit.Models.ViewModels;
 
 public class ReportsViewModel
 {
-    public int Year { get; set; }
-    public int Month { get; set; }
-    public string MonthLabel => new DateOnly(Year, Month, 1).ToString("MMMM yyyy");
+    public DateOnly SelectedDate { get; set; }
+    public string DateLabel => SelectedDate.ToString("MMMM d, yyyy");
 
     public SpendByCategoryResult SpendByCategory { get; set; } = null!;
     public List<MonthlySpend> MonthlyHistory { get; set; } = new();

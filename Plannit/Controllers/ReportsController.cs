@@ -15,20 +15,17 @@ public class ReportsController : Controller
         _reportsService = reportsService;
     }
 
-    public async Task<IActionResult> Index(int? year, int? month)
+    public async Task<IActionResult> Index(DateOnly? date)
     {
-        var today = DateTime.Today;
-        var y = year ?? today.Year;
-        var m = month ?? today.Month;
+        var selectedDate = date ?? DateOnly.FromDateTime(DateTime.Today);
 
         var vm = new ReportsViewModel
         {
-            Year = y,
-            Month = m,
-            SpendByCategory = await _reportsService.GetSpendByCategoryAsync(y, m),
+            SelectedDate = selectedDate,
+            SpendByCategory = await _reportsService.GetSpendByCategoryAsync(selectedDate, selectedDate),
             MonthlyHistory = await _reportsService.GetMonthlySpendHistoryAsync(),
-            IncomeExpense = await _reportsService.GetIncomeExpenseSummaryAsync(y, m),
-            TopMerchants = await _reportsService.GetTopMerchantsAsync(y, m)
+            IncomeExpense = await _reportsService.GetIncomeExpenseSummaryAsync(selectedDate, selectedDate),
+            TopMerchants = await _reportsService.GetTopMerchantsAsync(selectedDate, selectedDate)
         };
 
         return View(vm);

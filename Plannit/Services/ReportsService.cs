@@ -14,11 +14,8 @@ public class ReportsService
         _db = db;
     }
 
-    public async Task<SpendByCategoryResult> GetSpendByCategoryAsync(int year, int month)
+    public async Task<SpendByCategoryResult> GetSpendByCategoryAsync(DateOnly startDate, DateOnly endDate)
     {
-        var startDate = new DateOnly(year, month, 1);
-        var endDate = startDate.AddMonths(1).AddDays(-1);
-
         var transactions = await _db.Transactions
             .Include(t => t.Category)
             .Where(t => t.Date >= startDate && t.Date <= endDate && t.Amount < 0)
@@ -37,8 +34,6 @@ public class ReportsService
 
         return new SpendByCategoryResult
         {
-            Year = year,
-            Month = month,
             Categories = grouped,
             TotalSpend = grouped.Sum(c => c.Total)
         };
@@ -76,11 +71,8 @@ public class ReportsService
         return result;
     }
 
-    public async Task<IncomeExpenseSummary> GetIncomeExpenseSummaryAsync(int year, int month)
+    public async Task<IncomeExpenseSummary> GetIncomeExpenseSummaryAsync(DateOnly startDate, DateOnly endDate)
     {
-        var startDate = new DateOnly(year, month, 1);
-        var endDate = startDate.AddMonths(1).AddDays(-1);
-
         var transactions = await _db.Transactions
             .Include(t => t.Category)
             .Where(t => t.Date >= startDate && t.Date <= endDate)
@@ -94,11 +86,8 @@ public class ReportsService
         };
     }
 
-    public async Task<List<MerchantSpend>> GetTopMerchantsAsync(int year, int month, int count = 10)
+    public async Task<List<MerchantSpend>> GetTopMerchantsAsync(DateOnly startDate, DateOnly endDate, int count = 10)
     {
-        var startDate = new DateOnly(year, month, 1);
-        var endDate = startDate.AddMonths(1).AddDays(-1);
-
         var transactions = await _db.Transactions
             .Include(t => t.Category)
             .Where(t => t.Date >= startDate && t.Date <= endDate && t.Amount < 0)
@@ -123,8 +112,6 @@ public class ReportsService
 
 public class SpendByCategoryResult
 {
-    public int Year { get; set; }
-    public int Month { get; set; }
     public List<CategorySpend> Categories { get; set; } = new();
     public decimal TotalSpend { get; set; }
 }
