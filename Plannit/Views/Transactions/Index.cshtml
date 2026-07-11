@@ -11,7 +11,7 @@
             @Html.AntiForgeryToken()
             <button type="submit" class="btn btn-outline-success me-2" title="Apply rules to uncategorized transactions">Auto-Categorize</button>
         </form>
-        <a asp-action="Import" class="btn btn-outline-primary me-2">Import CSV</a>
+        <a asp-action="Import" class="btn btn-outline-primary me-2">Import</a>
         <a asp-action="Create" class="btn btn-primary">Add Transaction</a>
     </div>
 </div>
@@ -71,7 +71,7 @@
 @if (!Model.Transactions.Any())
 {
     <div class="alert alert-info">
-        No transactions found. <a asp-action="Import">Import a CSV</a> or <a asp-action="Create">add one manually</a>.
+        No transactions found. <a asp-action="Import">Import a statement</a> or <a asp-action="Create">add one manually</a>.
     </div>
 }
 else

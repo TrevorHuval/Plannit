@@ -21,6 +21,7 @@ builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<NetWorthService>();
 builder.Services.AddScoped<TransactionService>();
 builder.Services.AddScoped<CsvImportService>();
+builder.Services.AddScoped<OfxImportService>();
 builder.Services.AddScoped<CategorizationService>();
 builder.Services.AddScoped<ReportsService>();
 

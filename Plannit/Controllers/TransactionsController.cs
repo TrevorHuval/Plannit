@@ -11,6 +11,7 @@ public class TransactionsController : Controller
     private readonly TransactionService _transactionService;
     private readonly AccountService _accountService;
     private readonly CsvImportService _csvImportService;
+    private readonly OfxImportService _ofxImportService;
     private readonly CategorizationService _categorizationService;
     private readonly string _tempUploadPath;
 
@@ -18,12 +19,14 @@ public class TransactionsController : Controller
         TransactionService transactionService,
         AccountService accountService,
         CsvImportService csvImportService,
+        OfxImportService ofxImportService,
         CategorizationService categorizationService,
         IWebHostEnvironment env)
     {
         _transactionService = transactionService;
         _accountService = accountService;
         _csvImportService = csvImportService;
+        _ofxImportService = ofxImportService;
         _categorizationService = categorizationService;
         _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
     }
@@ -143,7 +146,7 @@ public class TransactionsController : Controller
     {
         if (model.File is null || model.File.Length == 0)
         {
-            ModelState.AddModelError(nameof(model.File), "Please select a CSV file.");
+            ModelState.AddModelError(nameof(model.File), "Please select a file to import.");
         }
 
         if (!ModelState.IsValid)
@@ -153,6 +156,48 @@ public class TransactionsController : Controller
             return View(model);
         }
 
+        var extension = Path.GetExtension(model.File!.FileName).ToLowerInvariant();
+        var isOfx = extension is ".ofx" or ".qfx";
+
+        if (!isOfx && extension != ".csv")
+        {
+            ModelState.AddModelError(nameof(model.File), "Unsupported file format. Please upload a CSV, OFX, or QFX file.");
+            var accounts = await _accountService.GetAllAsync();
+            model.Accounts = accounts.Select(a => new AccountOption { Id = a.Id, Name = a.Name }).ToList();
+            return View(model);
+        }
+
+        var account = await _accountService.GetByIdAsync(model.AccountId);
+        if (account is null) return NotFound();
+
+        if (isOfx)
+        {
+            return await ImportOfx(model, account.Name);
+        }
+
+        return await ImportCsv(model, account.Name);
+    }
+
+    private async Task<IActionResult> ImportOfx(ImportUploadViewModel model, string accountName)
+    {
+        ImportResultViewModel result;
+        using (var stream = model.File!.OpenReadStream())
+        {
+            result = await _ofxImportService.ImportAsync(stream, model.AccountId, model.File.FileName);
+        }
+
+        if (result.ImportedCount > 0)
+        {
+            var categorized = await _categorizationService.ApplyRulesToUncategorizedAsync();
+            result.CategorizedCount = categorized;
+        }
+
+        result.AccountName = accountName;
+        return View("ImportResult", result);
+    }
+
+    private async Task<IActionResult> ImportCsv(ImportUploadViewModel model, string accountName)
+    {
         Directory.CreateDirectory(_tempUploadPath);
         var tempId = Guid.NewGuid().ToString();
         var tempPath = Path.Combine(_tempUploadPath, tempId + ".csv");
@@ -165,15 +210,12 @@ public class TransactionsController : Controller
         using var readStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read);
         var (headers, previewRows) = _csvImportService.ReadPreview(readStream);
 
-        var account = await _accountService.GetByIdAsync(model.AccountId);
-        if (account is null) return NotFound();
-
         var profile = await _csvImportService.GetProfileAsync(model.AccountId);
 
         var mapVm = new ImportMapViewModel
         {
             AccountId = model.AccountId,
-            AccountName = account.Name,
+            AccountName = accountName,
             FileName = model.File!.FileName,
             TempFileId = tempId,
             AvailableColumns = headers,

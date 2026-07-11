@@ -11,6 +11,7 @@ public class Transaction
     public int? CategoryId { get; set; }
     public int? ImportBatchId { get; set; }
     public string? ImportHash { get; set; }
+    public string? OfxFitId { get; set; }
 
     public Account Account { get; set; } = null!;
     public Category? Category { get; set; }

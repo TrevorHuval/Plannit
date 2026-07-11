@@ -3,7 +3,7 @@
     ViewData["Title"] = "Import Transactions";
 }
 
-<h1>Import Transactions from CSV</h1>
+<h1>Import Transactions</h1>
 
 <div class="row">
     <div class="col-md-6">
@@ -24,11 +24,12 @@
 
             <div class="mb-3">
                 <label asp-for="File" class="form-label"></label>
-                <input asp-for="File" type="file" class="form-control" accept=".csv" />
+                <input asp-for="File" type="file" class="form-control" accept=".csv,.ofx,.qfx" />
+                <div class="form-text">Supported formats: CSV, OFX, QFX</div>
                 <span asp-validation-for="File" class="text-danger"></span>
             </div>
 
-            <button type="submit" class="btn btn-primary">Upload & Preview</button>
+            <button type="submit" class="btn btn-primary">Upload & Import</button>
             <a asp-action="Index" class="btn btn-outline-secondary ms-2">Cancel</a>
         </form>
     </div>

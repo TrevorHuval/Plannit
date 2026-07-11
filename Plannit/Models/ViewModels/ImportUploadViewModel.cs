@@ -10,7 +10,7 @@ public class ImportUploadViewModel
     public int AccountId { get; set; }
 
     [Required]
-    [Display(Name = "CSV File")]
+    [Display(Name = "Statement File")]
     public IFormFile? File { get; set; }
 
     public List<AccountOption> Accounts { get; set; } = new();

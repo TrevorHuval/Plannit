@@ -39,6 +39,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<Transaction>(e =>
         {
             e.HasIndex(t => t.ImportHash);
+            e.HasIndex(t => t.OfxFitId);
             e.HasIndex(t => new { t.AccountId, t.Date });
             e.HasIndex(t => t.CategoryId);
             e.Property(t => t.Amount).HasColumnType("decimal(18,2)");
