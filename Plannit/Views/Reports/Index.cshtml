@@ -3,20 +3,57 @@
     ViewData["Title"] = "Reports";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
     <h1>Spending Reports</h1>
-    <form method="get" class="d-flex align-items-center gap-2">
-        <label for="datePicker" class="form-label mb-0 text-nowrap">Date:</label>
-        <input type="date" name="date" id="datePicker" class="form-control" style="width:auto"
-               value="@Model.SelectedDate.ToString("yyyy-MM-dd")"
-               onchange="window.location.href='?date='+this.value" />
-        @{
-            var prevDate = Model.SelectedDate.AddDays(-1);
-            var nextDate = Model.SelectedDate.AddDays(1);
-        }
-        <a href="?date=@prevDate.ToString("yyyy-MM-dd")" class="btn btn-outline-secondary btn-sm">&laquo; Prev</a>
-        <a href="?date=@nextDate.ToString("yyyy-MM-dd")" class="btn btn-outline-secondary btn-sm">Next &raquo;</a>
-    </form>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label mb-0 small text-muted">Presets</label>
+                <div class="btn-group" role="group">
+                    @{
+                        var presets = new[] {
+                            ("thisMonth", "This Month"),
+                            ("lastMonth", "Last Month"),
+                            ("last3Months", "Last 3 Months"),
+                            ("ytd", "Year to Date"),
+                            ("last12Months", "Last 12 Months"),
+                            ("allTime", "All Time")
+                        };
+                    }
+                    @foreach (var (value, label) in presets)
+                    {
+                        var isActive = Model.Preset == value;
+                        <a href="?preset=@value"
+                           class="btn btn-sm @(isActive ? "btn-primary" : "btn-outline-secondary")">@label</a>
+                    }
+                </div>
+            </div>
+            <div class="col-auto">
+                <label for="startDate" class="form-label mb-0 small text-muted">From</label>
+                <input type="date" name="startDate" id="startDate" class="form-control form-control-sm" style="width:auto"
+                       value="@Model.StartDate.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-auto">
+                <label for="endDate" class="form-label mb-0 small text-muted">To</label>
+                <input type="date" name="endDate" id="endDate" class="form-control form-control-sm" style="width:auto"
+                       value="@Model.EndDate.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+            </div>
+            <div class="col-auto ms-2">
+                <div class="btn-group" role="group">
+                    <a href="?startDate=@Model.StartDate.ToString("yyyy-MM-dd")&endDate=@Model.EndDate.ToString("yyyy-MM-dd")&nav=prev"
+                       class="btn btn-sm btn-outline-secondary">&laquo; Prev</a>
+                    <a href="?startDate=@Model.StartDate.ToString("yyyy-MM-dd")&endDate=@Model.EndDate.ToString("yyyy-MM-dd")&nav=next"
+                       class="btn btn-sm btn-outline-secondary">Next &raquo;</a>
+                </div>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="row mb-4">
@@ -50,7 +87,7 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Spending by Category &mdash; @Model.DateLabel</h5>
+                <h5 class="mb-0">Spending by Category &mdash; @Model.DateRangeLabel</h5>
             </div>
             <div class="card-body">
                 @if (Model.SpendByCategory.Categories.Any())
@@ -59,7 +96,7 @@
                 }
                 else
                 {
-                    <p class="text-muted">No spending data for this date.</p>
+                    <p class="text-muted">No spending data for this period.</p>
                 }
             </div>
         </div>
@@ -120,7 +157,7 @@
                 }
                 else
                 {
-                    <p class="text-muted p-3">No spending data for this date.</p>
+                    <p class="text-muted p-3">No spending data for this period.</p>
                 }
             </div>
         </div>
@@ -128,7 +165,7 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Top Merchants &mdash; @Model.DateLabel</h5>
+                <h5 class="mb-0">Top Merchants &mdash; @Model.DateRangeLabel</h5>
             </div>
             <div class="card-body p-0">
                 @if (Model.TopMerchants.Any())
@@ -157,7 +194,7 @@
                 }
                 else
                 {
-                    <p class="text-muted p-3">No transactions for this date.</p>
+                    <p class="text-muted p-3">No transactions for this period.</p>
                 }
             </div>
         </div>

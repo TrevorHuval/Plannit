@@ -16,21 +16,23 @@
 }
 else
 {
-    @foreach (var group in Model.Groups)
-    {
-        <h4 class="mt-4 mb-3">@group.TypeDisplayName</h4>
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead class="table-light">
-                    <tr>
-                        <th>Name</th>
-                        <th>Institution</th>
-                        <th class="text-end">Latest Balance</th>
-                        <th>As Of</th>
-                        <th></th>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:30%">Name</th>
+                    <th style="width:20%">Institution</th>
+                    <th style="width:18%" class="text-end">Latest Balance</th>
+                    <th style="width:17%">As Of</th>
+                    <th style="width:15%"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var group in Model.Groups)
+                {
+                    <tr class="table-light">
+                        <th colspan="5">@group.TypeDisplayName</th>
                     </tr>
-                </thead>
-                <tbody>
                     @foreach (var account in group.Accounts)
                     {
                         <tr>
@@ -59,8 +61,8 @@ else
                             </td>
                         </tr>
                     }
-                </tbody>
-            </table>
-        </div>
-    }
+                }
+            </tbody>
+        </table>
+    </div>
 }

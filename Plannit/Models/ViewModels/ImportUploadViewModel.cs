@@ -10,8 +10,8 @@ public class ImportUploadViewModel
     public int AccountId { get; set; }
 
     [Required]
-    [Display(Name = "Statement File")]
-    public IFormFile? File { get; set; }
+    [Display(Name = "Statement Files")]
+    public List<IFormFile> Files { get; set; } = new();
 
     public List<AccountOption> Accounts { get; set; } = new();
 }

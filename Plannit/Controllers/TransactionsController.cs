@@ -144,9 +144,9 @@ public class TransactionsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Import(ImportUploadViewModel model)
     {
-        if (model.File is null || model.File.Length == 0)
+        if (model.Files.Count == 0)
         {
-            ModelState.AddModelError(nameof(model.File), "Please select a file to import.");
+            ModelState.AddModelError(nameof(model.Files), "Please select at least one file to import.");
         }
 
         if (!ModelState.IsValid)
@@ -156,83 +156,110 @@ public class TransactionsController : Controller
             return View(model);
         }
 
-        var extension = Path.GetExtension(model.File!.FileName).ToLowerInvariant();
-        var isOfx = extension is ".ofx" or ".qfx";
-
-        if (!isOfx && extension != ".csv")
-        {
-            ModelState.AddModelError(nameof(model.File), "Unsupported file format. Please upload a CSV, OFX, or QFX file.");
-            var accounts = await _accountService.GetAllAsync();
-            model.Accounts = accounts.Select(a => new AccountOption { Id = a.Id, Name = a.Name }).ToList();
-            return View(model);
-        }
-
         var account = await _accountService.GetByIdAsync(model.AccountId);
         if (account is null) return NotFound();
 
-        if (isOfx)
+        foreach (var file in model.Files)
         {
-            return await ImportOfx(model, account.Name);
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (ext is not ".csv" and not ".ofx" and not ".qfx")
+            {
+                ModelState.AddModelError(nameof(model.Files), $"Unsupported file format: {file.FileName}. Supported: CSV, OFX, QFX.");
+                var accounts = await _accountService.GetAllAsync();
+                model.Accounts = accounts.Select(a => new AccountOption { Id = a.Id, Name = a.Name }).ToList();
+                return View(model);
+            }
         }
 
-        return await ImportCsv(model, account.Name);
-    }
+        var multiResult = new MultiImportResultViewModel { AccountName = account.Name };
+        var csvsPendingMapping = new List<CsvPendingMapViewModel>();
 
-    private async Task<IActionResult> ImportOfx(ImportUploadViewModel model, string accountName)
-    {
-        ImportResultViewModel result;
-        using (var stream = model.File!.OpenReadStream())
+        foreach (var file in model.Files)
         {
-            result = await _ofxImportService.ImportAsync(stream, model.AccountId, model.File.FileName);
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+            if (ext is ".ofx" or ".qfx")
+            {
+                using var stream = file.OpenReadStream();
+                var result = await _ofxImportService.ImportAsync(stream, model.AccountId, file.FileName);
+                result.AccountName = account.Name;
+                multiResult.FileResults.Add(result);
+            }
+            else
+            {
+                var profile = await _csvImportService.GetProfileAsync(model.AccountId);
+                if (profile is not null)
+                {
+                    using var stream = file.OpenReadStream();
+                    var result = await _csvImportService.ImportAsync(stream, model.AccountId, file.FileName,
+                        profile.DateColumn, profile.DateFormat,
+                        profile.AmountColumn, profile.DebitColumn, profile.CreditColumn,
+                        profile.DescriptionColumn);
+                    result.AccountName = account.Name;
+                    multiResult.FileResults.Add(result);
+                }
+                else
+                {
+                    Directory.CreateDirectory(_tempUploadPath);
+                    var tempId = Guid.NewGuid().ToString();
+                    var tempPath = Path.Combine(_tempUploadPath, tempId + ".csv");
+                    using (var stream = new FileStream(tempPath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+                    csvsPendingMapping.Add(new CsvPendingMapViewModel
+                    {
+                        FileName = file.FileName,
+                        TempFileId = tempId,
+                        AccountId = model.AccountId,
+                        AccountName = account.Name
+                    });
+                }
+            }
         }
 
-        if (result.ImportedCount > 0)
+        if (csvsPendingMapping.Count > 0)
+        {
+            if (multiResult.FileResults.Count > 0)
+            {
+                var categorized = await _categorizationService.ApplyRulesToUncategorizedAsync();
+                multiResult.CategorizedCount = categorized;
+            }
+
+            multiResult.CsvsPendingMapping = csvsPendingMapping;
+            TempData["MultiImportResults"] = System.Text.Json.JsonSerializer.Serialize(multiResult.FileResults);
+            TempData["MultiImportAccountName"] = account.Name;
+
+            var first = csvsPendingMapping[0];
+            var remainingJson = csvsPendingMapping.Count > 1
+                ? System.Text.Json.JsonSerializer.Serialize(csvsPendingMapping.Skip(1).ToList())
+                : null;
+            if (remainingJson != null)
+                TempData["RemainingCsvs"] = remainingJson;
+
+            using var readStream = new FileStream(Path.Combine(_tempUploadPath, first.TempFileId + ".csv"), FileMode.Open, FileAccess.Read);
+            var (headers, previewRows) = _csvImportService.ReadPreview(readStream);
+
+            var mapVm = new ImportMapViewModel
+            {
+                AccountId = first.AccountId,
+                AccountName = first.AccountName,
+                FileName = first.FileName,
+                TempFileId = first.TempFileId,
+                AvailableColumns = headers,
+                PreviewRows = previewRows
+            };
+
+            return View("MapColumns", mapVm);
+        }
+
+        if (multiResult.FileResults.Any(r => r.ImportedCount > 0))
         {
             var categorized = await _categorizationService.ApplyRulesToUncategorizedAsync();
-            result.CategorizedCount = categorized;
+            multiResult.CategorizedCount = categorized;
         }
 
-        result.AccountName = accountName;
-        return View("ImportResult", result);
-    }
-
-    private async Task<IActionResult> ImportCsv(ImportUploadViewModel model, string accountName)
-    {
-        Directory.CreateDirectory(_tempUploadPath);
-        var tempId = Guid.NewGuid().ToString();
-        var tempPath = Path.Combine(_tempUploadPath, tempId + ".csv");
-
-        using (var stream = new FileStream(tempPath, FileMode.Create))
-        {
-            await model.File!.CopyToAsync(stream);
-        }
-
-        using var readStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read);
-        var (headers, previewRows) = _csvImportService.ReadPreview(readStream);
-
-        var profile = await _csvImportService.GetProfileAsync(model.AccountId);
-
-        var mapVm = new ImportMapViewModel
-        {
-            AccountId = model.AccountId,
-            AccountName = accountName,
-            FileName = model.File!.FileName,
-            TempFileId = tempId,
-            AvailableColumns = headers,
-            PreviewRows = previewRows
-        };
-
-        if (profile is not null)
-        {
-            mapVm.DateColumn = profile.DateColumn;
-            mapVm.DateFormat = profile.DateFormat;
-            mapVm.AmountColumn = profile.AmountColumn;
-            mapVm.DebitColumn = profile.DebitColumn;
-            mapVm.CreditColumn = profile.CreditColumn;
-            mapVm.DescriptionColumn = profile.DescriptionColumn;
-        }
-
-        return View("MapColumns", mapVm);
+        return View("MultiImportResult", multiResult);
     }
 
     [HttpPost]
@@ -276,17 +303,84 @@ public class TransactionsController : Controller
                 model.CreditColumn, model.DescriptionColumn);
         }
 
-        if (result.ImportedCount > 0)
-        {
-            var categorized = await _categorizationService.ApplyRulesToUncategorizedAsync();
-            result.CategorizedCount = categorized;
-        }
-
         try { System.IO.File.Delete(tempFilePath); } catch { }
 
         var account = await _accountService.GetByIdAsync(model.AccountId);
         result.AccountName = account?.Name ?? "Unknown";
 
-        return View("ImportResult", result);
+        var priorResultsJson = TempData["MultiImportResults"] as string;
+        var remainingCsvsJson = TempData["RemainingCsvs"] as string;
+        var multiAccountName = TempData["MultiImportAccountName"] as string;
+
+        var allResults = new List<ImportResultViewModel>();
+        if (priorResultsJson != null)
+        {
+            var prior = System.Text.Json.JsonSerializer.Deserialize<List<ImportResultViewModel>>(priorResultsJson);
+            if (prior != null) allResults.AddRange(prior);
+        }
+        allResults.Add(result);
+
+        if (!string.IsNullOrEmpty(remainingCsvsJson))
+        {
+            var remaining = System.Text.Json.JsonSerializer.Deserialize<List<CsvPendingMapViewModel>>(remainingCsvsJson);
+            if (remaining != null && remaining.Count > 0)
+            {
+                TempData["MultiImportResults"] = System.Text.Json.JsonSerializer.Serialize(allResults);
+                TempData["MultiImportAccountName"] = multiAccountName;
+
+                var next = remaining[0];
+                if (remaining.Count > 1)
+                    TempData["RemainingCsvs"] = System.Text.Json.JsonSerializer.Serialize(remaining.Skip(1).ToList());
+
+                var nextTempPath = Path.Combine(_tempUploadPath, next.TempFileId + ".csv");
+                if (!System.IO.File.Exists(nextTempPath))
+                {
+                    TempData["Error"] = "Upload expired for " + next.FileName + ". Please re-upload.";
+                    return RedirectToAction(nameof(Import));
+                }
+
+                using var readStream = new FileStream(nextTempPath, FileMode.Open, FileAccess.Read);
+                var (headers, previewRows) = _csvImportService.ReadPreview(readStream);
+
+                var profile = await _csvImportService.GetProfileAsync(next.AccountId);
+
+                var mapVm = new ImportMapViewModel
+                {
+                    AccountId = next.AccountId,
+                    AccountName = next.AccountName,
+                    FileName = next.FileName,
+                    TempFileId = next.TempFileId,
+                    AvailableColumns = headers,
+                    PreviewRows = previewRows
+                };
+
+                if (profile is not null)
+                {
+                    mapVm.DateColumn = profile.DateColumn;
+                    mapVm.DateFormat = profile.DateFormat;
+                    mapVm.AmountColumn = profile.AmountColumn;
+                    mapVm.DebitColumn = profile.DebitColumn;
+                    mapVm.CreditColumn = profile.CreditColumn;
+                    mapVm.DescriptionColumn = profile.DescriptionColumn;
+                }
+
+                return View("MapColumns", mapVm);
+            }
+        }
+
+        var categorized = 0;
+        if (allResults.Any(r => r.ImportedCount > 0))
+        {
+            categorized = await _categorizationService.ApplyRulesToUncategorizedAsync();
+        }
+
+        var multiResult = new MultiImportResultViewModel
+        {
+            AccountName = multiAccountName ?? result.AccountName,
+            FileResults = allResults,
+            CategorizedCount = categorized
+        };
+
+        return View("MultiImportResult", multiResult);
     }
 }

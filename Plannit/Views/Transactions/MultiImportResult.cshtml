@@ -1,0 +1,99 @@
+@model Plannit.Models.ViewModels.MultiImportResultViewModel
+@{
+    ViewData["Title"] = "Import Results";
+}
+
+<h1>Import Complete</h1>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">@Model.AccountName &mdash; @Model.FileResults.Count file(s)</h5>
+        <div class="row text-center mt-3">
+            <div class="col">
+                <div class="fs-3 fw-bold">@Model.TotalRows</div>
+                <div class="text-muted">Total Rows</div>
+            </div>
+            <div class="col">
+                <div class="fs-3 fw-bold text-success">@Model.TotalImported</div>
+                <div class="text-muted">Imported</div>
+            </div>
+            <div class="col">
+                <div class="fs-3 fw-bold text-warning">@Model.TotalDuplicates</div>
+                <div class="text-muted">Duplicates Skipped</div>
+            </div>
+            <div class="col">
+                <div class="fs-3 fw-bold text-danger">@Model.TotalErrors</div>
+                <div class="text-muted">Errors</div>
+            </div>
+            <div class="col">
+                <div class="fs-3 fw-bold text-info">@Model.CategorizedCount</div>
+                <div class="text-muted">Auto-Categorized</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.FileResults.Count > 1)
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Per-File Summary</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>File</th>
+                            <th class="text-end">Total Rows</th>
+                            <th class="text-end">Imported</th>
+                            <th class="text-end">Duplicates</th>
+                            <th class="text-end">Errors</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var file in Model.FileResults)
+                        {
+                            <tr>
+                                <td>@file.FileName</td>
+                                <td class="text-end">@file.TotalRows</td>
+                                <td class="text-end text-success">@file.ImportedCount</td>
+                                <td class="text-end text-warning">@file.DuplicateCount</td>
+                                <td class="text-end text-danger">@file.ErrorCount</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@foreach (var file in Model.FileResults.Where(f => f.Errors.Any()))
+{
+    <div class="card mb-4">
+        <div class="card-header text-danger">Errors &mdash; @file.FileName</div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Row</th>
+                        <th>Error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var err in file.Errors)
+                    {
+                        <tr>
+                            <td>@err.RowNumber</td>
+                            <td>@err.Message</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<a asp-action="Index" class="btn btn-primary">View Transactions</a>
+<a asp-action="Import" class="btn btn-outline-secondary ms-2">Import More</a>
