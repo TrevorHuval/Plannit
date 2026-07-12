@@ -12,8 +12,10 @@ public class ProjectionScenario
     public int LifeExpectancy { get; set; }
     public decimal AnnualRetirementSpending { get; set; }
     public decimal InflationRate { get; set; }
+    public decimal ReturnStdDev { get; set; } = 0.15m;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public IdentityUser User { get; set; } = null!;
     public ICollection<ProjectionAccountAssumption> AccountAssumptions { get; set; } = new List<ProjectionAccountAssumption>();
+    public ICollection<ProjectionEvent> Events { get; set; } = new List<ProjectionEvent>();
 }

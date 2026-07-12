@@ -43,7 +43,12 @@ public class ScenarioFormViewModel
     [Display(Name = "Inflation Rate")]
     public decimal InflationRate { get; set; } = 0.03m;
 
+    [Required, Range(0, 1)]
+    [Display(Name = "Return Std Dev")]
+    public decimal ReturnStdDev { get; set; } = 0.15m;
+
     public List<AccountAssumptionFormItem> Accounts { get; set; } = [];
+    public List<LifeEventFormItem> Events { get; set; } = [];
 }
 
 public class AccountAssumptionFormItem
@@ -66,6 +71,23 @@ public class AccountAssumptionFormItem
     public int ContributionEndAge { get; set; } = 65;
 }
 
+public class LifeEventFormItem
+{
+    [Required, MaxLength(100)]
+    public string Name { get; set; } = "";
+
+    [Required, Range(0, 120)]
+    public int Age { get; set; }
+
+    [Required]
+    public decimal Amount { get; set; }
+
+    public bool IsRecurring { get; set; }
+
+    [Range(0, 120)]
+    public int? EndAge { get; set; }
+}
+
 public class ScenarioResultsViewModel
 {
     public int ScenarioId { get; set; }
@@ -74,7 +96,10 @@ public class ScenarioResultsViewModel
     public int LifeExpectancy { get; set; }
     public decimal AnnualRetirementSpending { get; set; }
     public ProjectionResult Result { get; set; } = null!;
+    public MonteCarloResult MonteCarlo { get; set; } = null!;
+    public FireResult Fire { get; set; } = null!;
     public List<AccountInfo> Accounts { get; set; } = [];
+    public List<LifeEventInput> LifeEvents { get; set; } = [];
 }
 
 public class AccountInfo
@@ -98,4 +123,7 @@ public class CompareItem
     public int? DepletionAge { get; set; }
     public decimal SurplusAtDeath { get; set; }
     public decimal SafeSpendingEstimate { get; set; }
+    public decimal SuccessProbability { get; set; }
+    public decimal FireNumber { get; set; }
+    public int? ProjectedFireAge { get; set; }
 }

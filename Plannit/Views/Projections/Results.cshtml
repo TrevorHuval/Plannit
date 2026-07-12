@@ -11,6 +11,13 @@
     </div>
 </div>
 
+<!-- Monte Carlo headline -->
+<div class="alert @(Model.MonteCarlo.SuccessProbability >= 80 ? "alert-success" : Model.MonteCarlo.SuccessProbability >= 50 ? "alert-warning" : "alert-danger") mb-4">
+    <strong><i class="bi bi-graph-up"></i> Monte Carlo:</strong>
+    @Model.MonteCarlo.SuccessProbability% chance your money lasts to age @Model.LifeExpectancy
+    <small class="text-muted">(1,000 simulations)</small>
+</div>
+
 <div class="row g-3 mb-4">
     <div class="col-md-3">
         <div class="card">
@@ -67,9 +74,55 @@
     <strong>Verdict:</strong> @verdict
 </div>
 
+<!-- FIRE Panel -->
 <div class="card mb-4">
     <div class="card-header">
-        <h5 class="mb-0">Projected Balances by Account Over Time</h5>
+        <h5 class="mb-0"><i class="bi bi-fire"></i> FIRE (Financial Independence)</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="text-muted small">FIRE Number (25&times; spending)</div>
+                <div class="fs-5 fw-bold">@Model.Fire.FireNumber.ToString("C0")</div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Current Portfolio</div>
+                <div class="fs-5 fw-bold">@Model.Fire.CurrentTotal.ToString("C0")</div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Progress</div>
+                <div class="fs-5 fw-bold">@Model.Fire.ProgressPercent%</div>
+                <div class="progress mt-1" style="height: 8px;">
+                    <div class="progress-bar" style="width: @Math.Min(100, Model.Fire.ProgressPercent)%"></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Projected FIRE Age</div>
+                <div class="fs-5 fw-bold">
+                    @if (Model.Fire.ProjectedFireAge.HasValue)
+                    {
+                        @:Age @Model.Fire.ProjectedFireAge
+                    }
+                    else
+                    {
+                        <span class="text-danger">Not reachable</span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart mode toggle -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Projected Balances Over Time</h5>
+        <div class="btn-group btn-group-sm" role="group">
+            <input type="radio" class="btn-check" name="chartMode" id="modeDetailed" value="deterministic" checked>
+            <label class="btn btn-outline-secondary" for="modeDetailed">Deterministic</label>
+            <input type="radio" class="btn-check" name="chartMode" id="modeMonteCarlo" value="montecarlo">
+            <label class="btn btn-outline-secondary" for="modeMonteCarlo">Monte Carlo</label>
+        </div>
     </div>
     <div class="card-body">
         <div class="pl-chart-container">
@@ -77,6 +130,40 @@
         </div>
     </div>
 </div>
+
+@if (Model.LifeEvents.Count > 0)
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Life Events</h5>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Age</th>
+                        <th class="text-end">Amount</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var evt in Model.LifeEvents)
+                    {
+                        <tr>
+                            <td>@evt.Name</td>
+                            <td>@(evt.IsRecurring ? $"{evt.Age}–{evt.EndAge ?? Model.LifeExpectancy}" : evt.Age.ToString())</td>
+                            <td class="text-end @(evt.Amount >= 0 ? "positive" : "negative")">
+                                @(evt.Amount >= 0 ? "+" : "")@evt.Amount.ToString("C0")
+                            </td>
+                            <td>@(evt.IsRecurring ? "Recurring" : "One-time")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
 
 <div class="card mb-4">
     <div class="card-header">
@@ -100,8 +187,17 @@
                     @foreach (var snap in Model.Result.YearlySnapshots)
                     {
                         var isRetirement = snap.Age == Model.RetirementAge;
-                        <tr class="@(isRetirement ? "table-info" : "")">
-                            <td>@snap.Age</td>
+                        var hasEvent = Model.LifeEvents.Any(e => e.IsRecurring
+                            ? snap.Age >= e.Age && (!e.EndAge.HasValue || snap.Age <= e.EndAge.Value)
+                            : snap.Age == e.Age);
+                        <tr class="@(isRetirement ? "table-info" : "") @(hasEvent ? "table-warning" : "")">
+                            <td>
+                                @snap.Age
+                                @if (hasEvent)
+                                {
+                                    <i class="bi bi-star-fill text-warning" title="Life event"></i>
+                                }
+                            </td>
                             <td>@snap.Year</td>
                             @foreach (var acct in Model.Accounts)
                             {
@@ -134,26 +230,108 @@
             var accounts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
                 Model.Accounts.Select(a => new { id = a.Id, name = a.Name })));
 
-            var datasets = accounts.map(function (acct, i) {
-                var color = palette[i % palette.length];
-                return {
-                    label: acct.name,
-                    data: snapshots.map(function (s) { return s.balances[acct.id] || 0; }),
-                    backgroundColor: color + '66',
-                    borderColor: color,
-                    borderWidth: 1,
-                    fill: true
-                };
-            });
+            var monteCarloBands = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.MonteCarlo.PercentileBands.Select(b => new {
+                    age = b.Age,
+                    p10 = b.Values.GetValueOrDefault(10),
+                    p25 = b.Values.GetValueOrDefault(25),
+                    p50 = b.Values.GetValueOrDefault(50),
+                    p75 = b.Values.GetValueOrDefault(75),
+                    p90 = b.Values.GetValueOrDefault(90)
+                })));
+
+            var lifeEvents = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.LifeEvents.Select(e => new {
+                    name = e.Name,
+                    age = e.Age,
+                    amount = e.Amount,
+                    isRecurring = e.IsRecurring,
+                    endAge = e.EndAge
+                })));
 
             var retirementAge = @Model.RetirementAge;
-            var retirementIdx = snapshots.findIndex(function (s) { return s.age === retirementAge; });
 
-            var chart = new Chart(document.getElementById('projectionChart'), {
+            function buildDeterministicDatasets() {
+                var datasets = accounts.map(function (acct, i) {
+                    var color = palette[i % palette.length];
+                    return {
+                        label: acct.name,
+                        data: snapshots.map(function (s) { return s.balances[acct.id] || 0; }),
+                        backgroundColor: color + '66',
+                        borderColor: color,
+                        borderWidth: 1,
+                        fill: true
+                    };
+                });
+                return datasets;
+            }
+
+            function buildMonteCarloDatasets() {
+                var primary = getComputedStyle(document.documentElement).getPropertyValue('--pl-primary').trim() || '#4f8cff';
+                return [
+                    {
+                        label: '90th percentile',
+                        data: monteCarloBands.map(function (b) { return b.p90; }),
+                        backgroundColor: primary + '15',
+                        borderColor: 'transparent',
+                        borderWidth: 0,
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: '75th percentile',
+                        data: monteCarloBands.map(function (b) { return b.p75; }),
+                        backgroundColor: primary + '25',
+                        borderColor: 'transparent',
+                        borderWidth: 0,
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Median (50th)',
+                        data: monteCarloBands.map(function (b) { return b.p50; }),
+                        backgroundColor: primary + '40',
+                        borderColor: primary,
+                        borderWidth: 2,
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: '25th percentile',
+                        data: monteCarloBands.map(function (b) { return b.p25; }),
+                        backgroundColor: primary + '25',
+                        borderColor: 'transparent',
+                        borderWidth: 0,
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: '10th percentile',
+                        data: monteCarloBands.map(function (b) { return b.p10; }),
+                        backgroundColor: primary + '15',
+                        borderColor: primary + '60',
+                        borderWidth: 1,
+                        borderDash: [4, 4],
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Deterministic',
+                        data: snapshots.map(function (s) { return s.total; }),
+                        borderColor: '#ff6b35',
+                        borderWidth: 2,
+                        borderDash: [6, 3],
+                        fill: false,
+                        pointRadius: 0
+                    }
+                ];
+            }
+
+            var chartConfig = {
                 type: 'line',
                 data: {
                     labels: snapshots.map(function (s) { return 'Age ' + s.age; }),
-                    datasets: datasets
+                    datasets: buildDeterministicDatasets()
                 },
                 options: {
                     responsive: true,
@@ -199,6 +377,22 @@
                         })
                     }
                 }
+            };
+
+            var chart = new Chart(document.getElementById('projectionChart'), chartConfig);
+
+            // Toggle between deterministic and Monte Carlo
+            document.querySelectorAll('input[name="chartMode"]').forEach(function (radio) {
+                radio.addEventListener('change', function () {
+                    if (this.value === 'montecarlo') {
+                        chart.data.datasets = buildMonteCarloDatasets();
+                        chart.options.scales.y.stacked = false;
+                    } else {
+                        chart.data.datasets = buildDeterministicDatasets();
+                        chart.options.scales.y.stacked = true;
+                    }
+                    chart.update();
+                });
             });
 
             document.addEventListener('themechanged', function () {

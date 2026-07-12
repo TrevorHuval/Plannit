@@ -15,6 +15,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CategoryRule> CategoryRules => Set<CategoryRule>();
     public DbSet<ProjectionScenario> ProjectionScenarios => Set<ProjectionScenario>();
     public DbSet<ProjectionAccountAssumption> ProjectionAccountAssumptions => Set<ProjectionAccountAssumption>();
+    public DbSet<ProjectionEvent> ProjectionEvents => Set<ProjectionEvent>();
     public DbSet<Budget> Budgets => Set<Budget>();
 
     private string? _currentUserId;
@@ -88,7 +89,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
             e.Property(s => s.AnnualRetirementSpending).HasColumnType("decimal(18,2)");
             e.Property(s => s.InflationRate).HasColumnType("decimal(5,4)");
+            e.Property(s => s.ReturnStdDev).HasColumnType("decimal(5,4)");
             e.HasQueryFilter(s => _currentUserId == null || s.UserId == _currentUserId);
+        });
+
+        builder.Entity<ProjectionEvent>(e =>
+        {
+            e.HasIndex(ev => ev.ScenarioId);
+            e.Property(ev => ev.Amount).HasColumnType("decimal(18,2)");
+            e.HasOne(ev => ev.Scenario).WithMany(s => s.Events).HasForeignKey(ev => ev.ScenarioId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(ev => _currentUserId == null || ev.Scenario.UserId == _currentUserId);
         });
 
         builder.Entity<ProjectionAccountAssumption>(e =>

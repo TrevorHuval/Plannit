@@ -60,6 +60,7 @@ public class ProjectionsController : Controller
             LifeExpectancy = vm.LifeExpectancy,
             AnnualRetirementSpending = vm.AnnualRetirementSpending,
             InflationRate = vm.InflationRate,
+            ReturnStdDev = vm.ReturnStdDev,
             AccountAssumptions = vm.Accounts.Select(a => new ProjectionAccountAssumption
             {
                 AccountId = a.AccountId,
@@ -67,7 +68,17 @@ public class ProjectionsController : Controller
                 EmployerMatch = a.EmployerMatch,
                 ExpectedReturnRate = a.ExpectedReturnRate,
                 ContributionEndAge = a.ContributionEndAge
-            }).ToList()
+            }).ToList(),
+            Events = vm.Events
+                .Where(e => !string.IsNullOrWhiteSpace(e.Name))
+                .Select(e => new ProjectionEvent
+                {
+                    Name = e.Name,
+                    Age = e.Age,
+                    Amount = e.Amount,
+                    IsRecurring = e.IsRecurring,
+                    EndAge = e.EndAge
+                }).ToList()
         };
 
         var id = await _projectionService.SaveScenarioAsync(scenario);
@@ -100,6 +111,7 @@ public class ProjectionsController : Controller
         scenario.LifeExpectancy = vm.LifeExpectancy;
         scenario.AnnualRetirementSpending = vm.AnnualRetirementSpending;
         scenario.InflationRate = vm.InflationRate;
+        scenario.ReturnStdDev = vm.ReturnStdDev;
 
         scenario.AccountAssumptions.Clear();
         foreach (var a in vm.Accounts)
@@ -112,6 +124,20 @@ public class ProjectionsController : Controller
                 EmployerMatch = a.EmployerMatch,
                 ExpectedReturnRate = a.ExpectedReturnRate,
                 ContributionEndAge = a.ContributionEndAge
+            });
+        }
+
+        scenario.Events.Clear();
+        foreach (var e in vm.Events.Where(e => !string.IsNullOrWhiteSpace(e.Name)))
+        {
+            scenario.Events.Add(new ProjectionEvent
+            {
+                ScenarioId = scenario.Id,
+                Name = e.Name,
+                Age = e.Age,
+                Amount = e.Amount,
+                IsRecurring = e.IsRecurring,
+                EndAge = e.EndAge
             });
         }
 
@@ -134,6 +160,8 @@ public class ProjectionsController : Controller
 
         var input = BuildProjectionInput(scenario);
         var result = ProjectionService.RunProjection(input);
+        var monteCarlo = ProjectionService.RunMonteCarlo(input, scenario.ReturnStdDev);
+        var fire = ProjectionService.ComputeFire(input);
 
         var vm = new ScenarioResultsViewModel
         {
@@ -143,12 +171,15 @@ public class ProjectionsController : Controller
             LifeExpectancy = scenario.LifeExpectancy,
             AnnualRetirementSpending = scenario.AnnualRetirementSpending,
             Result = result,
+            MonteCarlo = monteCarlo,
+            Fire = fire,
             Accounts = scenario.AccountAssumptions.Select(a => new AccountInfo
             {
                 Id = a.AccountId,
                 Name = a.Account.Name,
                 Type = a.Account.Type
-            }).ToList()
+            }).ToList(),
+            LifeEvents = input.LifeEvents
         };
 
         return View(vm);
@@ -168,6 +199,8 @@ public class ProjectionsController : Controller
 
             var input = BuildProjectionInput(fullScenario);
             var result = ProjectionService.RunProjection(input);
+            var monteCarlo = ProjectionService.RunMonteCarlo(input, fullScenario.ReturnStdDev);
+            var fire = ProjectionService.ComputeFire(input);
 
             items.Add(new CompareItem
             {
@@ -177,7 +210,10 @@ public class ProjectionsController : Controller
                 RetirementBalance = result.RetirementBalance,
                 DepletionAge = result.DepletionAge,
                 SurplusAtDeath = result.SurplusAtDeath,
-                SafeSpendingEstimate = result.SafeSpendingEstimate
+                SafeSpendingEstimate = result.SafeSpendingEstimate,
+                SuccessProbability = monteCarlo.SuccessProbability,
+                FireNumber = fire.FireNumber,
+                ProjectedFireAge = fire.ProjectedFireAge
             });
         }
 
@@ -197,6 +233,15 @@ public class ProjectionsController : Controller
             vm.LifeExpectancy = scenario.LifeExpectancy;
             vm.AnnualRetirementSpending = scenario.AnnualRetirementSpending;
             vm.InflationRate = scenario.InflationRate;
+            vm.ReturnStdDev = scenario.ReturnStdDev;
+            vm.Events = scenario.Events.Select(e => new LifeEventFormItem
+            {
+                Name = e.Name,
+                Age = e.Age,
+                Amount = e.Amount,
+                IsRecurring = e.IsRecurring,
+                EndAge = e.EndAge
+            }).ToList();
         }
 
         vm.Accounts = accounts.Select(a =>
@@ -255,6 +300,14 @@ public class ProjectionsController : Controller
                 EmployerMatch = a.EmployerMatch,
                 ExpectedReturnRate = a.ExpectedReturnRate,
                 ContributionEndAge = a.ContributionEndAge
+            }).ToList(),
+            LifeEvents = scenario.Events.Select(e => new LifeEventInput
+            {
+                Name = e.Name,
+                Age = e.Age,
+                Amount = e.Amount,
+                IsRecurring = e.IsRecurring,
+                EndAge = e.EndAge
             }).ToList()
         };
     }

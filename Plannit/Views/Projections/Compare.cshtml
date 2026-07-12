@@ -19,7 +19,9 @@
                     <th class="text-center">Retirement Age</th>
                     <th class="text-end">Balance at Retirement</th>
                     <th class="text-center">Money Runs Out?</th>
-                    <th class="text-end">Surplus at Death</th>
+                    <th class="text-center">Success Probability</th>
+                    <th class="text-end">FIRE Number</th>
+                    <th class="text-center">FIRE Age</th>
                     <th class="text-end">Safe Spending (4%)</th>
                     <th></th>
                 </tr>
@@ -41,7 +43,22 @@
                                 <span class="badge bg-success">Never</span>
                             }
                         </td>
-                        <td class="text-end">@item.SurplusAtDeath.ToString("C0")</td>
+                        <td class="text-center">
+                            <span class="badge @(item.SuccessProbability >= 80 ? "bg-success" : item.SuccessProbability >= 50 ? "bg-warning" : "bg-danger")">
+                                @item.SuccessProbability%
+                            </span>
+                        </td>
+                        <td class="text-end">@item.FireNumber.ToString("C0")</td>
+                        <td class="text-center">
+                            @if (item.ProjectedFireAge.HasValue)
+                            {
+                                @:Age @item.ProjectedFireAge
+                            }
+                            else
+                            {
+                                <span class="text-muted">N/A</span>
+                            }
+                        </td>
                         <td class="text-end">@item.SafeSpendingEstimate.ToString("C0")/yr</td>
                         <td>
                             <a asp-action="Results" asp-route-id="@item.ScenarioId" class="btn btn-sm btn-outline-primary">Details</a>
