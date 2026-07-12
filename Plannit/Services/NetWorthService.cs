@@ -86,6 +86,67 @@ public class NetWorthService
         return history;
     }
 
+    public async Task<decimal> GetNetWorthAtDateAsync(DateOnly asOf)
+    {
+        var accounts = await _db.Accounts
+            .Where(a => a.IsActive)
+            .Include(a => a.Snapshots)
+            .ToListAsync();
+
+        decimal netWorth = 0;
+        foreach (var account in accounts)
+        {
+            var snapshotAtOrBefore = account.Snapshots
+                .Where(s => s.Date <= asOf)
+                .MaxBy(s => s.Date);
+
+            if (snapshotAtOrBefore is null) continue;
+
+            netWorth += IsLiability(account.Type)
+                ? -snapshotAtOrBefore.Balance
+                : snapshotAtOrBefore.Balance;
+        }
+        return netWorth;
+    }
+
+    public async Task<List<StaleAccountInfo>> GetStaleAccountsAsync(int thresholdDays = 30)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var accounts = await _db.Accounts
+            .Where(a => a.IsActive)
+            .Include(a => a.Snapshots)
+            .ToListAsync();
+
+        var stale = new List<StaleAccountInfo>();
+        foreach (var account in accounts)
+        {
+            var latest = account.Snapshots.MaxBy(s => s.Date);
+            if (latest is null)
+            {
+                stale.Add(new StaleAccountInfo
+                {
+                    AccountId = account.Id,
+                    AccountName = account.Name,
+                    DaysSinceUpdate = (today.DayNumber - DateOnly.FromDateTime(account.CreatedAt).DayNumber)
+                });
+            }
+            else
+            {
+                var days = today.DayNumber - latest.Date.DayNumber;
+                if (days >= thresholdDays)
+                {
+                    stale.Add(new StaleAccountInfo
+                    {
+                        AccountId = account.Id,
+                        AccountName = account.Name,
+                        DaysSinceUpdate = days
+                    });
+                }
+            }
+        }
+        return stale.OrderByDescending(s => s.DaysSinceUpdate).ToList();
+    }
+
     public static bool IsLiability(AccountType type) => LiabilityTypes.Contains(type);
 
     public static string FormatAccountType(AccountType type) => type switch
@@ -100,4 +161,11 @@ public class NetWorthService
         AccountType.Other => "Other",
         _ => type.ToString()
     };
+}
+
+public class StaleAccountInfo
+{
+    public int AccountId { get; set; }
+    public string AccountName { get; set; } = null!;
+    public int DaysSinceUpdate { get; set; }
 }

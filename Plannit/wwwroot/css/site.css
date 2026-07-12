@@ -452,6 +452,46 @@ body {
 .pl-stat-card .stat-value.positive { color: var(--pl-positive); }
 .pl-stat-card .stat-value.negative { color: var(--pl-negative); }
 
+.pl-stat-card .stat-deltas {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.stat-delta {
+    font-size: 0.82rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.stat-delta.delta-positive { color: var(--pl-positive); }
+.stat-delta.delta-negative { color: var(--pl-negative); }
+
+.stat-delta .delta-label {
+    font-size: 0.72rem;
+    color: var(--pl-text-muted);
+    margin-left: 0.15rem;
+}
+
+.stat-monthly-summary {
+    text-align: left;
+    padding: 0.25rem 0;
+}
+
+.stat-monthly-summary .monthly-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.2rem 0;
+}
+
+.stat-monthly-summary .monthly-label {
+    font-size: 0.85rem;
+    color: var(--pl-text-muted);
+}
+
 /* ===== Tables ===== */
 
 .table {
