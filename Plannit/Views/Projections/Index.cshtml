@@ -3,46 +3,47 @@
     ViewData["Title"] = "Projections";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <h1>Retirement Projections</h1>
-    <div>
+    <div class="page-actions">
         @if (Model.Scenarios.Count >= 2)
         {
-            <a asp-action="Compare" class="btn btn-outline-primary me-2">Compare Scenarios</a>
+            <a asp-action="Compare" class="btn btn-outline-primary"><i class="bi bi-arrow-left-right"></i> Compare</a>
         }
-        <a asp-action="Create" class="btn btn-primary">New Scenario</a>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> New Scenario</a>
     </div>
 </div>
 
 @if (!Model.Scenarios.Any())
 {
     <div class="card">
-        <div class="card-body text-center py-5">
-            <h4 class="text-muted">No projection scenarios yet</h4>
-            <p class="text-muted">Create your first retirement scenario to see how your finances could grow over time.</p>
-            <a asp-action="Create" class="btn btn-primary btn-lg">Create Scenario</a>
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-calculator"></i></div>
+            <h4>No projection scenarios yet</h4>
+            <p>Create your first retirement scenario to see how your finances could grow over time.</p>
+            <a asp-action="Create" class="btn btn-primary btn-lg"><i class="bi bi-plus-lg"></i> Create Scenario</a>
         </div>
     </div>
 }
 else
 {
-    <div class="row">
+    <div class="row g-4">
         @foreach (var scenario in Model.Scenarios)
         {
-            <div class="col-md-6 col-lg-4 mb-4">
+            <div class="col-md-6 col-lg-4">
                 <div class="card h-100">
                     <div class="card-body">
-                        <h5 class="card-title">@scenario.Name</h5>
-                        <ul class="list-unstyled text-muted mb-3">
-                            <li>Retire at age @scenario.RetirementAge</li>
-                            <li>Plan to age @scenario.LifeExpectancy</li>
-                            <li>Spending: @scenario.AnnualRetirementSpending.ToString("C0")/yr</li>
-                            <li>@scenario.AccountCount account(s) modeled</li>
+                        <h5 class="card-title fw-semibold">@scenario.Name</h5>
+                        <ul class="list-unstyled text-muted mb-0">
+                            <li><i class="bi bi-calendar-event me-1"></i> Retire at age @scenario.RetirementAge</li>
+                            <li><i class="bi bi-heart-pulse me-1"></i> Plan to age @scenario.LifeExpectancy</li>
+                            <li><i class="bi bi-cash me-1"></i> Spending: @scenario.AnnualRetirementSpending.ToString("C0")/yr</li>
+                            <li><i class="bi bi-wallet2 me-1"></i> @scenario.AccountCount account(s) modeled</li>
                         </ul>
                     </div>
                     <div class="card-footer bg-transparent d-flex justify-content-between">
                         <a asp-action="Results" asp-route-id="@scenario.Id" class="btn btn-sm btn-primary">View Results</a>
-                        <div>
+                        <div class="d-flex gap-1">
                             <a asp-action="Edit" asp-route-id="@scenario.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
                             <form asp-action="Delete" asp-route-id="@scenario.Id" method="post" class="d-inline"
                                   onsubmit="return confirm('Delete this scenario?')">

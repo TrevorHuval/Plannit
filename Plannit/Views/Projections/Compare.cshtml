@@ -3,52 +3,52 @@
     ViewData["Title"] = "Compare Scenarios";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <h1>Compare Scenarios</h1>
-    <a asp-action="Index" class="btn btn-outline-secondary">Back to Scenarios</a>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Scenarios</a>
+    </div>
 </div>
 
 <div class="card">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th class="text-center">Retirement Age</th>
+                    <th class="text-end">Balance at Retirement</th>
+                    <th class="text-center">Money Runs Out?</th>
+                    <th class="text-end">Surplus at Death</th>
+                    <th class="text-end">Safe Spending (4%)</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
                     <tr>
-                        <th>Scenario</th>
-                        <th class="text-center">Retirement Age</th>
-                        <th class="text-end">Balance at Retirement</th>
-                        <th class="text-center">Money Runs Out?</th>
-                        <th class="text-end">Surplus at Death</th>
-                        <th class="text-end">Safe Spending (4%)</th>
-                        <th></th>
+                        <td class="fw-bold">@item.ScenarioName</td>
+                        <td class="text-center">@item.RetirementAge</td>
+                        <td class="text-end">@item.RetirementBalance.ToString("C0")</td>
+                        <td class="text-center">
+                            @if (item.DepletionAge.HasValue)
+                            {
+                                <span class="badge bg-danger">Age @item.DepletionAge</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">Never</span>
+                            }
+                        </td>
+                        <td class="text-end">@item.SurplusAtDeath.ToString("C0")</td>
+                        <td class="text-end">@item.SafeSpendingEstimate.ToString("C0")/yr</td>
+                        <td>
+                            <a asp-action="Results" asp-route-id="@item.ScenarioId" class="btn btn-sm btn-outline-primary">Details</a>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in Model.Items)
-                    {
-                        <tr>
-                            <td class="fw-bold">@item.ScenarioName</td>
-                            <td class="text-center">@item.RetirementAge</td>
-                            <td class="text-end">@item.RetirementBalance.ToString("C0")</td>
-                            <td class="text-center">
-                                @if (item.DepletionAge.HasValue)
-                                {
-                                    <span class="badge bg-danger">Age @item.DepletionAge</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-success">Never</span>
-                                }
-                            </td>
-                            <td class="text-end">@item.SurplusAtDeath.ToString("C0")</td>
-                            <td class="text-end">@item.SafeSpendingEstimate.ToString("C0")/yr</td>
-                            <td>
-                                <a asp-action="Results" asp-route-id="@item.ScenarioId" class="btn btn-sm btn-outline-primary">Details</a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                }
+            </tbody>
+        </table>
     </div>
 </div>

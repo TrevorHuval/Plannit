@@ -1,57 +1,93 @@
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Plannit</title>
-    <script type="importmap"></script>
+    <script>
+        (function(){var t=localStorage.getItem('pl-theme');if(!t)t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';document.documentElement.setAttribute('data-bs-theme',t);})();
+    </script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Plannit.styles.css" asp-append-version="true" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark bg-dark border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand fw-semibold" asp-area="" asp-controller="Home" asp-action="Index">&#128200; Plannit</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">Dashboard</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-controller="Accounts" asp-action="Index">Accounts</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-controller="Transactions" asp-action="Index">Transactions</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-controller="Reports" asp-action="Index">Reports</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-controller="Projections" asp-action="Index">Projections</a>
-                        </li>
-                    </ul>
-                    <partial name="_LoginPartial" />
-                </div>
-            </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
+    <!-- Mobile top bar -->
+    <div class="pl-mobile-topbar">
+        <button class="hamburger-btn" id="plHamburger" aria-label="Toggle navigation">
+            <i class="bi bi-list"></i>
+        </button>
+        <a href="/" class="topbar-brand">Plannit</a>
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - Plannit - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+    <!-- Sidebar -->
+    <nav class="pl-sidebar" id="plSidebar">
+        <a asp-controller="Home" asp-action="Index" class="pl-sidebar-brand">
+            <span class="brand-icon"><i class="bi bi-graph-up-arrow"></i></span>
+            <span class="brand-text">Plannit</span>
+        </a>
+
+        <div class="pl-sidebar-nav">
+            <a asp-controller="Home" asp-action="Index"
+               class="pl-nav-link @(controller == "Home" ? "active" : "")">
+                <i class="bi bi-speedometer2"></i>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a asp-controller="Accounts" asp-action="Index"
+               class="pl-nav-link @(controller == "Accounts" ? "active" : "")">
+                <i class="bi bi-wallet2"></i>
+                <span class="nav-label">Accounts</span>
+            </a>
+            <a asp-controller="Transactions" asp-action="Index"
+               class="pl-nav-link @(controller == "Transactions" ? "active" : "")">
+                <i class="bi bi-arrow-left-right"></i>
+                <span class="nav-label">Transactions</span>
+            </a>
+            <a asp-controller="Reports" asp-action="Index"
+               class="pl-nav-link @(controller == "Reports" ? "active" : "")">
+                <i class="bi bi-bar-chart-line"></i>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a asp-controller="Projections" asp-action="Index"
+               class="pl-nav-link @(controller == "Projections" ? "active" : "")">
+                <i class="bi bi-calculator"></i>
+                <span class="nav-label">Projections</span>
+            </a>
+            <a asp-controller="Categories" asp-action="Index"
+               class="pl-nav-link @(controller == "Categories" ? "active" : "")">
+                <i class="bi bi-tags"></i>
+                <span class="nav-label">Categories</span>
+            </a>
         </div>
-    </footer>
+
+        <div class="pl-sidebar-footer">
+            <partial name="_LoginPartial" />
+            <button type="button" class="pl-theme-btn" onclick="PlTheme.toggle()">
+                <i id="themeIcon" class="bi bi-moon-stars"></i>
+                <span class="theme-label" id="themeLabel">Dark Mode</span>
+            </button>
+            <button class="pl-collapse-btn" id="plCollapseBtn" title="Toggle sidebar">
+                <i class="bi bi-chevron-bar-left"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Backdrop for mobile -->
+    <div class="pl-sidebar-backdrop" id="plBackdrop"></div>
+
+    <!-- Main content -->
+    <div class="pl-main">
+        <div class="pl-content-wrapper">
+            <main role="main">
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>

@@ -4,15 +4,17 @@
     var currentUrl = Context.Request.Path + Context.Request.QueryString;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <h1>Transactions</h1>
-    <div>
+    <div class="page-actions">
         <form asp-controller="Categories" asp-action="RecategorizeUncategorized" method="post" class="d-inline">
             @Html.AntiForgeryToken()
-            <button type="submit" class="btn btn-outline-success me-2" title="Apply rules to uncategorized transactions">Auto-Categorize</button>
+            <button type="submit" class="btn btn-outline-success" title="Apply rules to uncategorized transactions">
+                <i class="bi bi-lightning"></i> Auto-Categorize
+            </button>
         </form>
-        <a asp-action="Import" class="btn btn-outline-primary me-2">Import</a>
-        <a asp-action="Create" class="btn btn-primary">Add Transaction</a>
+        <a asp-action="Import" class="btn btn-outline-primary"><i class="bi bi-upload"></i> Import</a>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Transaction</a>
     </div>
 </div>
 
@@ -24,11 +26,11 @@
     </div>
 }
 
-<form method="get" class="card card-body bg-light mb-4">
+<form method="get" class="pl-filter-bar">
     <div class="row g-3 align-items-end">
         <div class="col-md-2">
             <label for="accountId" class="form-label">Account</label>
-            <select name="accountId" id="accountId" class="form-select">
+            <select name="accountId" id="accountId" class="form-select form-select-sm">
                 <option value="">All Accounts</option>
                 @foreach (var a in Model.Accounts)
                 {
@@ -38,7 +40,7 @@
         </div>
         <div class="col-md-2">
             <label for="categoryId" class="form-label">Category</label>
-            <select name="categoryId" id="categoryId" class="form-select">
+            <select name="categoryId" id="categoryId" class="form-select form-select-sm">
                 <option value="">All Categories</option>
                 <option value="-1" selected="@(Model.CategoryId == -1)">Uncategorized</option>
                 @foreach (var c in Model.Categories)
@@ -49,90 +51,100 @@
         </div>
         <div class="col-md-2">
             <label for="startDate" class="form-label">From</label>
-            <input type="date" name="startDate" id="startDate" class="form-control"
+            <input type="date" name="startDate" id="startDate" class="form-control form-control-sm"
                    value="@(Model.StartDate?.ToString("yyyy-MM-dd"))" />
         </div>
         <div class="col-md-2">
             <label for="endDate" class="form-label">To</label>
-            <input type="date" name="endDate" id="endDate" class="form-control"
+            <input type="date" name="endDate" id="endDate" class="form-control form-control-sm"
                    value="@(Model.EndDate?.ToString("yyyy-MM-dd"))" />
         </div>
         <div class="col-md-2">
             <label for="searchText" class="form-label">Search</label>
-            <input type="text" name="searchText" id="searchText" class="form-control"
+            <input type="text" name="searchText" id="searchText" class="form-control form-control-sm"
                    value="@Model.SearchText" placeholder="Description..." />
         </div>
         <div class="col-md-2">
-            <button type="submit" class="btn btn-secondary w-100">Filter</button>
+            <button type="submit" class="btn btn-sm btn-primary w-100">Filter</button>
         </div>
     </div>
 </form>
 
 @if (!Model.Transactions.Any())
 {
-    <div class="alert alert-info">
-        No transactions found. <a asp-action="Import">Import a statement</a> or <a asp-action="Create">add one manually</a>.
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-arrow-left-right"></i></div>
+            <h4>No transactions found</h4>
+            <p>Import a statement or add a transaction manually to get started.</p>
+            <div class="d-flex gap-2 justify-content-center">
+                <a asp-action="Import" class="btn btn-outline-primary"><i class="bi bi-upload"></i> Import</a>
+                <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Transaction</a>
+            </div>
+        </div>
     </div>
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead class="table-light">
-                <tr>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th>Account</th>
-                    <th>Category</th>
-                    <th class="text-end">Amount</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var t in Model.Transactions)
-                {
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
                     <tr>
-                        <td>@t.Date.ToString("MMM d, yyyy")</td>
-                        <td>@t.Description</td>
-                        <td>@t.AccountName</td>
-                        <td>
-                            <form asp-controller="Categories" asp-action="SetTransactionCategory" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="transactionId" value="@t.Id" />
-                                <input type="hidden" name="returnUrl" value="@currentUrl" />
-                                <select name="categoryId" class="form-select form-select-sm" style="width:auto;display:inline-block"
-                                        onchange="this.form.submit()">
-                                    <option value="">--</option>
-                                    @foreach (var c in Model.Categories)
-                                    {
-                                        <option value="@c.Id" selected="@(t.CategoryId == c.Id)">@c.Name</option>
-                                    }
-                                </select>
-                            </form>
-                        </td>
-                        <td class="text-end @(t.Amount >= 0 ? "text-success" : "text-danger")">
-                            @t.Amount.ToString("C")
-                        </td>
-                        <td class="text-end text-nowrap">
-                            <a asp-controller="Categories" asp-action="CreateRuleFromTransaction"
-                               asp-route-transactionId="@t.Id"
-                               class="btn btn-sm btn-outline-info" title="Create categorization rule">Rule</a>
-                            <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
-                            <form asp-action="Delete" asp-route-id="@t.Id" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="btn btn-sm btn-outline-danger"
-                                        onclick="return confirm('Delete this transaction?')">Del</button>
-                            </form>
-                        </td>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Account</th>
+                        <th>Category</th>
+                        <th class="text-end">Amount</th>
+                        <th></th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.Transactions)
+                    {
+                        <tr>
+                            <td class="text-nowrap">@t.Date.ToString("MMM d, yyyy")</td>
+                            <td>@t.Description</td>
+                            <td class="text-muted">@t.AccountName</td>
+                            <td>
+                                <form asp-controller="Categories" asp-action="SetTransactionCategory" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="transactionId" value="@t.Id" />
+                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                    <select name="categoryId" class="form-select form-select-sm" style="width:auto;display:inline-block"
+                                            onchange="this.form.submit()">
+                                        <option value="">--</option>
+                                        @foreach (var c in Model.Categories)
+                                        {
+                                            <option value="@c.Id" selected="@(t.CategoryId == c.Id)">@c.Name</option>
+                                        }
+                                    </select>
+                                </form>
+                            </td>
+                            <td class="text-end @(t.Amount >= 0 ? "text-positive" : "text-negative")">
+                                @t.Amount.ToString("C")
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <a asp-controller="Categories" asp-action="CreateRuleFromTransaction"
+                                   asp-route-transactionId="@t.Id"
+                                   class="btn btn-sm btn-outline-info" title="Create categorization rule">Rule</a>
+                                <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                <form asp-action="Delete" asp-route-id="@t.Id" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('Delete this transaction?')">Del</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 
     @if (Model.TotalPages > 1)
     {
-        <nav>
+        <nav class="mt-3">
             <ul class="pagination justify-content-center">
                 @for (int p = 1; p <= Model.TotalPages; p++)
                 {

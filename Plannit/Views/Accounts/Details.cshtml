@@ -4,70 +4,79 @@
     var addSnapshot = (Plannit.Models.ViewModels.AddSnapshotViewModel)ViewBag.AddSnapshot;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="page-header">
     <div>
-        <h1 class="mb-0">@Model.Name</h1>
-        <span class="badge bg-secondary">@Model.TypeDisplayName</span>
-        @if (!string.IsNullOrEmpty(Model.Institution))
-        {
-            <span class="text-muted ms-2">@Model.Institution</span>
-        }
+        <h1>@Model.Name</h1>
+        <div class="mt-1">
+            <span class="badge bg-secondary">@Model.TypeDisplayName</span>
+            @if (!string.IsNullOrEmpty(Model.Institution))
+            {
+                <span class="text-muted ms-2">@Model.Institution</span>
+            }
+        </div>
     </div>
-    <div>
+    <div class="page-actions">
         <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Edit</a>
         <form asp-action="Delete" asp-route-id="@Model.Id" method="post" class="d-inline"
               onsubmit="return confirm('Deactivate this account? It will be hidden from lists and net worth calculations.');">
-            <button type="submit" class="btn btn-outline-danger ms-1">Deactivate</button>
+            <button type="submit" class="btn btn-outline-danger">Deactivate</button>
         </form>
     </div>
 </div>
 
-<hr />
-
-<div class="row">
+<div class="row g-4">
     <div class="col-md-8">
-        <h4>Balance History</h4>
-        @if (!Model.Snapshots.Any())
-        {
-            <p class="text-muted">No balance snapshots yet. Add one below.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-sm">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Date</th>
-                            <th class="text-end">Balance</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var snapshot in Model.Snapshots)
-                        {
-                            <tr>
-                                <td>@snapshot.Date.ToString("MMM d, yyyy")</td>
-                                <td class="text-end">@snapshot.Balance.ToString("C")</td>
-                                <td class="text-end">
-                                    <form asp-action="DeleteSnapshot" method="post" class="d-inline"
-                                          onsubmit="return confirm('Delete this snapshot?');">
-                                        <input type="hidden" name="id" value="@snapshot.Id" />
-                                        <input type="hidden" name="accountId" value="@Model.Id" />
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Balance History</h5>
             </div>
-        }
+            @if (!Model.Snapshots.Any())
+            {
+                <div class="pl-empty-state">
+                    <div class="empty-icon"><i class="bi bi-clock-history"></i></div>
+                    <p>No balance snapshots yet. Add one to start tracking.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th class="text-end">Balance</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var snapshot in Model.Snapshots)
+                            {
+                                <tr>
+                                    <td>@snapshot.Date.ToString("MMM d, yyyy")</td>
+                                    <td class="text-end">@snapshot.Balance.ToString("C")</td>
+                                    <td class="text-end">
+                                        <form asp-action="DeleteSnapshot" method="post" class="d-inline"
+                                              onsubmit="return confirm('Delete this snapshot?');">
+                                            <input type="hidden" name="id" value="@snapshot.Id" />
+                                            <input type="hidden" name="accountId" value="@Model.Id" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
     </div>
 
     <div class="col-md-4">
         <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Add Snapshot</h5>
+            </div>
             <div class="card-body">
-                <h5 class="card-title">Add Snapshot</h5>
                 <form asp-action="AddSnapshot" method="post">
                     <input type="hidden" name="AccountId" value="@Model.Id" />
 
@@ -93,6 +102,6 @@
     </div>
 </div>
 
-<div class="mt-3">
-    <a asp-action="Index" class="btn btn-outline-secondary">Back to Accounts</a>
+<div class="mt-4">
+    <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Accounts</a>
 </div>

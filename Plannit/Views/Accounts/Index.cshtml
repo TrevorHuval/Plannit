@@ -3,66 +3,75 @@
     ViewData["Title"] = "Accounts";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <h1>Accounts</h1>
-    <a asp-action="Create" class="btn btn-primary">Add Account</a>
+    <div class="page-actions">
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Account</a>
+    </div>
 </div>
 
 @if (!Model.Groups.Any())
 {
-    <div class="alert alert-info">
-        No accounts yet. Click <strong>Add Account</strong> to get started.
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-wallet2"></i></div>
+            <h4>No accounts yet</h4>
+            <p>Add your first account to start tracking balances and net worth.</p>
+            <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Account</a>
+        </div>
     </div>
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead class="table-light">
-                <tr>
-                    <th style="width:30%">Name</th>
-                    <th style="width:20%">Institution</th>
-                    <th style="width:18%" class="text-end">Latest Balance</th>
-                    <th style="width:17%">As Of</th>
-                    <th style="width:15%"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var group in Model.Groups)
-                {
-                    <tr class="table-light">
-                        <th colspan="5">@group.TypeDisplayName</th>
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="width:30%">Name</th>
+                        <th style="width:20%">Institution</th>
+                        <th style="width:18%" class="text-end">Latest Balance</th>
+                        <th style="width:17%">As Of</th>
+                        <th style="width:15%"></th>
                     </tr>
-                    @foreach (var account in group.Accounts)
+                </thead>
+                <tbody>
+                    @foreach (var group in Model.Groups)
                     {
-                        <tr>
-                            <td>
-                                <a asp-action="Details" asp-route-id="@account.Id">@account.Name</a>
-                            </td>
-                            <td>@(account.Institution ?? "—")</td>
-                            <td class="text-end">
-                                @if (account.LatestBalance.HasValue)
-                                {
-                                    @account.LatestBalance.Value.ToString("C")
-                                }
-                                else
-                                {
-                                    <span class="text-muted">No snapshots</span>
-                                }
-                            </td>
-                            <td>
-                                @if (account.LatestSnapshotDate.HasValue)
-                                {
-                                    @account.LatestSnapshotDate.Value.ToString("MMM d, yyyy")
-                                }
-                            </td>
-                            <td class="text-end">
-                                <a asp-action="Edit" asp-route-id="@account.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
-                            </td>
+                        <tr class="table-group-header">
+                            <th colspan="5">@group.TypeDisplayName</th>
                         </tr>
+                        @foreach (var account in group.Accounts)
+                        {
+                            <tr>
+                                <td>
+                                    <a asp-action="Details" asp-route-id="@account.Id">@account.Name</a>
+                                </td>
+                                <td class="text-muted">@(account.Institution ?? "—")</td>
+                                <td class="text-end">
+                                    @if (account.LatestBalance.HasValue)
+                                    {
+                                        @account.LatestBalance.Value.ToString("C")
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No snapshots</span>
+                                    }
+                                </td>
+                                <td class="text-muted">
+                                    @if (account.LatestSnapshotDate.HasValue)
+                                    {
+                                        @account.LatestSnapshotDate.Value.ToString("MMM d, yyyy")
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <a asp-action="Edit" asp-route-id="@account.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                </td>
+                            </tr>
+                        }
                     }
-                }
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        </div>
     </div>
 }

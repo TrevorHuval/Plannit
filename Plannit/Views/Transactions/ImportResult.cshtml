@@ -3,31 +3,35 @@
     ViewData["Title"] = "Import Results";
 }
 
-<h1>Import Complete</h1>
+<div class="page-header">
+    <h1>Import Complete</h1>
+</div>
 
 <div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">@Model.FileName &rarr; @Model.AccountName</h5>
+    </div>
     <div class="card-body">
-        <h5 class="card-title">@Model.FileName &rarr; @Model.AccountName</h5>
-        <div class="row text-center mt-3">
+        <div class="row g-3 text-center">
             <div class="col">
                 <div class="fs-3 fw-bold">@Model.TotalRows</div>
-                <div class="text-muted">Total Rows</div>
+                <div class="text-muted small">Total Rows</div>
             </div>
             <div class="col">
-                <div class="fs-3 fw-bold text-success">@Model.ImportedCount</div>
-                <div class="text-muted">Imported</div>
+                <div class="fs-3 fw-bold text-positive">@Model.ImportedCount</div>
+                <div class="text-muted small">Imported</div>
             </div>
             <div class="col">
-                <div class="fs-3 fw-bold text-warning">@Model.DuplicateCount</div>
-                <div class="text-muted">Duplicates Skipped</div>
+                <div class="fs-3 fw-bold" style="color: var(--pl-warning)">@Model.DuplicateCount</div>
+                <div class="text-muted small">Duplicates Skipped</div>
             </div>
             <div class="col">
-                <div class="fs-3 fw-bold text-danger">@Model.ErrorCount</div>
-                <div class="text-muted">Errors</div>
+                <div class="fs-3 fw-bold text-negative">@Model.ErrorCount</div>
+                <div class="text-muted small">Errors</div>
             </div>
             <div class="col">
-                <div class="fs-3 fw-bold text-info">@Model.CategorizedCount</div>
-                <div class="text-muted">Auto-Categorized</div>
+                <div class="fs-3 fw-bold" style="color: var(--pl-info)">@Model.CategorizedCount</div>
+                <div class="text-muted small">Auto-Categorized</div>
             </div>
         </div>
     </div>
@@ -39,7 +43,7 @@
         <div class="card-header text-danger">Errors</div>
         <div class="card-body p-0">
             <table class="table table-sm mb-0">
-                <thead class="table-light">
+                <thead>
                     <tr>
                         <th>Row</th>
                         <th>Error</th>
@@ -59,5 +63,7 @@
     </div>
 }
 
-<a asp-action="Index" class="btn btn-primary">View Transactions</a>
-<a asp-action="Import" class="btn btn-outline-secondary ms-2">Import Another</a>
+<div class="d-flex gap-2">
+    <a asp-action="Index" class="btn btn-primary">View Transactions</a>
+    <a asp-action="Import" class="btn btn-outline-secondary">Import Another</a>
+</div>

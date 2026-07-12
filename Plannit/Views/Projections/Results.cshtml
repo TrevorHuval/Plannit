@@ -3,30 +3,30 @@
     ViewData["Title"] = Model.ScenarioName + " — Results";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <h1>@Model.ScenarioName</h1>
-    <div>
+    <div class="page-actions">
         <a asp-action="Edit" asp-route-id="@Model.ScenarioId" class="btn btn-outline-secondary">Edit Assumptions</a>
         <a asp-action="Index" class="btn btn-outline-secondary">All Scenarios</a>
     </div>
 </div>
 
-<div class="row mb-4">
+<div class="row g-3 mb-4">
     <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h6 class="card-subtitle text-muted mb-2">Balance at Retirement (Age @Model.RetirementAge)</h6>
-                <h3 class="text-primary">@Model.Result.RetirementBalance.ToString("C0")</h3>
+        <div class="card">
+            <div class="pl-stat-card">
+                <div class="stat-label">Balance at Retirement (Age @Model.RetirementAge)</div>
+                <div class="stat-value" style="color: var(--pl-primary)">@Model.Result.RetirementBalance.ToString("C0")</div>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h6 class="card-subtitle text-muted mb-2">
+        <div class="card">
+            <div class="pl-stat-card">
+                <div class="stat-label">
                     @(Model.Result.DepletionAge.HasValue ? "Money Runs Out" : "Surplus at Death")
-                </h6>
-                <h3 class="@(Model.Result.DepletionAge.HasValue ? "text-danger" : "text-success")">
+                </div>
+                <div class="stat-value @(Model.Result.DepletionAge.HasValue ? "negative" : "positive")">
                     @if (Model.Result.DepletionAge.HasValue)
                     {
                         @:Age @Model.Result.DepletionAge
@@ -35,23 +35,23 @@
                     {
                         @Model.Result.SurplusAtDeath.ToString("C0")
                     }
-                </h3>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h6 class="card-subtitle text-muted mb-2">Safe Spending (4% Rule)</h6>
-                <h3>@Model.Result.SafeSpendingEstimate.ToString("C0")<small class="text-muted">/yr</small></h3>
+        <div class="card">
+            <div class="pl-stat-card">
+                <div class="stat-label">Safe Spending (4% Rule)</div>
+                <div class="stat-value">@Model.Result.SafeSpendingEstimate.ToString("C0")<small class="text-muted">/yr</small></div>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h6 class="card-subtitle text-muted mb-2">Planned Spending</h6>
-                <h3>@Model.AnnualRetirementSpending.ToString("C0")<small class="text-muted">/yr</small></h3>
+        <div class="card">
+            <div class="pl-stat-card">
+                <div class="stat-label">Planned Spending</div>
+                <div class="stat-value">@Model.AnnualRetirementSpending.ToString("C0")<small class="text-muted">/yr</small></div>
             </div>
         </div>
     </div>
@@ -72,7 +72,9 @@
         <h5 class="mb-0">Projected Balances by Account Over Time</h5>
     </div>
     <div class="card-body">
-        <canvas id="projectionChart" height="400"></canvas>
+        <div class="pl-chart-container">
+            <canvas id="projectionChart" height="400"></canvas>
+        </div>
     </div>
 </div>
 
@@ -83,7 +85,7 @@
     <div class="card-body p-0">
         <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
             <table class="table table-hover table-sm mb-0">
-                <thead class="table-light" style="position: sticky; top: 0;">
+                <thead style="position: sticky; top: 0; z-index: 1;">
                     <tr>
                         <th>Age</th>
                         <th>Year</th>
@@ -117,7 +119,10 @@
 @section Scripts {
     <script src="~/lib/chart.js/chart.umd.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        (function () {
+            var c = PlChart.getColors();
+            var palette = PlChart.palette;
+
             var snapshots = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
                 Model.Result.YearlySnapshots.Select(s => new {
                     age = s.Age,
@@ -129,37 +134,25 @@
             var accounts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
                 Model.Accounts.Select(a => new { id = a.Id, name = a.Name })));
 
-            var colors = [
-                'rgba(78, 121, 167, 0.7)',
-                'rgba(242, 142, 43, 0.7)',
-                'rgba(89, 161, 79, 0.7)',
-                'rgba(225, 87, 89, 0.7)',
-                'rgba(118, 183, 178, 0.7)',
-                'rgba(237, 201, 72, 0.7)',
-                'rgba(176, 122, 161, 0.7)',
-                'rgba(156, 117, 95, 0.7)'
-            ];
-
-            var borderColors = colors.map(c => c.replace('0.7', '1'));
-
             var datasets = accounts.map(function (acct, i) {
+                var color = palette[i % palette.length];
                 return {
                     label: acct.name,
                     data: snapshots.map(function (s) { return s.balances[acct.id] || 0; }),
-                    backgroundColor: colors[i % colors.length],
-                    borderColor: borderColors[i % borderColors.length],
+                    backgroundColor: color + '66',
+                    borderColor: color,
                     borderWidth: 1,
                     fill: true
                 };
             });
 
             var retirementAge = @Model.RetirementAge;
-            var retirementIdx = snapshots.findIndex(s => s.age === retirementAge);
+            var retirementIdx = snapshots.findIndex(function (s) { return s.age === retirementAge; });
 
-            new Chart(document.getElementById('projectionChart'), {
+            var chart = new Chart(document.getElementById('projectionChart'), {
                 type: 'line',
                 data: {
-                    labels: snapshots.map(s => 'Age ' + s.age),
+                    labels: snapshots.map(function (s) { return 'Age ' + s.age; }),
                     datasets: datasets
                 },
                 options: {
@@ -167,58 +160,50 @@
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
+                        legend: {
+                            labels: { color: c.textMuted }
+                        },
                         tooltip: {
                             callbacks: {
                                 label: function (ctx) {
                                     return ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString(undefined, { maximumFractionDigits: 0 });
                                 },
                                 footer: function (tooltipItems) {
-                                    var total = tooltipItems.reduce((a, b) => a + b.parsed.y, 0);
+                                    var total = tooltipItems.reduce(function (a, b) { return a + b.parsed.y; }, 0);
                                     return 'Total: $' + total.toLocaleString(undefined, { maximumFractionDigits: 0 });
                                 }
                             }
-                        },
-                        annotation: retirementIdx >= 0 ? {
-                            annotations: {
-                                retirementLine: {
-                                    type: 'line',
-                                    xMin: retirementIdx,
-                                    xMax: retirementIdx,
-                                    borderColor: '#dc3545',
-                                    borderWidth: 2,
-                                    borderDash: [6, 6],
-                                    label: {
-                                        content: 'Retirement',
-                                        enabled: true,
-                                        position: 'start'
-                                    }
-                                }
-                            }
-                        } : {}
+                        }
                     },
                     scales: {
-                        x: {
+                        x: Object.assign(PlChart.defaultScaleOptions(), {
                             ticks: {
+                                color: c.textMuted,
                                 maxTicksLimit: 15,
                                 callback: function (value, index) {
                                     return snapshots[index].age % 5 === 0 ? 'Age ' + snapshots[index].age : '';
                                 }
                             }
-                        },
-                        y: {
+                        }),
+                        y: Object.assign(PlChart.defaultScaleOptions(), {
                             stacked: true,
                             beginAtZero: true,
                             ticks: {
+                                color: c.textMuted,
                                 callback: function (value) {
                                     if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M';
                                     if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'K';
                                     return '$' + value;
                                 }
                             }
-                        }
+                        })
                     }
                 }
             });
-        });
+
+            document.addEventListener('themechanged', function () {
+                PlChart.applyTheme(chart);
+            });
+        })();
     </script>
 }

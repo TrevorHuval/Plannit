@@ -3,50 +3,58 @@
     ViewData["Title"] = "Create Rule from Transaction";
 }
 
-<h1>Create Rule from Transaction</h1>
+<div class="page-header">
+    <h1>Create Rule from Transaction</h1>
+</div>
 <p class="text-muted">Transaction: <strong>@Model.Description</strong></p>
 
 <div class="row">
     <div class="col-md-6">
-        <form asp-action="CreateRuleFromTransaction" method="post">
-            @Html.AntiForgeryToken()
-            <input type="hidden" asp-for="TransactionId" />
-            <input type="hidden" asp-for="Description" />
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="card">
+            <div class="card-body">
+                <form asp-action="CreateRuleFromTransaction" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="TransactionId" />
+                    <input type="hidden" asp-for="Description" />
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-            <div class="mb-3">
-                <label asp-for="MatchText" class="form-label">Match Text</label>
-                <input asp-for="MatchText" class="form-control" />
-                <span asp-validation-for="MatchText" class="text-danger"></span>
-                <small class="text-muted">Text to match in transaction descriptions. Pre-filled from this transaction.</small>
+                    <div class="mb-3">
+                        <label asp-for="MatchText" class="form-label">Match Text</label>
+                        <input asp-for="MatchText" class="form-control" />
+                        <span asp-validation-for="MatchText" class="text-danger"></span>
+                        <div class="form-text">Text to match in transaction descriptions. Pre-filled from this transaction.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="MatchType" class="form-label">Match Type</label>
+                        <select asp-for="MatchType" asp-items="Html.GetEnumSelectList<Plannit.Models.Entities.MatchType>()" class="form-select"></select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="CategoryId" class="form-label">Category</label>
+                        <select asp-for="CategoryId" class="form-select">
+                            <option value="">Select category...</option>
+                            @foreach (var c in Model.Categories)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </select>
+                        <span asp-validation-for="CategoryId" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Priority" class="form-label">Priority</label>
+                        <input asp-for="Priority" type="number" class="form-control" />
+                        <div class="form-text">Higher priority rules are applied first.</div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Create Rule & Categorize</button>
+                        <a asp-controller="Transactions" asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
             </div>
-
-            <div class="mb-3">
-                <label asp-for="MatchType" class="form-label">Match Type</label>
-                <select asp-for="MatchType" asp-items="Html.GetEnumSelectList<Plannit.Models.Entities.MatchType>()" class="form-select"></select>
-            </div>
-
-            <div class="mb-3">
-                <label asp-for="CategoryId" class="form-label">Category</label>
-                <select asp-for="CategoryId" class="form-select">
-                    <option value="">Select category...</option>
-                    @foreach (var c in Model.Categories)
-                    {
-                        <option value="@c.Id">@c.Name</option>
-                    }
-                </select>
-                <span asp-validation-for="CategoryId" class="text-danger"></span>
-            </div>
-
-            <div class="mb-3">
-                <label asp-for="Priority" class="form-label">Priority</label>
-                <input asp-for="Priority" type="number" class="form-control" />
-                <small class="text-muted">Higher priority rules are applied first.</small>
-            </div>
-
-            <button type="submit" class="btn btn-primary">Create Rule & Categorize</button>
-            <a asp-controller="Transactions" asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
-        </form>
+        </div>
     </div>
 </div>
 

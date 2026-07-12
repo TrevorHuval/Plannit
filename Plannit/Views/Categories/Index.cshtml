@@ -3,61 +3,70 @@
     ViewData["Title"] = "Categories";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <h1>Categories</h1>
-    <div>
-        <a asp-action="Rules" class="btn btn-outline-secondary me-2">Manage Rules</a>
-        <a asp-action="Create" class="btn btn-primary">Add Category</a>
+    <div class="page-actions">
+        <a asp-action="Rules" class="btn btn-outline-secondary"><i class="bi bi-sliders"></i> Manage Rules</a>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Category</a>
     </div>
 </div>
 
 @if (!Model.Categories.Any())
 {
-    <div class="alert alert-info">No categories yet. Categories are created automatically on first login, or you can add one manually.</div>
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-tags"></i></div>
+            <h4>No categories yet</h4>
+            <p>Categories are created automatically on first login, or you can add one manually.</p>
+            <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Category</a>
+        </div>
+    </div>
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead class="table-light">
-                <tr>
-                    <th>Name</th>
-                    <th>Parent</th>
-                    <th class="text-center">Rules</th>
-                    <th class="text-center">Transactions</th>
-                    <th>Type</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var c in Model.Categories)
-                {
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
                     <tr>
-                        <td>@c.Name</td>
-                        <td>@(c.ParentName ?? "—")</td>
-                        <td class="text-center">@c.RuleCount</td>
-                        <td class="text-center">@c.TransactionCount</td>
-                        <td>
-                            @if (c.IsSystem)
-                            {
-                                <span class="badge bg-secondary">System</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-primary">Custom</span>
-                            }
-                        </td>
-                        <td class="text-end">
-                            <a asp-action="Edit" asp-route-id="@c.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
-                            <form asp-action="Delete" asp-route-id="@c.Id" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="btn btn-sm btn-outline-danger"
-                                        onclick="return confirm('Delete this category? Transactions will become uncategorized.')">Del</button>
-                            </form>
-                        </td>
+                        <th>Name</th>
+                        <th>Parent</th>
+                        <th class="text-center">Rules</th>
+                        <th class="text-center">Transactions</th>
+                        <th>Type</th>
+                        <th></th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var c in Model.Categories)
+                    {
+                        <tr>
+                            <td>@c.Name</td>
+                            <td class="text-muted">@(c.ParentName ?? "—")</td>
+                            <td class="text-center">@c.RuleCount</td>
+                            <td class="text-center">@c.TransactionCount</td>
+                            <td>
+                                @if (c.IsSystem)
+                                {
+                                    <span class="badge bg-secondary">System</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-primary">Custom</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <a asp-action="Edit" asp-route-id="@c.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                <form asp-action="Delete" asp-route-id="@c.Id" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('Delete this category? Transactions will become uncategorized.')">Del</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 }

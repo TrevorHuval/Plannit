@@ -3,46 +3,54 @@
     ViewData["Title"] = "Add Rule";
 }
 
-<h1>Add Category Rule</h1>
+<div class="page-header">
+    <h1>Add Category Rule</h1>
+</div>
 
 <div class="row">
     <div class="col-md-6">
-        <form asp-action="CreateRule" method="post">
-            @Html.AntiForgeryToken()
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="card">
+            <div class="card-body">
+                <form asp-action="CreateRule" method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-            <div class="mb-3">
-                <label asp-for="MatchText" class="form-label">Match Text</label>
-                <input asp-for="MatchText" class="form-control" />
-                <span asp-validation-for="MatchText" class="text-danger"></span>
+                    <div class="mb-3">
+                        <label asp-for="MatchText" class="form-label">Match Text</label>
+                        <input asp-for="MatchText" class="form-control" />
+                        <span asp-validation-for="MatchText" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="MatchType" class="form-label">Match Type</label>
+                        <select asp-for="MatchType" asp-items="Html.GetEnumSelectList<Plannit.Models.Entities.MatchType>()" class="form-select"></select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="CategoryId" class="form-label">Category</label>
+                        <select asp-for="CategoryId" class="form-select">
+                            <option value="">Select category...</option>
+                            @foreach (var c in Model.Categories)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </select>
+                        <span asp-validation-for="CategoryId" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Priority" class="form-label">Priority</label>
+                        <input asp-for="Priority" type="number" class="form-control" />
+                        <div class="form-text">Higher priority rules are applied first.</div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Create Rule</button>
+                        <a asp-action="Rules" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
             </div>
-
-            <div class="mb-3">
-                <label asp-for="MatchType" class="form-label">Match Type</label>
-                <select asp-for="MatchType" asp-items="Html.GetEnumSelectList<Plannit.Models.Entities.MatchType>()" class="form-select"></select>
-            </div>
-
-            <div class="mb-3">
-                <label asp-for="CategoryId" class="form-label">Category</label>
-                <select asp-for="CategoryId" class="form-select">
-                    <option value="">Select category...</option>
-                    @foreach (var c in Model.Categories)
-                    {
-                        <option value="@c.Id">@c.Name</option>
-                    }
-                </select>
-                <span asp-validation-for="CategoryId" class="text-danger"></span>
-            </div>
-
-            <div class="mb-3">
-                <label asp-for="Priority" class="form-label">Priority</label>
-                <input asp-for="Priority" type="number" class="form-control" />
-                <small class="text-muted">Higher priority rules are applied first.</small>
-            </div>
-
-            <button type="submit" class="btn btn-primary">Create Rule</button>
-            <a asp-action="Rules" class="btn btn-outline-secondary">Cancel</a>
-        </form>
+        </div>
     </div>
 </div>
 
