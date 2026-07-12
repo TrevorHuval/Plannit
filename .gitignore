@@ -489,3 +489,7 @@ $RECYCLE.BIN/
 # Uploaded statement files staged during CSV/PDF import (may contain real financial data)
 TempUploads/
 
+# Claude Code files (kept locally only)
+.claude/
+CLAUDE.md
+
