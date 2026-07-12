@@ -46,7 +46,7 @@ public class AccountService
 
     public async Task<bool> UpdateAsync(int id, string name, AccountType type, string? institution)
     {
-        var account = await _db.Accounts.FindAsync(id);
+        var account = await _db.Accounts.FirstOrDefaultAsync(a => a.Id == id);
         if (account is null) return false;
 
         account.Name = name;
@@ -58,7 +58,7 @@ public class AccountService
 
     public async Task<bool> DeactivateAsync(int id)
     {
-        var account = await _db.Accounts.FindAsync(id);
+        var account = await _db.Accounts.FirstOrDefaultAsync(a => a.Id == id);
         if (account is null) return false;
 
         account.IsActive = false;
@@ -91,7 +91,7 @@ public class AccountService
 
     public async Task<bool> DeleteSnapshotAsync(int snapshotId)
     {
-        var snapshot = await _db.BalanceSnapshots.FindAsync(snapshotId);
+        var snapshot = await _db.BalanceSnapshots.FirstOrDefaultAsync(s => s.Id == snapshotId);
         if (snapshot is null) return false;
 
         _db.BalanceSnapshots.Remove(snapshot);

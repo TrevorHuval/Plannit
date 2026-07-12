@@ -78,7 +78,7 @@ public class TransactionService
 
     public async Task<bool> UpdateAsync(int id, int accountId, DateOnly date, decimal amount, string description)
     {
-        var transaction = await _db.Transactions.FindAsync(id);
+        var transaction = await _db.Transactions.FirstOrDefaultAsync(t => t.Id == id);
         if (transaction is null) return false;
 
         transaction.AccountId = accountId;
@@ -91,7 +91,7 @@ public class TransactionService
 
     public async Task<bool> DeleteAsync(int id)
     {
-        var transaction = await _db.Transactions.FindAsync(id);
+        var transaction = await _db.Transactions.FirstOrDefaultAsync(t => t.Id == id);
         if (transaction is null) return false;
 
         _db.Transactions.Remove(transaction);

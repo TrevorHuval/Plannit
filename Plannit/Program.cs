@@ -75,6 +75,18 @@ app.UseAuthorization();
 
 app.Use(async (context, next) =>
 {
+    if (context.Request.Path.StartsWithSegments("/Identity/Account/Register"))
+    {
+        var config = context.RequestServices.GetRequiredService<IConfiguration>();
+        var allowRegistration = config.GetValue("AllowRegistration", true);
+        if (!allowRegistration)
+        {
+            context.Response.StatusCode = 403;
+            await context.Response.WriteAsync("Registration is disabled.");
+            return;
+        }
+    }
+
     var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
     if (userId is not null)
     {
@@ -93,6 +105,15 @@ app.MapControllerRoute(
 
 app.MapRazorPages()
    .WithStaticAssets();
+
+if (!app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate();
+}
+
+CleanupOldTempUploads(app.Environment.ContentRootPath);
 
 if (app.Environment.IsDevelopment())
 {
@@ -192,5 +213,20 @@ static async Task SeedDevDataAsync(IServiceProvider services)
         await db.SaveChangesAsync();
 
         await categorizationService.ApplyRulesToUncategorizedAsync();
+    }
+}
+
+static void CleanupOldTempUploads(string contentRootPath)
+{
+    var tempDir = Path.Combine(contentRootPath, "TempUploads");
+    if (!Directory.Exists(tempDir)) return;
+
+    var cutoff = DateTime.UtcNow.AddHours(-24);
+    foreach (var file in Directory.GetFiles(tempDir))
+    {
+        if (File.GetCreationTimeUtc(file) < cutoff)
+        {
+            try { File.Delete(file); } catch { }
+        }
     }
 }

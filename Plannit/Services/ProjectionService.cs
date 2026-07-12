@@ -51,7 +51,7 @@ public class ProjectionService
 
     public async Task DeleteScenarioAsync(int id)
     {
-        var scenario = await _db.ProjectionScenarios.FindAsync(id);
+        var scenario = await _db.ProjectionScenarios.FirstOrDefaultAsync(s => s.Id == id);
         if (scenario is not null)
         {
             _db.ProjectionScenarios.Remove(scenario);

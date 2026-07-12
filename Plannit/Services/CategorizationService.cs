@@ -46,7 +46,7 @@ public class CategorizationService
 
     public async Task<bool> UpdateCategoryAsync(int id, string name, int? parentId)
     {
-        var category = await _db.Categories.FindAsync(id);
+        var category = await _db.Categories.FirstOrDefaultAsync(c => c.Id == id);
         if (category is null) return false;
 
         category.Name = name;
@@ -103,7 +103,7 @@ public class CategorizationService
 
     public async Task<bool> UpdateRuleAsync(int id, string matchText, MatchType matchType, int categoryId, int priority)
     {
-        var rule = await _db.CategoryRules.FindAsync(id);
+        var rule = await _db.CategoryRules.FirstOrDefaultAsync(r => r.Id == id);
         if (rule is null) return false;
 
         rule.MatchText = matchText;
@@ -116,7 +116,7 @@ public class CategorizationService
 
     public async Task<bool> DeleteRuleAsync(int id)
     {
-        var rule = await _db.CategoryRules.FindAsync(id);
+        var rule = await _db.CategoryRules.FirstOrDefaultAsync(r => r.Id == id);
         if (rule is null) return false;
 
         _db.CategoryRules.Remove(rule);
@@ -126,7 +126,7 @@ public class CategorizationService
 
     public async Task<int> CategorizeTransactionAsync(int transactionId, int? categoryId)
     {
-        var txn = await _db.Transactions.FindAsync(transactionId);
+        var txn = await _db.Transactions.FirstOrDefaultAsync(t => t.Id == transactionId);
         if (txn is null) return 0;
 
         txn.CategoryId = categoryId;

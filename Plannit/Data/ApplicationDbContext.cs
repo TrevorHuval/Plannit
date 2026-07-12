@@ -36,6 +36,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasIndex(s => new { s.AccountId, s.Date }).IsUnique();
             e.Property(s => s.Balance).HasColumnType("decimal(18,2)");
             e.HasOne(s => s.Account).WithMany(a => a.Snapshots).HasForeignKey(s => s.AccountId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(s => _currentUserId == null || s.Account.UserId == _currentUserId);
         });
 
         builder.Entity<Transaction>(e =>
@@ -48,17 +49,20 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasOne(t => t.Account).WithMany().HasForeignKey(t => t.AccountId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(t => t.Category).WithMany(c => c.Transactions).HasForeignKey(t => t.CategoryId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(t => t.ImportBatch).WithMany(b => b.Transactions).HasForeignKey(t => t.ImportBatchId).OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(t => _currentUserId == null || t.Account.UserId == _currentUserId);
         });
 
         builder.Entity<ImportBatch>(e =>
         {
             e.HasOne(b => b.Account).WithMany().HasForeignKey(b => b.AccountId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(b => _currentUserId == null || b.Account.UserId == _currentUserId);
         });
 
         builder.Entity<ImportProfile>(e =>
         {
             e.HasIndex(p => p.AccountId).IsUnique();
             e.HasOne(p => p.Account).WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(p => _currentUserId == null || p.Account.UserId == _currentUserId);
         });
 
         builder.Entity<Category>(e =>
@@ -94,6 +98,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.Property(a => a.ExpectedReturnRate).HasColumnType("decimal(5,4)");
             e.HasOne(a => a.Scenario).WithMany(s => s.AccountAssumptions).HasForeignKey(a => a.ScenarioId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(a => a.Account).WithMany().HasForeignKey(a => a.AccountId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(a => _currentUserId == null || a.Scenario.UserId == _currentUserId);
         });
     }
 }

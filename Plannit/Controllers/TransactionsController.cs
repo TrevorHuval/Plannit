@@ -142,6 +142,7 @@ public class TransactionsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<IActionResult> Import(ImportUploadViewModel model)
     {
         if (model.Files.Count == 0)
@@ -264,8 +265,15 @@ public class TransactionsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<IActionResult> ConfirmImport(ImportMapViewModel model)
     {
+        if (!Guid.TryParse(model.TempFileId, out _))
+        {
+            TempData["Error"] = "Invalid file reference. Please re-upload the file.";
+            return RedirectToAction(nameof(Import));
+        }
+
         if (string.IsNullOrEmpty(model.AmountColumn) &&
             (string.IsNullOrEmpty(model.DebitColumn) || string.IsNullOrEmpty(model.CreditColumn)))
         {
