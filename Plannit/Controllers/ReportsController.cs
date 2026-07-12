@@ -57,7 +57,8 @@ public class ReportsController : Controller
             SpendByCategory = await _reportsService.GetSpendByCategoryAsync(startDate!.Value, endDate!.Value),
             MonthlyHistory = await _reportsService.GetMonthlySpendHistoryAsync(),
             IncomeExpense = await _reportsService.GetIncomeExpenseSummaryAsync(startDate!.Value, endDate!.Value),
-            TopMerchants = await _reportsService.GetTopMerchantsAsync(startDate!.Value, endDate!.Value)
+            TopMerchants = await _reportsService.GetTopMerchantsAsync(startDate!.Value, endDate!.Value),
+            TransfersSanity = await _reportsService.GetTransfersSanityAsync(startDate!.Value, endDate!.Value)
         };
 
         return View(vm);

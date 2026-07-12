@@ -66,14 +66,19 @@ public class AccountService
         return true;
     }
 
-    public async Task<BalanceSnapshot> AddSnapshotAsync(int accountId, DateOnly date, decimal balance)
+    public async Task<BalanceSnapshot?> AddSnapshotAsync(int accountId, DateOnly date, decimal balance)
     {
+        var account = await _db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+        if (account is null) return null;
+
+        var normalizedBalance = AccountConventions.NormalizeSnapshotBalance(account.Type, balance);
+
         var existing = await _db.BalanceSnapshots
             .FirstOrDefaultAsync(s => s.AccountId == accountId && s.Date == date);
 
         if (existing is not null)
         {
-            existing.Balance = balance;
+            existing.Balance = normalizedBalance;
             await _db.SaveChangesAsync();
             return existing;
         }
@@ -82,11 +87,32 @@ public class AccountService
         {
             AccountId = accountId,
             Date = date,
-            Balance = balance
+            Balance = normalizedBalance
         };
         _db.BalanceSnapshots.Add(snapshot);
         await _db.SaveChangesAsync();
         return snapshot;
+    }
+
+    public async Task<int> RepairLiabilitySnapshotSignsAsync()
+    {
+        var negativeSnapshots = await _db.BalanceSnapshots
+            .Include(s => s.Account)
+            .Where(s => s.Balance < 0)
+            .ToListAsync();
+
+        var changed = 0;
+        foreach (var snapshot in negativeSnapshots)
+        {
+            if (!NetWorthService.IsLiability(snapshot.Account.Type)) continue;
+            snapshot.Balance = Math.Abs(snapshot.Balance);
+            changed++;
+        }
+
+        if (changed > 0)
+            await _db.SaveChangesAsync();
+
+        return changed;
     }
 
     public async Task<bool> DeleteSnapshotAsync(int snapshotId)

@@ -32,4 +32,7 @@ public class ImportMapViewModel
     [Required]
     [Display(Name = "Description Column")]
     public string DescriptionColumn { get; set; } = null!;
+
+    [Display(Name = "This export shows charges as positive — flip signs")]
+    public bool InvertAmounts { get; set; }
 }

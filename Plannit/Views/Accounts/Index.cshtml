@@ -48,10 +48,15 @@ else
                                     <a asp-action="Details" asp-route-id="@account.Id">@account.Name</a>
                                 </td>
                                 <td class="text-muted">@(account.Institution ?? "—")</td>
-                                <td class="text-end">
+                                @{ var isLiability = Plannit.Services.NetWorthService.IsLiability(account.Type); }
+                                <td class="text-end @(isLiability ? "text-negative" : "")">
                                     @if (account.LatestBalance.HasValue)
                                     {
                                         @account.LatestBalance.Value.ToString("C")
+                                        @if (isLiability)
+                                        {
+                                            <span class="badge bg-negative-subtle text-negative ms-1">Debt</span>
+                                        }
                                     }
                                     else
                                     {

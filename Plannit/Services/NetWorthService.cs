@@ -26,7 +26,7 @@ public class NetWorthService
         {
             var latest = a.Snapshots.MaxBy(s => s.Date);
             if (latest is null) return 0m;
-            return IsLiability(a.Type) ? -latest.Balance : latest.Balance;
+            return AccountConventions.SignedBalance(a.Type, latest.Balance);
         });
     }
 
@@ -76,9 +76,7 @@ public class NetWorthService
 
                 if (snapshotAtOrBefore is null) continue;
 
-                netWorth += IsLiability(account.Type)
-                    ? -snapshotAtOrBefore.Balance
-                    : snapshotAtOrBefore.Balance;
+                netWorth += AccountConventions.SignedBalance(account.Type, snapshotAtOrBefore.Balance);
             }
             history.Add((date, netWorth));
         }
@@ -102,9 +100,7 @@ public class NetWorthService
 
             if (snapshotAtOrBefore is null) continue;
 
-            netWorth += IsLiability(account.Type)
-                ? -snapshotAtOrBefore.Balance
-                : snapshotAtOrBefore.Balance;
+            netWorth += AccountConventions.SignedBalance(account.Type, snapshotAtOrBefore.Balance);
         }
         return netWorth;
     }

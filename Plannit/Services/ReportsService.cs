@@ -86,6 +86,21 @@ public class ReportsService
         };
     }
 
+    public async Task<TransfersSanityResult> GetTransfersSanityAsync(DateOnly startDate, DateOnly endDate)
+    {
+        var transfers = await _db.Transactions
+            .Include(t => t.Category)
+            .Where(t => t.Date >= startDate && t.Date <= endDate)
+            .Where(t => t.Category != null && t.Category.Name == TransfersCategoryName)
+            .ToListAsync();
+
+        return new TransfersSanityResult
+        {
+            NetAmount = transfers.Sum(t => t.Amount),
+            TransactionCount = transfers.Count
+        };
+    }
+
     public async Task<List<MerchantSpend>> GetTopMerchantsAsync(DateOnly startDate, DateOnly endDate, int count = 10)
     {
         var transactions = await _db.Transactions
@@ -142,4 +157,11 @@ public class MerchantSpend
     public string MerchantName { get; set; } = null!;
     public decimal Total { get; set; }
     public int TransactionCount { get; set; }
+}
+
+public class TransfersSanityResult
+{
+    public decimal NetAmount { get; set; }
+    public int TransactionCount { get; set; }
+    public bool IsBalanced => Math.Abs(NetAmount) < 1.00m;
 }

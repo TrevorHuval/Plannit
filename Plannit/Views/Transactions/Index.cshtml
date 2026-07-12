@@ -24,6 +24,25 @@
         </a>
         <a asp-action="Import" class="btn btn-outline-primary"><i class="bi bi-upload"></i> Import</a>
         <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Transaction</a>
+        @if (Model.AccountId.HasValue)
+        {
+            var selectedAccount = Model.Accounts.FirstOrDefault(a => a.Id == Model.AccountId);
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-tools"></i> Account Tools
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <form asp-action="InvertAccountSigns" method="post"
+                              onsubmit="return confirm('Flip the sign of every transaction in @(selectedAccount?.Name)? Use this if a whole statement was imported with reversed polarity.');">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="accountId" value="@Model.AccountId" />
+                            <button type="submit" class="dropdown-item">Invert all transaction signs</button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        }
     </div>
 </div>
 

@@ -106,8 +106,25 @@ else
             <div class="card h-100">
                 <div class="pl-stat-card">
                     <div class="stat-label">Asset Allocation</div>
-                    <div class="pl-chart-container" style="max-height: 180px;">
+                    <div class="pl-chart-container" style="max-height: 140px;">
                         <canvas id="allocationChart"></canvas>
+                    </div>
+                    <div class="mt-2">
+                        @foreach (var t in Model.TypeTotals)
+                        {
+                            <div class="d-flex justify-content-between small">
+                                <span>
+                                    @t.TypeDisplayName
+                                    @if (t.IsLiability)
+                                    {
+                                        <span class="badge bg-negative-subtle text-negative">Debt</span>
+                                    }
+                                </span>
+                                <span class="@(t.IsLiability ? "text-negative" : "")">
+                                    @(t.IsLiability ? "−" : "")@t.Total.ToString("C")
+                                </span>
+                            </div>
+                        }
                     </div>
                 </div>
             </div>

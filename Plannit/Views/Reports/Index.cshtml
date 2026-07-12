@@ -81,6 +81,29 @@
     </div>
 </div>
 
+@if (Model.TransfersSanity.TransactionCount > 0)
+{
+    <div class="alert @(Model.TransfersSanity.IsBalanced ? "alert-success" : "alert-warning") d-flex justify-content-between align-items-center mb-4">
+        <div>
+            @if (Model.TransfersSanity.IsBalanced)
+            {
+                <i class="bi bi-check-circle me-1"></i>
+                <text>Transfers balance out for @Model.DateRangeLabel &mdash; net @Model.TransfersSanity.NetAmount.ToString("C") across @Model.TransfersSanity.TransactionCount transaction(s).</text>
+            }
+            else
+            {
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                <text>Transfers don't balance by @Math.Abs(Model.TransfersSanity.NetAmount).ToString("C") for @Model.DateRangeLabel &mdash; likely an uncategorized or sign-flipped payment.</text>
+            }
+        </div>
+        <a asp-controller="Transactions" asp-action="Index"
+           asp-route-categoryId="-1"
+           asp-route-startDate="@Model.StartDate.ToString("yyyy-MM-dd")"
+           asp-route-endDate="@Model.EndDate.ToString("yyyy-MM-dd")"
+           class="btn btn-sm btn-outline-secondary text-nowrap ms-3">Review Uncategorized</a>
+    </div>
+}
+
 <div class="row g-4 mb-4">
     <div class="col-md-6">
         <div class="card">

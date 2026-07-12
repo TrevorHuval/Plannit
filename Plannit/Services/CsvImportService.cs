@@ -51,7 +51,8 @@ public class CsvImportService
     }
 
     public async Task SaveProfileAsync(int accountId, string dateColumn, string dateFormat,
-        string? amountColumn, string? debitColumn, string? creditColumn, string descriptionColumn)
+        string? amountColumn, string? debitColumn, string? creditColumn, string descriptionColumn,
+        bool invertAmounts)
     {
         var profile = await _db.ImportProfiles.FirstOrDefaultAsync(p => p.AccountId == accountId);
         if (profile is null)
@@ -66,12 +67,48 @@ public class CsvImportService
         profile.DebitColumn = debitColumn;
         profile.CreditColumn = creditColumn;
         profile.DescriptionColumn = descriptionColumn;
+        profile.InvertAmounts = invertAmounts;
         await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Heuristically guesses whether an unmapped CSV's amount column shows charges as positive
+    /// (inverted relative to this app's convention) by scanning preview rows for the column that
+    /// parses as decimal most often, then checking whether most of its values are positive.
+    /// </summary>
+    public bool SuggestInvertAmounts(bool accountIsLiability, List<string> headers, List<List<string>> previewRows)
+    {
+        if (!accountIsLiability || previewRows.Count == 0) return false;
+
+        var bestColumn = -1;
+        var bestParsed = 0;
+        for (var col = 0; col < headers.Count; col++)
+        {
+            var parsed = previewRows.Count(row => col < row.Count && TryParseAmount(row[col], out _));
+            if (parsed > bestParsed)
+            {
+                bestParsed = parsed;
+                bestColumn = col;
+            }
+        }
+
+        if (bestColumn < 0 || bestParsed == 0) return false;
+
+        var total = 0;
+        var positive = 0;
+        foreach (var row in previewRows)
+        {
+            if (bestColumn >= row.Count || !TryParseAmount(row[bestColumn], out var amount)) continue;
+            total++;
+            if (amount > 0) positive++;
+        }
+
+        return total > 0 && positive > total / 2.0;
     }
 
     public async Task<ImportResultViewModel> ImportAsync(Stream csvStream, int accountId, string fileName,
         string dateColumn, string dateFormat, string? amountColumn, string? debitColumn, string? creditColumn,
-        string descriptionColumn)
+        string descriptionColumn, bool invertAmounts = false)
     {
         var result = new ImportResultViewModel { FileName = fileName };
 
@@ -152,6 +189,8 @@ public class CsvImportService
 
                     amount = credit - debit;
                 }
+
+                if (invertAmounts) amount = -amount;
 
                 var originalDesc = csv.GetField(descriptionColumn) ?? "";
                 var description = originalDesc.Trim();

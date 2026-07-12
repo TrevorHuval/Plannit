@@ -181,10 +181,20 @@ public class CategorizationService
         }
     }
 
+    private static readonly string[] TransferPaymentPhrasings =
+    [
+        "Transfer", "Zelle", "Venmo", "Payment From", "Payment To",
+        "Payment to Chase card", "AUTOMATIC PAYMENT", "PAYMENT THANK YOU",
+        "DIRECTPAY", "Online payment", "ACH DEPOSIT INTERNET TRANSFER"
+    ];
+
     public async Task EnsureDefaultCategoriesAsync(string userId)
     {
         if (await _db.Categories.AnyAsync())
+        {
+            await EnsureTransferRulesAsync(userId);
             return;
+        }
 
         var defaults = new (string Name, string[] RuleTexts)[]
         {
@@ -199,7 +209,7 @@ public class CategorizationService
             ("Insurance", ["Insurance", "Geico", "State Farm", "Allstate"]),
             ("Healthcare", ["Pharmacy", "CVS", "Walgreens", "Doctor", "Hospital", "Dentist"]),
             ("Income", ["Payroll", "Direct Deposit", "Salary"]),
-            ("Transfers", ["Transfer", "Zelle", "Venmo", "Payment From", "Payment To"]),
+            ("Transfers", TransferPaymentPhrasings),
             ("Interest & Fees", ["Interest", "Fee", "Dividend"]),
         };
 
@@ -228,6 +238,43 @@ public class CategorizationService
             }
             await _db.SaveChangesAsync();
         }
+    }
+
+    /// <summary>
+    /// Tops up the Transfers category's default rule set for users who were seeded before
+    /// the common payment phrasings (AUTOMATIC PAYMENT, DIRECTPAY, etc.) were added.
+    /// </summary>
+    private async Task EnsureTransferRulesAsync(string userId)
+    {
+        var transfers = await _db.Categories.FirstOrDefaultAsync(c => c.UserId == userId && c.Name == "Transfers");
+        if (transfers is null) return;
+
+        var existingRuleTexts = await _db.CategoryRules
+            .Where(r => r.CategoryId == transfers.Id)
+            .Select(r => r.MatchText)
+            .ToListAsync();
+
+        var missing = TransferPaymentPhrasings
+            .Where(text => !existingRuleTexts.Contains(text, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        if (missing.Count == 0) return;
+
+        var maxPriority = existingRuleTexts.Count > 0
+            ? await _db.CategoryRules.Where(r => r.CategoryId == transfers.Id).MaxAsync(r => r.Priority)
+            : 100;
+
+        foreach (var text in missing)
+        {
+            _db.CategoryRules.Add(new CategoryRule
+            {
+                UserId = userId,
+                MatchText = text,
+                MatchType = MatchType.Contains,
+                CategoryId = transfers.Id,
+                Priority = ++maxPriority
+            });
+        }
+        await _db.SaveChangesAsync();
     }
 
     private static CategoryRule? FindMatchingRule(string description, string? originalDescription, List<CategoryRule> rules)

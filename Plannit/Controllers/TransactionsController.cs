@@ -201,7 +201,7 @@ public class TransactionsController : Controller
                     var result = await _csvImportService.ImportAsync(stream, model.AccountId, file.FileName,
                         profile.DateColumn, profile.DateFormat,
                         profile.AmountColumn, profile.DebitColumn, profile.CreditColumn,
-                        profile.DescriptionColumn);
+                        profile.DescriptionColumn, profile.InvertAmounts);
                     result.AccountName = account.Name;
                     multiResult.FileResults.Add(result);
                 }
@@ -254,7 +254,8 @@ public class TransactionsController : Controller
                 FileName = first.FileName,
                 TempFileId = first.TempFileId,
                 AvailableColumns = headers,
-                PreviewRows = previewRows
+                PreviewRows = previewRows,
+                InvertAmounts = _csvImportService.SuggestInvertAmounts(NetWorthService.IsLiability(account.Type), headers, previewRows)
             };
 
             return View("MapColumns", mapVm);
@@ -307,14 +308,15 @@ public class TransactionsController : Controller
         }
 
         await _csvImportService.SaveProfileAsync(model.AccountId, model.DateColumn, model.DateFormat,
-            model.AmountColumn, model.DebitColumn, model.CreditColumn, model.DescriptionColumn);
+            model.AmountColumn, model.DebitColumn, model.CreditColumn, model.DescriptionColumn,
+            model.InvertAmounts);
 
         ImportResultViewModel result;
         using (var stream = new FileStream(tempFilePath, FileMode.Open, FileAccess.Read))
         {
             result = await _csvImportService.ImportAsync(stream, model.AccountId, model.FileName,
                 model.DateColumn, model.DateFormat, model.AmountColumn, model.DebitColumn,
-                model.CreditColumn, model.DescriptionColumn);
+                model.CreditColumn, model.DescriptionColumn, model.InvertAmounts);
         }
 
         try { System.IO.File.Delete(tempFilePath); } catch { }
@@ -357,6 +359,7 @@ public class TransactionsController : Controller
                 var (headers, previewRows) = _csvImportService.ReadPreview(readStream);
 
                 var profile = await _csvImportService.GetProfileAsync(next.AccountId);
+                var nextAccount = await _accountService.GetByIdAsync(next.AccountId);
 
                 var mapVm = new ImportMapViewModel
                 {
@@ -376,6 +379,12 @@ public class TransactionsController : Controller
                     mapVm.DebitColumn = profile.DebitColumn;
                     mapVm.CreditColumn = profile.CreditColumn;
                     mapVm.DescriptionColumn = profile.DescriptionColumn;
+                    mapVm.InvertAmounts = profile.InvertAmounts;
+                }
+                else
+                {
+                    mapVm.InvertAmounts = _csvImportService.SuggestInvertAmounts(
+                        nextAccount is not null && NetWorthService.IsLiability(nextAccount.Type), headers, previewRows);
                 }
 
                 return View("MapColumns", mapVm);
@@ -445,6 +454,15 @@ public class TransactionsController : Controller
         var count = await _dataService.BulkDeleteAsync(transactionIds);
         TempData["Message"] = $"Deleted {count} transaction{(count != 1 ? "s" : "")}.";
         return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> InvertAccountSigns(int accountId)
+    {
+        var count = await _dataService.InvertAccountTransactionSignsAsync(accountId);
+        TempData["Message"] = $"Inverted the sign on {count} transaction{(count != 1 ? "s" : "")}.";
+        return RedirectToAction(nameof(Index), new { accountId });
     }
 
     [HttpPost]

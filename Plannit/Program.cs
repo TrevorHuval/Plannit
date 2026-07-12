@@ -116,6 +116,8 @@ if (!app.Environment.IsDevelopment())
     db.Database.Migrate();
 }
 
+await RepairLiabilitySnapshotSignsAsync(app.Services, app.Logger);
+
 CleanupOldTempUploads(app.Environment.ContentRootPath);
 
 if (app.Environment.IsDevelopment())
@@ -217,6 +219,15 @@ static async Task SeedDevDataAsync(IServiceProvider services)
 
         await categorizationService.ApplyRulesToUncategorizedAsync();
     }
+}
+
+static async Task RepairLiabilitySnapshotSignsAsync(IServiceProvider services, ILogger logger)
+{
+    using var scope = services.CreateScope();
+    var accountService = scope.ServiceProvider.GetRequiredService<AccountService>();
+    var repaired = await accountService.RepairLiabilitySnapshotSignsAsync();
+    if (repaired > 0)
+        logger.LogInformation("Repaired sign on {Count} liability balance snapshot(s).", repaired);
 }
 
 static void CleanupOldTempUploads(string contentRootPath)

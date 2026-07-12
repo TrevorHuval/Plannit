@@ -10,6 +10,7 @@ public class ImportProfile
     public string? DebitColumn { get; set; }
     public string? CreditColumn { get; set; }
     public string DescriptionColumn { get; set; } = null!;
+    public bool InvertAmounts { get; set; }
 
     public Account Account { get; set; } = null!;
 }

@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = Model.Name;
     var addSnapshot = (Plannit.Models.ViewModels.AddSnapshotViewModel)ViewBag.AddSnapshot;
+    var isLiability = Plannit.Services.NetWorthService.IsLiability(Model.Type);
 }
 
 <div class="page-header">
@@ -9,6 +10,10 @@
         <h1>@Model.Name</h1>
         <div class="mt-1">
             <span class="badge bg-secondary">@Model.TypeDisplayName</span>
+            @if (isLiability)
+            {
+                <span class="badge bg-negative-subtle text-negative">Debt</span>
+            }
             @if (!string.IsNullOrEmpty(Model.Institution))
             {
                 <span class="text-muted ms-2">@Model.Institution</span>
@@ -53,7 +58,7 @@
                             {
                                 <tr>
                                     <td>@snapshot.Date.ToString("MMM d, yyyy")</td>
-                                    <td class="text-end">@snapshot.Balance.ToString("C")</td>
+                                    <td class="text-end @(isLiability ? "text-negative" : "")">@snapshot.Balance.ToString("C")</td>
                                     <td class="text-end">
                                         <form asp-action="DeleteSnapshot" method="post" class="d-inline"
                                               onsubmit="return confirm('Delete this snapshot?');">

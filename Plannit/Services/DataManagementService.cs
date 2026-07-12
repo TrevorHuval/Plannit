@@ -158,6 +158,23 @@ public class DataManagementService
         });
     }
 
+    public async Task<int> InvertAccountTransactionSignsAsync(int accountId)
+    {
+        var transactions = await _db.Transactions.Where(t => t.AccountId == accountId).ToListAsync();
+
+        foreach (var txn in transactions)
+        {
+            txn.Amount = -txn.Amount;
+            if (txn.ImportHash is not null)
+                txn.ImportHash = CsvImportService.ComputeImportHash(txn.AccountId, txn.Date, txn.Amount, txn.OriginalDescription ?? txn.Description);
+        }
+
+        if (transactions.Count > 0)
+            await _db.SaveChangesAsync();
+
+        return transactions.Count;
+    }
+
     public async Task<int> BulkSetCategoryAsync(List<int> transactionIds, int categoryId)
     {
         var count = await _db.Transactions

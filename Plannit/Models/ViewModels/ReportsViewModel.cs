@@ -26,4 +26,5 @@ public class ReportsViewModel
     public List<MonthlySpend> MonthlyHistory { get; set; } = new();
     public IncomeExpenseSummary IncomeExpense { get; set; } = null!;
     public List<MerchantSpend> TopMerchants { get; set; } = new();
+    public TransfersSanityResult TransfersSanity { get; set; } = null!;
 }
