@@ -1,4 +1,5 @@
 using Plannit.Models.Entities;
+using Plannit.Services;
 
 namespace Plannit.Models.ViewModels;
 
@@ -8,6 +9,8 @@ public class DashboardViewModel
     public required List<TypeTotalViewModel> TypeTotals { get; set; }
     public required List<NetWorthPointViewModel> NetWorthHistory { get; set; }
     public bool HasAccounts { get; set; }
+    public List<BudgetStatus> BudgetAlerts { get; set; } = new();
+    public List<RecurringGroup> UpcomingRecurring { get; set; } = new();
 }
 
 public class TypeTotalViewModel

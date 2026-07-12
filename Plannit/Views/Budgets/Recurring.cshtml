@@ -1,0 +1,85 @@
+@model Plannit.Models.ViewModels.RecurringIndexViewModel
+@{
+    ViewData["Title"] = "Recurring Transactions";
+}
+
+<div class="page-header">
+    <h1>Recurring Transactions</h1>
+</div>
+
+@if (!Model.RecurringGroups.Any())
+{
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-arrow-repeat"></i></div>
+            <h4>No recurring transactions detected</h4>
+            <p>Import more transaction history to enable automatic detection of subscriptions and recurring bills.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="pl-stat-card">
+                    <div class="stat-label">Subscriptions Detected</div>
+                    <div class="stat-value">@Model.RecurringGroups.Count</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="pl-stat-card">
+                    <div class="stat-label">Monthly Cost</div>
+                    <div class="stat-value negative">
+                        @Model.RecurringGroups.Where(g => g.Cadence == Plannit.Services.RecurringCadence.Monthly).Sum(g => g.AverageAmount).ToString("C")
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="pl-stat-card">
+                    <div class="stat-label">Annualized Total</div>
+                    <div class="stat-value negative">@Model.AnnualizedTotal.ToString("C")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Detected Subscriptions &amp; Bills</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Cadence</th>
+                        <th class="text-end">Avg Amount</th>
+                        <th class="text-end">Annual Cost</th>
+                        <th>Last Seen</th>
+                        <th>Next Expected</th>
+                        <th class="text-end">Occurrences</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var group in Model.RecurringGroups)
+                    {
+                        <tr>
+                            <td>@group.Description</td>
+                            <td><span class="badge bg-secondary">@group.CadenceLabel</span></td>
+                            <td class="text-end">@group.AverageAmount.ToString("C")</td>
+                            <td class="text-end">@group.AnnualizedCost.ToString("C")</td>
+                            <td>@group.LastSeen.ToString("MMM d, yyyy")</td>
+                            <td>@group.NextExpected.ToString("MMM d, yyyy")</td>
+                            <td class="text-end">@group.OccurrenceCount</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

@@ -15,6 +15,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CategoryRule> CategoryRules => Set<CategoryRule>();
     public DbSet<ProjectionScenario> ProjectionScenarios => Set<ProjectionScenario>();
     public DbSet<ProjectionAccountAssumption> ProjectionAccountAssumptions => Set<ProjectionAccountAssumption>();
+    public DbSet<Budget> Budgets => Set<Budget>();
 
     private string? _currentUserId;
 
@@ -99,6 +100,15 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasOne(a => a.Scenario).WithMany(s => s.AccountAssumptions).HasForeignKey(a => a.ScenarioId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(a => a.Account).WithMany().HasForeignKey(a => a.AccountId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(a => _currentUserId == null || a.Scenario.UserId == _currentUserId);
+        });
+
+        builder.Entity<Budget>(e =>
+        {
+            e.HasIndex(b => new { b.UserId, b.CategoryId }).IsUnique();
+            e.Property(b => b.MonthlyAmount).HasColumnType("decimal(18,2)");
+            e.HasOne(b => b.User).WithMany().HasForeignKey(b => b.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(b => b.Category).WithMany().HasForeignKey(b => b.CategoryId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(b => _currentUserId == null || b.UserId == _currentUserId);
         });
     }
 }

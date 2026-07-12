@@ -57,6 +57,16 @@
                 <i class="bi bi-calculator"></i>
                 <span class="nav-label">Projections</span>
             </a>
+            <a asp-controller="Budgets" asp-action="Index"
+               class="pl-nav-link @(controller == "Budgets" ? "active" : "")">
+                <i class="bi bi-piggy-bank"></i>
+                <span class="nav-label">Budgets</span>
+            </a>
+            <a asp-controller="Budgets" asp-action="Recurring"
+               class="pl-nav-link @(controller == "Budgets" && ViewContext.RouteData.Values["action"]?.ToString() == "Recurring" ? "active" : "")">
+                <i class="bi bi-arrow-repeat"></i>
+                <span class="nav-label">Recurring</span>
+            </a>
             <a asp-controller="Categories" asp-action="Index"
                class="pl-nav-link @(controller == "Categories" ? "active" : "")">
                 <i class="bi bi-tags"></i>

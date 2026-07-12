@@ -27,6 +27,8 @@ builder.Services.AddScoped<OfxImportService>();
 builder.Services.AddScoped<CategorizationService>();
 builder.Services.AddScoped<ReportsService>();
 builder.Services.AddScoped<ProjectionService>();
+builder.Services.AddScoped<BudgetService>();
+builder.Services.AddScoped<RecurringDetectionService>();
 
 var dataProtectionKeyPath = builder.Configuration["DataProtection:KeyPath"];
 if (!string.IsNullOrEmpty(dataProtectionKeyPath))

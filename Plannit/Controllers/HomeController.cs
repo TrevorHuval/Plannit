@@ -11,10 +11,17 @@ namespace Plannit.Controllers;
 public class HomeController : Controller
 {
     private readonly NetWorthService _netWorthService;
+    private readonly BudgetService _budgetService;
+    private readonly RecurringDetectionService _recurringService;
 
-    public HomeController(NetWorthService netWorthService)
+    public HomeController(
+        NetWorthService netWorthService,
+        BudgetService budgetService,
+        RecurringDetectionService recurringService)
     {
         _netWorthService = netWorthService;
+        _budgetService = budgetService;
+        _recurringService = recurringService;
     }
 
     public async Task<IActionResult> Index()
@@ -22,6 +29,8 @@ public class HomeController : Controller
         var netWorth = await _netWorthService.GetCurrentNetWorthAsync();
         var typeTotals = await _netWorthService.GetTotalsByTypeAsync();
         var history = await _netWorthService.GetNetWorthHistoryAsync();
+        var budgetAlerts = await _budgetService.GetTopBudgetAlertsAsync(3);
+        var upcomingRecurring = await _recurringService.GetUpcomingAsync(7);
 
         var vm = new DashboardViewModel
         {
@@ -40,7 +49,9 @@ public class HomeController : Controller
             {
                 Date = h.Date.ToString("yyyy-MM-dd"),
                 NetWorth = h.NetWorth
-            }).ToList()
+            }).ToList(),
+            BudgetAlerts = budgetAlerts,
+            UpcomingRecurring = upcomingRecurring
         };
 
         return View(vm);
