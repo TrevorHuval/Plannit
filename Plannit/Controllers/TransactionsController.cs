@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Plannit.Models.ViewModels;
@@ -13,6 +14,9 @@ public class TransactionsController : Controller
     private readonly AccountService _accountService;
     private readonly CsvImportService _csvImportService;
     private readonly OfxImportService _ofxImportService;
+    private readonly PositionsCsvImportService _positionsCsvImportService;
+    private readonly PdfStatementService _pdfStatementService;
+    private readonly SnapshotImportService _snapshotImportService;
     private readonly CategorizationService _categorizationService;
     private readonly DataManagementService _dataService;
     private readonly string _tempUploadPath;
@@ -22,6 +26,9 @@ public class TransactionsController : Controller
         AccountService accountService,
         CsvImportService csvImportService,
         OfxImportService ofxImportService,
+        PositionsCsvImportService positionsCsvImportService,
+        PdfStatementService pdfStatementService,
+        SnapshotImportService snapshotImportService,
         CategorizationService categorizationService,
         DataManagementService dataService,
         IWebHostEnvironment env)
@@ -30,6 +37,9 @@ public class TransactionsController : Controller
         _accountService = accountService;
         _csvImportService = csvImportService;
         _ofxImportService = ofxImportService;
+        _positionsCsvImportService = positionsCsvImportService;
+        _pdfStatementService = pdfStatementService;
+        _snapshotImportService = snapshotImportService;
         _categorizationService = categorizationService;
         _dataService = dataService;
         _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
@@ -169,9 +179,9 @@ public class TransactionsController : Controller
         foreach (var file in model.Files)
         {
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (ext is not ".csv" and not ".ofx" and not ".qfx")
+            if (ext is not ".csv" and not ".ofx" and not ".qfx" and not ".pdf")
             {
-                ModelState.AddModelError(nameof(model.Files), $"Unsupported file format: {file.FileName}. Supported: CSV, OFX, QFX.");
+                ModelState.AddModelError(nameof(model.Files), $"Unsupported file format: {file.FileName}. Supported: CSV, OFX, QFX, PDF.");
                 var accounts = await _accountService.GetAllAsync();
                 model.Accounts = accounts.Select(a => new AccountOption { Id = a.Id, Name = a.Name }).ToList();
                 return View(model);
@@ -179,7 +189,8 @@ public class TransactionsController : Controller
         }
 
         var multiResult = new MultiImportResultViewModel { AccountName = account.Name };
-        var csvsPendingMapping = new List<CsvPendingMapViewModel>();
+        var pendingQueue = new List<PendingImportItemViewModel>();
+        Directory.CreateDirectory(_tempUploadPath);
 
         foreach (var file in model.Files)
         {
@@ -192,8 +203,42 @@ public class TransactionsController : Controller
                 result.AccountName = account.Name;
                 multiResult.FileResults.Add(result);
             }
+            else if (ext == ".pdf")
+            {
+                var tempId = await SaveTempFileAsync(file, ".pdf");
+                pendingQueue.Add(new PendingImportItemViewModel
+                {
+                    Kind = "PdfStatement",
+                    FileName = file.FileName,
+                    TempFileId = tempId,
+                    TempFileExtension = ".pdf",
+                    AccountId = model.AccountId,
+                    AccountName = account.Name
+                });
+            }
             else
             {
+                List<string> headers;
+                using (var peekStream = file.OpenReadStream())
+                {
+                    (headers, _) = _csvImportService.ReadPreview(peekStream);
+                }
+
+                if (model.PositionsStatement || PositionsCsvImportService.LooksLikePositionsExport(headers))
+                {
+                    var tempId = await SaveTempFileAsync(file, ".csv");
+                    pendingQueue.Add(new PendingImportItemViewModel
+                    {
+                        Kind = "PositionsCsv",
+                        FileName = file.FileName,
+                        TempFileId = tempId,
+                        TempFileExtension = ".csv",
+                        AccountId = model.AccountId,
+                        AccountName = account.Name
+                    });
+                    continue;
+                }
+
                 var profile = await _csvImportService.GetProfileAsync(model.AccountId);
                 if (profile is not null)
                 {
@@ -207,17 +252,13 @@ public class TransactionsController : Controller
                 }
                 else
                 {
-                    Directory.CreateDirectory(_tempUploadPath);
-                    var tempId = Guid.NewGuid().ToString();
-                    var tempPath = Path.Combine(_tempUploadPath, tempId + ".csv");
-                    using (var stream = new FileStream(tempPath, FileMode.Create))
+                    var tempId = await SaveTempFileAsync(file, ".csv");
+                    pendingQueue.Add(new PendingImportItemViewModel
                     {
-                        await file.CopyToAsync(stream);
-                    }
-                    csvsPendingMapping.Add(new CsvPendingMapViewModel
-                    {
+                        Kind = "CsvMap",
                         FileName = file.FileName,
                         TempFileId = tempId,
+                        TempFileExtension = ".csv",
                         AccountId = model.AccountId,
                         AccountName = account.Name
                     });
@@ -225,7 +266,7 @@ public class TransactionsController : Controller
             }
         }
 
-        if (csvsPendingMapping.Count > 0)
+        if (pendingQueue.Count > 0)
         {
             if (multiResult.FileResults.Count > 0)
             {
@@ -233,41 +274,17 @@ public class TransactionsController : Controller
                 multiResult.CategorizedCount = categorized;
             }
 
-            multiResult.CsvsPendingMapping = csvsPendingMapping;
-            TempData["MultiImportResults"] = System.Text.Json.JsonSerializer.Serialize(multiResult.FileResults);
+            TempData["MultiImportResults"] = JsonSerializer.Serialize(multiResult.FileResults);
             TempData["MultiImportAccountName"] = account.Name;
 
-            var first = csvsPendingMapping[0];
-            var remainingJson = csvsPendingMapping.Count > 1
-                ? System.Text.Json.JsonSerializer.Serialize(csvsPendingMapping.Skip(1).ToList())
-                : null;
-            if (remainingJson != null)
-                TempData["RemainingCsvs"] = remainingJson;
+            var first = pendingQueue[0];
+            if (pendingQueue.Count > 1)
+                TempData["PendingImportQueue"] = JsonSerializer.Serialize(pendingQueue.Skip(1).ToList());
 
-            using var readStream = new FileStream(Path.Combine(_tempUploadPath, first.TempFileId + ".csv"), FileMode.Open, FileAccess.Read);
-            var (headers, previewRows) = _csvImportService.ReadPreview(readStream);
-
-            var mapVm = new ImportMapViewModel
-            {
-                AccountId = first.AccountId,
-                AccountName = first.AccountName,
-                FileName = first.FileName,
-                TempFileId = first.TempFileId,
-                AvailableColumns = headers,
-                PreviewRows = previewRows,
-                InvertAmounts = _csvImportService.SuggestInvertAmounts(NetWorthService.IsLiability(account.Type), headers, previewRows)
-            };
-
-            return View("MapColumns", mapVm);
+            return await ShowPendingItemAsync(first);
         }
 
-        if (multiResult.FileResults.Any(r => r.ImportedCount > 0))
-        {
-            var categorized = await _categorizationService.ApplyRulesToUncategorizedAsync();
-            multiResult.CategorizedCount = categorized;
-        }
-
-        return View("MultiImportResult", multiResult);
+        return await FinalizeMultiImportAsync(multiResult.FileResults, account.Name, model.AccountId);
     }
 
     [HttpPost]
@@ -324,49 +341,112 @@ public class TransactionsController : Controller
         var account = await _accountService.GetByIdAsync(model.AccountId);
         result.AccountName = account?.Name ?? "Unknown";
 
-        var priorResultsJson = TempData["MultiImportResults"] as string;
-        var remainingCsvsJson = TempData["RemainingCsvs"] as string;
-        var multiAccountName = TempData["MultiImportAccountName"] as string;
+        return await ContinueImportChainAsync(result, model.AccountId);
+    }
 
-        var allResults = new List<ImportResultViewModel>();
-        if (priorResultsJson != null)
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ConfirmSnapshotImport(SnapshotConfirmViewModel model)
+    {
+        if (!ModelState.IsValid)
         {
-            var prior = System.Text.Json.JsonSerializer.Deserialize<List<ImportResultViewModel>>(priorResultsJson);
-            if (prior != null) allResults.AddRange(prior);
+            return View("ConfirmSnapshot", model);
         }
-        allResults.Add(result);
 
-        if (!string.IsNullOrEmpty(remainingCsvsJson))
+        var snapshot = await _snapshotImportService.UpsertSnapshotAsync(model.AccountId, model.AsOfDate, model.Balance);
+
+        if (!string.IsNullOrEmpty(model.TempFileId) && !string.IsNullOrEmpty(model.TempFileExtension))
         {
-            var remaining = System.Text.Json.JsonSerializer.Deserialize<List<CsvPendingMapViewModel>>(remainingCsvsJson);
-            if (remaining != null && remaining.Count > 0)
+            var tempPath = Path.Combine(_tempUploadPath, model.TempFileId + model.TempFileExtension);
+            try { System.IO.File.Delete(tempPath); } catch { }
+        }
+
+        var result = new ImportResultViewModel
+        {
+            AccountName = model.AccountName,
+            FileName = model.FileName,
+            SnapshotOnly = true,
+            SnapshotUpdated = snapshot is not null,
+            SnapshotBalance = snapshot?.Balance,
+            SnapshotDate = snapshot?.Date
+        };
+
+        return await ContinueImportChainAsync(result, model.AccountId);
+    }
+
+    private async Task<string> SaveTempFileAsync(IFormFile file, string extension)
+    {
+        var tempId = Guid.NewGuid().ToString();
+        var tempPath = Path.Combine(_tempUploadPath, tempId + extension);
+        using (var stream = new FileStream(tempPath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+        return tempId;
+    }
+
+    private async Task<IActionResult> ShowPendingItemAsync(PendingImportItemViewModel item)
+    {
+        var tempPath = Path.Combine(_tempUploadPath, item.TempFileId + item.TempFileExtension);
+        if (!System.IO.File.Exists(tempPath))
+        {
+            TempData["Error"] = $"Upload expired for {item.FileName}. Please re-upload.";
+            return RedirectToAction(nameof(Import));
+        }
+
+        switch (item.Kind)
+        {
+            case "PositionsCsv":
             {
-                TempData["MultiImportResults"] = System.Text.Json.JsonSerializer.Serialize(allResults);
-                TempData["MultiImportAccountName"] = multiAccountName;
-
-                var next = remaining[0];
-                if (remaining.Count > 1)
-                    TempData["RemainingCsvs"] = System.Text.Json.JsonSerializer.Serialize(remaining.Skip(1).ToList());
-
-                var nextTempPath = Path.Combine(_tempUploadPath, next.TempFileId + ".csv");
-                if (!System.IO.File.Exists(nextTempPath))
+                using var stream = new FileStream(tempPath, FileMode.Open, FileAccess.Read);
+                var preview = _positionsCsvImportService.Parse(stream);
+                return View("ConfirmSnapshot", new SnapshotConfirmViewModel
                 {
-                    TempData["Error"] = "Upload expired for " + next.FileName + ". Please re-upload.";
-                    return RedirectToAction(nameof(Import));
-                }
-
-                using var readStream = new FileStream(nextTempPath, FileMode.Open, FileAccess.Read);
-                var (headers, previewRows) = _csvImportService.ReadPreview(readStream);
-
-                var profile = await _csvImportService.GetProfileAsync(next.AccountId);
-                var nextAccount = await _accountService.GetByIdAsync(next.AccountId);
+                    AccountId = item.AccountId,
+                    AccountName = item.AccountName,
+                    FileName = item.FileName,
+                    TempFileId = item.TempFileId,
+                    TempFileExtension = item.TempFileExtension,
+                    SourceType = "PositionsCsv",
+                    AsOfDate = preview.AsOfDate,
+                    Balance = preview.Total,
+                    BalanceFound = preview.Success,
+                    DateFound = preview.DateFromFile,
+                    Positions = preview.Positions
+                });
+            }
+            case "PdfStatement":
+            {
+                using var stream = new FileStream(tempPath, FileMode.Open, FileAccess.Read);
+                var preview = _pdfStatementService.Parse(stream);
+                return View("ConfirmSnapshot", new SnapshotConfirmViewModel
+                {
+                    AccountId = item.AccountId,
+                    AccountName = item.AccountName,
+                    FileName = item.FileName,
+                    TempFileId = item.TempFileId,
+                    TempFileExtension = item.TempFileExtension,
+                    SourceType = "PdfStatement",
+                    AsOfDate = preview.AsOfDate ?? DateOnly.FromDateTime(DateTime.Today),
+                    Balance = preview.Balance ?? 0,
+                    BalanceFound = preview.Balance.HasValue,
+                    DateFound = preview.AsOfDate.HasValue,
+                    ExtractedText = preview.ExtractedText
+                });
+            }
+            default: // "CsvMap"
+            {
+                using var stream = new FileStream(tempPath, FileMode.Open, FileAccess.Read);
+                var (headers, previewRows) = _csvImportService.ReadPreview(stream);
+                var profile = await _csvImportService.GetProfileAsync(item.AccountId);
+                var account = await _accountService.GetByIdAsync(item.AccountId);
 
                 var mapVm = new ImportMapViewModel
                 {
-                    AccountId = next.AccountId,
-                    AccountName = next.AccountName,
-                    FileName = next.FileName,
-                    TempFileId = next.TempFileId,
+                    AccountId = item.AccountId,
+                    AccountName = item.AccountName,
+                    FileName = item.FileName,
+                    TempFileId = item.TempFileId,
                     AvailableColumns = headers,
                     PreviewRows = previewRows
                 };
@@ -384,25 +464,76 @@ public class TransactionsController : Controller
                 else
                 {
                     mapVm.InvertAmounts = _csvImportService.SuggestInvertAmounts(
-                        nextAccount is not null && NetWorthService.IsLiability(nextAccount.Type), headers, previewRows);
+                        account is not null && NetWorthService.IsLiability(account.Type), headers, previewRows);
                 }
 
                 return View("MapColumns", mapVm);
             }
         }
+    }
 
+    private async Task<IActionResult> ContinueImportChainAsync(ImportResultViewModel newResult, int accountId)
+    {
+        var priorResultsJson = TempData["MultiImportResults"] as string;
+        var queueJson = TempData["PendingImportQueue"] as string;
+        var multiAccountName = TempData["MultiImportAccountName"] as string;
+
+        var allResults = new List<ImportResultViewModel>();
+        if (priorResultsJson != null)
+        {
+            var prior = JsonSerializer.Deserialize<List<ImportResultViewModel>>(priorResultsJson);
+            if (prior != null) allResults.AddRange(prior);
+        }
+        allResults.Add(newResult);
+
+        if (!string.IsNullOrEmpty(queueJson))
+        {
+            var remaining = JsonSerializer.Deserialize<List<PendingImportItemViewModel>>(queueJson);
+            if (remaining != null && remaining.Count > 0)
+            {
+                TempData["MultiImportResults"] = JsonSerializer.Serialize(allResults);
+                TempData["MultiImportAccountName"] = multiAccountName;
+
+                var next = remaining[0];
+                if (remaining.Count > 1)
+                    TempData["PendingImportQueue"] = JsonSerializer.Serialize(remaining.Skip(1).ToList());
+
+                return await ShowPendingItemAsync(next);
+            }
+        }
+
+        return await FinalizeMultiImportAsync(allResults, multiAccountName ?? newResult.AccountName, accountId);
+    }
+
+    private async Task<IActionResult> FinalizeMultiImportAsync(List<ImportResultViewModel> results, string accountName, int accountId)
+    {
         var categorized = 0;
-        if (allResults.Any(r => r.ImportedCount > 0))
+        if (results.Any(r => r.ImportedCount > 0))
         {
             categorized = await _categorizationService.ApplyRulesToUncategorizedAsync();
         }
 
         var multiResult = new MultiImportResultViewModel
         {
-            AccountName = multiAccountName ?? result.AccountName,
-            FileResults = allResults,
+            AccountName = accountName,
+            FileResults = results,
             CategorizedCount = categorized
         };
+
+        if (results.Any(r => r.ImportedCount > 0))
+        {
+            var account = await _accountService.GetByIdAsync(accountId);
+            var latestSnapshotDate = account?.Snapshots.MaxBy(s => s.Date)?.Date;
+            var newestTxnDate = await _transactionService.GetLatestTransactionDateAsync(accountId);
+
+            if (newestTxnDate.HasValue && (latestSnapshotDate is null || latestSnapshotDate < newestTxnDate))
+            {
+                multiResult.ShowSnapshotNudge = true;
+                multiResult.NudgeAccountId = accountId;
+                multiResult.NudgeLatestSnapshotDate = latestSnapshotDate;
+                multiResult.NudgeNewestTransactionDate = newestTxnDate.Value;
+            }
+        }
 
         return View("MultiImportResult", multiResult);
     }

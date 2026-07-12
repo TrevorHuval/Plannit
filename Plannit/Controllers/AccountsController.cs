@@ -117,11 +117,17 @@ public class AccountsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddSnapshot(AddSnapshotViewModel model)
+    public async Task<IActionResult> AddSnapshot(AddSnapshotViewModel model, string? returnUrl)
     {
-        if (!ModelState.IsValid) return RedirectToAction(nameof(Details), new { id = model.AccountId });
+        if (!ModelState.IsValid)
+        {
+            if (!string.IsNullOrEmpty(returnUrl)) return LocalRedirect(returnUrl);
+            return RedirectToAction(nameof(Details), new { id = model.AccountId });
+        }
 
         await _accountService.AddSnapshotAsync(model.AccountId, model.Date, model.Balance);
+
+        if (!string.IsNullOrEmpty(returnUrl)) return LocalRedirect(returnUrl);
         return RedirectToAction(nameof(Details), new { id = model.AccountId });
     }
 

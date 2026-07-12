@@ -486,3 +486,6 @@ $RECYCLE.BIN/
 *.db-shm
 *.db-wal
 
+# Uploaded statement files staged during CSV/PDF import (may contain real financial data)
+TempUploads/
+

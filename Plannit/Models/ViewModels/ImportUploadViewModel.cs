@@ -13,5 +13,8 @@ public class ImportUploadViewModel
     [Display(Name = "Statement Files")]
     public List<IFormFile> Files { get; set; } = new();
 
+    [Display(Name = "This upload is a positions/holdings statement (not transactions)")]
+    public bool PositionsStatement { get; set; }
+
     public List<AccountOption> Accounts { get; set; } = new();
 }

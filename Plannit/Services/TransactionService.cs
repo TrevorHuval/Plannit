@@ -54,6 +54,14 @@ public class TransactionService
         return (items, totalCount);
     }
 
+    public async Task<DateOnly?> GetLatestTransactionDateAsync(int accountId)
+    {
+        return await _db.Transactions
+            .Where(t => t.AccountId == accountId)
+            .Select(t => (DateOnly?)t.Date)
+            .MaxAsync();
+    }
+
     public async Task<Transaction?> GetByIdAsync(int id)
     {
         return await _db.Transactions

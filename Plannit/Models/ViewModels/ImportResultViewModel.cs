@@ -10,6 +10,11 @@ public class ImportResultViewModel
     public int ErrorCount { get; set; }
     public int CategorizedCount { get; set; }
     public List<ImportRowError> Errors { get; set; } = new();
+
+    public bool SnapshotOnly { get; set; }
+    public bool SnapshotUpdated { get; set; }
+    public decimal? SnapshotBalance { get; set; }
+    public DateOnly? SnapshotDate { get; set; }
 }
 
 public class ImportRowError
@@ -26,15 +31,11 @@ public class MultiImportResultViewModel
     public int TotalDuplicates => FileResults.Sum(r => r.DuplicateCount);
     public int TotalErrors => FileResults.Sum(r => r.ErrorCount);
     public int TotalRows => FileResults.Sum(r => r.TotalRows);
+    public int SnapshotsUpdated => FileResults.Count(r => r.SnapshotUpdated);
     public int CategorizedCount { get; set; }
 
-    public List<CsvPendingMapViewModel> CsvsPendingMapping { get; set; } = new();
-}
-
-public class CsvPendingMapViewModel
-{
-    public string FileName { get; set; } = null!;
-    public string TempFileId { get; set; } = null!;
-    public int AccountId { get; set; }
-    public string AccountName { get; set; } = null!;
+    public bool ShowSnapshotNudge { get; set; }
+    public int NudgeAccountId { get; set; }
+    public DateOnly? NudgeLatestSnapshotDate { get; set; }
+    public DateOnly NudgeNewestTransactionDate { get; set; }
 }

@@ -33,9 +33,38 @@
                 <div class="fs-3 fw-bold" style="color: var(--pl-info)">@Model.CategorizedCount</div>
                 <div class="text-muted small">Auto-Categorized</div>
             </div>
+            <div class="col">
+                <div class="fs-3 fw-bold" style="color: var(--pl-info)">@Model.SnapshotsUpdated</div>
+                <div class="text-muted small">Snapshots Updated</div>
+            </div>
         </div>
     </div>
 </div>
+
+@if (Model.ShowSnapshotNudge)
+{
+    <div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            Snapshot is older than these transactions
+            @if (Model.NudgeLatestSnapshotDate.HasValue)
+            {
+                <text> (last updated @Model.NudgeLatestSnapshotDate.Value.ToString("MMM d, yyyy"))</text>
+            }
+            else
+            {
+                <text> (no snapshot on file yet)</text>
+            }
+            — update it?
+        </div>
+        <form asp-controller="Accounts" asp-action="AddSnapshot" method="post" class="d-flex gap-2 align-items-center flex-wrap">
+            <input type="hidden" name="AccountId" value="@Model.NudgeAccountId" />
+            <input type="hidden" name="returnUrl" value="@Url.Action("Index", "Transactions", new { accountId = Model.NudgeAccountId })" />
+            <input type="date" name="Date" class="form-control form-control-sm" value="@Model.NudgeNewestTransactionDate.ToString("yyyy-MM-dd")" style="width:160px" />
+            <input type="number" step="0.01" name="Balance" class="form-control form-control-sm" placeholder="Balance" style="width:120px" required />
+            <button type="submit" class="btn btn-sm btn-primary">Update Snapshot</button>
+        </form>
+    </div>
+}
 
 @if (Model.FileResults.Count > 1)
 {
@@ -53,6 +82,7 @@
                             <th class="text-end">Imported</th>
                             <th class="text-end">Duplicates</th>
                             <th class="text-end">Errors</th>
+                            <th class="text-end">Snapshot</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -60,16 +90,43 @@
                         {
                             <tr>
                                 <td>@file.FileName</td>
-                                <td class="text-end">@file.TotalRows</td>
-                                <td class="text-end text-positive">@file.ImportedCount</td>
-                                <td class="text-end" style="color: var(--pl-warning)">@file.DuplicateCount</td>
-                                <td class="text-end text-negative">@file.ErrorCount</td>
+                                @if (file.SnapshotOnly)
+                                {
+                                    <td class="text-end text-muted">&mdash;</td>
+                                    <td class="text-end text-muted">&mdash;</td>
+                                    <td class="text-end text-muted">&mdash;</td>
+                                    <td class="text-end text-muted">&mdash;</td>
+                                }
+                                else
+                                {
+                                    <td class="text-end">@file.TotalRows</td>
+                                    <td class="text-end text-positive">@file.ImportedCount</td>
+                                    <td class="text-end" style="color: var(--pl-warning)">@file.DuplicateCount</td>
+                                    <td class="text-end text-negative">@file.ErrorCount</td>
+                                }
+                                <td class="text-end">
+                                    @if (file.SnapshotUpdated)
+                                    {
+                                        <span>@file.SnapshotBalance!.Value.ToString("C") as of @file.SnapshotDate!.Value.ToString("MMM d, yyyy")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">&mdash;</span>
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>
                 </table>
             </div>
         </div>
+    </div>
+}
+else if (Model.FileResults.Count == 1 && Model.FileResults[0].SnapshotUpdated)
+{
+    var f = Model.FileResults[0];
+    <div class="alert alert-success mb-4">
+        Balance snapshot updated: @f.SnapshotBalance!.Value.ToString("C") as of @f.SnapshotDate!.Value.ToString("MMM d, yyyy")
     </div>
 }
 

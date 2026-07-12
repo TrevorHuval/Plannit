@@ -10,10 +10,12 @@ namespace Plannit.Services;
 public class OfxImportService
 {
     private readonly ApplicationDbContext _db;
+    private readonly SnapshotImportService _snapshotImportService;
 
-    public OfxImportService(ApplicationDbContext db)
+    public OfxImportService(ApplicationDbContext db, SnapshotImportService snapshotImportService)
     {
         _db = db;
+        _snapshotImportService = snapshotImportService;
     }
 
     public async Task<ImportResultViewModel> ImportAsync(Stream ofxStream, int accountId, string fileName)
@@ -125,7 +127,31 @@ public class OfxImportService
         }
 
         result.ImportedCount = transactions.Count;
+
+        var (ledgerBalance, ledgerDate) = ParseLedgerBalance(content);
+        if (ledgerBalance.HasValue && ledgerDate.HasValue)
+        {
+            var snapshot = await _snapshotImportService.UpsertSnapshotAsync(accountId, ledgerDate.Value, ledgerBalance.Value);
+            if (snapshot is not null)
+            {
+                result.SnapshotUpdated = true;
+                result.SnapshotBalance = snapshot.Balance;
+                result.SnapshotDate = snapshot.Date;
+            }
+        }
+
         return result;
+    }
+
+    internal static (decimal? Balance, DateOnly? AsOfDate) ParseLedgerBalance(string content)
+    {
+        var match = Regex.Match(content, @"<LEDGERBAL>(.*?)</LEDGERBAL>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        if (!match.Success) return (null, null);
+
+        var block = match.Groups[1].Value;
+        var balance = ParseOfxAmount(GetTagValue(block, "BALAMT"));
+        var asOfDate = ParseOfxDate(GetTagValue(block, "DTASOF"));
+        return (balance, asOfDate);
     }
 
     internal static List<OfxTransaction> ParseTransactions(string content)

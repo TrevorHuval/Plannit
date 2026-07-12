@@ -28,9 +28,15 @@
 
                     <div class="mb-3">
                         <label asp-for="Files" class="form-label"></label>
-                        <input asp-for="Files" type="file" class="form-control" accept=".csv,.ofx,.qfx" multiple />
-                        <div class="form-text">Supported formats: CSV, OFX, QFX. You can select multiple files at once.</div>
+                        <input asp-for="Files" type="file" class="form-control" accept=".csv,.ofx,.qfx,.pdf" multiple />
+                        <div class="form-text">Supported formats: CSV, OFX, QFX, PDF. You can select multiple files at once — mixed formats are fine.</div>
                         <span asp-validation-for="Files" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" asp-for="PositionsStatement" class="form-check-input" />
+                        <label asp-for="PositionsStatement" class="form-check-label"></label>
+                        <div class="form-text">Check this for a holdings/positions export (e.g. Fidelity) — it updates the account balance instead of importing transactions. Most positions exports are detected automatically.</div>
                     </div>
 
                     <div class="d-flex gap-2">
