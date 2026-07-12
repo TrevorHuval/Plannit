@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Plannit.Models.ViewModels;
@@ -13,6 +14,7 @@ public class TransactionsController : Controller
     private readonly CsvImportService _csvImportService;
     private readonly OfxImportService _ofxImportService;
     private readonly CategorizationService _categorizationService;
+    private readonly DataManagementService _dataService;
     private readonly string _tempUploadPath;
 
     public TransactionsController(
@@ -21,6 +23,7 @@ public class TransactionsController : Controller
         CsvImportService csvImportService,
         OfxImportService ofxImportService,
         CategorizationService categorizationService,
+        DataManagementService dataService,
         IWebHostEnvironment env)
     {
         _transactionService = transactionService;
@@ -28,6 +31,7 @@ public class TransactionsController : Controller
         _csvImportService = csvImportService;
         _ofxImportService = ofxImportService;
         _categorizationService = categorizationService;
+        _dataService = dataService;
         _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
     }
 
@@ -58,7 +62,9 @@ public class TransactionsController : Controller
                 AccountName = t.Account.Name,
                 AccountType = t.Account.Type,
                 CategoryId = t.CategoryId,
-                CategoryName = t.Category?.Name
+                CategoryName = t.Category?.Name,
+                Notes = t.Notes,
+                SplitGroupId = t.SplitGroupId
             }).ToList()
         };
 
@@ -390,5 +396,128 @@ public class TransactionsController : Controller
         };
 
         return View("MultiImportResult", multiResult);
+    }
+
+    public async Task<IActionResult> ExportCsv(int? accountId, DateOnly? startDate, DateOnly? endDate, string? searchText, int? categoryId)
+    {
+        var (items, _) = await _transactionService.GetFilteredAsync(accountId, startDate, endDate, searchText, categoryId, 1, int.MaxValue);
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Date,Description,Amount,Account,Category,Notes");
+        foreach (var t in items)
+        {
+            var desc = CsvEscape(t.Description);
+            var acct = CsvEscape(t.Account.Name);
+            var cat = CsvEscape(t.Category?.Name ?? "");
+            var notes = CsvEscape(t.Notes ?? "");
+            sb.AppendLine($"{t.Date:yyyy-MM-dd},{desc},{t.Amount},{acct},{cat},{notes}");
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+        return File(bytes, "text/csv", $"transactions-{DateTime.UtcNow:yyyy-MM-dd}.csv");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkSetCategory(List<int> transactionIds, int categoryId)
+    {
+        if (transactionIds.Count == 0)
+        {
+            TempData["Error"] = "No transactions selected.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var count = await _dataService.BulkSetCategoryAsync(transactionIds, categoryId);
+        TempData["Message"] = $"Updated category for {count} transaction{(count != 1 ? "s" : "")}.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkDelete(List<int> transactionIds)
+    {
+        if (transactionIds.Count == 0)
+        {
+            TempData["Error"] = "No transactions selected.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var count = await _dataService.BulkDeleteAsync(transactionIds);
+        TempData["Message"] = $"Deleted {count} transaction{(count != 1 ? "s" : "")}.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateNotes(int id, string? notes, string? returnUrl)
+    {
+        await _dataService.UpdateTransactionNotesAsync(id, notes);
+        if (!string.IsNullOrEmpty(returnUrl))
+            return LocalRedirect(returnUrl);
+        return RedirectToAction(nameof(Index));
+    }
+
+    public async Task<IActionResult> Split(int id)
+    {
+        var txn = await _transactionService.GetByIdAsync(id);
+        if (txn is null) return NotFound();
+
+        var categories = await _categorizationService.GetAllCategoriesAsync();
+        var vm = new SplitTransactionViewModel
+        {
+            TransactionId = txn.Id,
+            OriginalDescription = txn.Description,
+            OriginalAmount = txn.Amount,
+            Date = txn.Date,
+            Categories = categories.Select(c => new CategoryOption { Id = c.Id, Name = c.Name }).ToList(),
+            Splits = new List<SplitLineViewModel>
+            {
+                new() { Amount = txn.Amount, Description = txn.Description, CategoryId = txn.CategoryId },
+                new() { Amount = 0, Description = txn.Description }
+            }
+        };
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Split(SplitTransactionViewModel model)
+    {
+        model.Splits = model.Splits.Where(s => s.Amount != 0 || !string.IsNullOrWhiteSpace(s.Description)).ToList();
+
+        if (model.Splits.Count < 2)
+            ModelState.AddModelError("", "A split must have at least 2 lines.");
+
+        var total = model.Splits.Sum(s => s.Amount);
+        if (Math.Abs(total - model.OriginalAmount) > 0.01m)
+            ModelState.AddModelError("", $"Split amounts must sum to {model.OriginalAmount:C}. Current total: {total:C}.");
+
+        if (!ModelState.IsValid)
+        {
+            var categories = await _categorizationService.GetAllCategoriesAsync();
+            model.Categories = categories.Select(c => new CategoryOption { Id = c.Id, Name = c.Name }).ToList();
+            return View(model);
+        }
+
+        var splits = model.Splits
+            .Select(s => (s.Amount, s.Description, s.CategoryId))
+            .ToList();
+
+        var result = await _dataService.SplitTransactionAsync(model.TransactionId, splits);
+        if (result.Count == 0)
+        {
+            TempData["Error"] = "Failed to split transaction.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        TempData["Message"] = $"Transaction split into {result.Count} parts.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    private static string CsvEscape(string value)
+    {
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
     }
 }

@@ -1,0 +1,40 @@
+@model Plannit.Models.ViewModels.MergeCategoryViewModel
+@{
+    ViewData["Title"] = "Merge Category";
+}
+
+<div class="page-header">
+    <h1>Merge Category</h1>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p>Merge <strong>@Model.SourceName</strong> into another category. All transactions and rules will be moved to the target, and <strong>@Model.SourceName</strong> will be deleted.</p>
+
+        <form asp-action="Merge" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="SourceId" value="@Model.SourceId" />
+            <input type="hidden" name="SourceName" value="@Model.SourceName" />
+
+            <div class="mb-3">
+                <label for="targetId" class="form-label">Merge into:</label>
+                <select name="TargetId" id="targetId" class="form-select" required>
+                    <option value="">Choose target category...</option>
+                    @foreach (var c in Model.AvailableTargets)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-warning"
+                    onclick="return confirm('Merge &quot;@Model.SourceName&quot; into the selected category? This cannot be undone.')">
+                <i class="bi bi-arrow-right-circle"></i> Merge
+            </button>
+            <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>

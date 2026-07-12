@@ -29,6 +29,7 @@ builder.Services.AddScoped<ReportsService>();
 builder.Services.AddScoped<ProjectionService>();
 builder.Services.AddScoped<BudgetService>();
 builder.Services.AddScoped<RecurringDetectionService>();
+builder.Services.AddScoped<DataManagementService>();
 
 var dataProtectionKeyPath = builder.Configuration["DataProtection:KeyPath"];
 if (!string.IsNullOrEmpty(dataProtectionKeyPath))

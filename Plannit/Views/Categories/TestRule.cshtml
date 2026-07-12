@@ -1,0 +1,78 @@
+@model Plannit.Models.ViewModels.RuleTestViewModel
+@{
+    ViewData["Title"] = "Test Rule";
+}
+
+<div class="page-header">
+    <h1>Rule Tester</h1>
+    <div class="page-actions">
+        <a asp-action="Rules" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Rules</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <p>Test which existing transactions would match a rule pattern.</p>
+        <form method="get">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="matchText" class="form-label">Match Text</label>
+                    <input type="text" name="matchText" id="matchText" class="form-control"
+                           value="@Model.MatchText" placeholder="e.g. Starbucks" required />
+                </div>
+                <div class="col-md-3">
+                    <label for="matchType" class="form-label">Match Type</label>
+                    <select name="matchType" id="matchType" class="form-select">
+                        <option value="Contains" selected="@(Model.MatchType == "Contains")">Contains</option>
+                        <option value="StartsWith" selected="@(Model.MatchType == "StartsWith")">Starts With</option>
+                        <option value="Regex" selected="@(Model.MatchType == "Regex")">Regex</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Test</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.MatchText))
+{
+    <div class="card">
+        <div class="card-header">
+            Matching Transactions (@Model.MatchingTransactions.Count@(Model.MatchingTransactions.Count == 100 ? "+" : ""))
+        </div>
+        @if (!Model.MatchingTransactions.Any())
+        {
+            <div class="card-body text-muted">No transactions match this pattern.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Account</th>
+                            <th>Current Category</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in Model.MatchingTransactions)
+                        {
+                            <tr>
+                                <td>@t.Date.ToString("MMM d, yyyy")</td>
+                                <td>@t.Description</td>
+                                <td>@t.AccountName</td>
+                                <td>@(t.CurrentCategory ?? "—")</td>
+                                <td class="text-end @(t.Amount >= 0 ? "text-positive" : "text-negative")">@t.Amount.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}

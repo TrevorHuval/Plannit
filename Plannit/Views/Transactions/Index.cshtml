@@ -13,6 +13,15 @@
                 <i class="bi bi-lightning"></i> Auto-Categorize
             </button>
         </form>
+        <a asp-action="ExportCsv"
+           asp-route-accountId="@Model.AccountId"
+           asp-route-startDate="@(Model.StartDate?.ToString("yyyy-MM-dd"))"
+           asp-route-endDate="@(Model.EndDate?.ToString("yyyy-MM-dd"))"
+           asp-route-searchText="@Model.SearchText"
+           asp-route-categoryId="@Model.CategoryId"
+           class="btn btn-outline-secondary" title="Export filtered transactions to CSV">
+            <i class="bi bi-download"></i> Export CSV
+        </a>
         <a asp-action="Import" class="btn btn-outline-primary"><i class="bi bi-upload"></i> Import</a>
         <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Transaction</a>
     </div>
@@ -22,6 +31,13 @@
 {
     <div class="alert alert-success alert-dismissible fade show">
         @message
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @error
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
@@ -86,11 +102,22 @@
 }
 else
 {
+    <div id="bulkBar" class="alert alert-info d-none mb-3">
+        <span id="bulkCount">0</span> selected &mdash;
+        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#bulkCategoryModal">
+            Set Category
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="bulkDelete()">
+            Delete Selected
+        </button>
+    </div>
+
     <div class="card">
         <div class="table-responsive">
             <table class="table table-hover">
                 <thead>
                     <tr>
+                        <th style="width:30px"><input type="checkbox" id="selectAll" title="Select all" /></th>
                         <th>Date</th>
                         <th>Description</th>
                         <th>Account</th>
@@ -103,8 +130,19 @@ else
                     @foreach (var t in Model.Transactions)
                     {
                         <tr>
+                            <td><input type="checkbox" class="txn-check" value="@t.Id" /></td>
                             <td class="text-nowrap">@t.Date.ToString("MMM d, yyyy")</td>
-                            <td>@t.Description</td>
+                            <td>
+                                @t.Description
+                                @if (t.SplitGroupId.HasValue)
+                                {
+                                    <span class="badge bg-secondary ms-1" title="Part of a split transaction">Split</span>
+                                }
+                                @if (!string.IsNullOrEmpty(t.Notes))
+                                {
+                                    <i class="bi bi-sticky text-muted ms-1" title="@t.Notes"></i>
+                                }
+                            </td>
                             <td class="text-muted">@t.AccountName</td>
                             <td>
                                 <form asp-controller="Categories" asp-action="SetTransactionCategory" method="post" class="d-inline">
@@ -125,6 +163,14 @@ else
                                 @t.Amount.ToString("C")
                             </td>
                             <td class="text-end text-nowrap">
+                                <button class="btn btn-sm btn-outline-secondary" title="Edit notes"
+                                        data-bs-toggle="modal" data-bs-target="#notesModal"
+                                        data-txn-id="@t.Id" data-txn-notes="@(t.Notes ?? "")">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <a asp-action="Split" asp-route-id="@t.Id" class="btn btn-sm btn-outline-info" title="Split transaction">
+                                    <i class="bi bi-scissors"></i>
+                                </a>
                                 <a asp-controller="Categories" asp-action="CreateRuleFromTransaction"
                                    asp-route-transactionId="@t.Id"
                                    class="btn btn-sm btn-outline-info" title="Create categorization rule">Rule</a>
@@ -161,4 +207,138 @@ else
             </ul>
         </nav>
     }
+}
+
+<!-- Notes Modal -->
+<div class="modal fade" id="notesModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="UpdateNotes" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="notesModalTxnId" />
+                <input type="hidden" name="returnUrl" value="@currentUrl" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Notes</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <textarea name="notes" id="notesModalText" class="form-control" rows="3" placeholder="Add a note..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Set Category Modal -->
+<div class="modal fade" id="bulkCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="BulkSetCategory" method="post" id="bulkCategoryForm">
+                @Html.AntiForgeryToken()
+                <div id="bulkCategoryInputs"></div>
+                <div class="modal-header">
+                    <h5 class="modal-title">Set Category for Selected</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <select name="categoryId" class="form-select" required>
+                        <option value="">Choose category...</option>
+                        @foreach (var c in Model.Categories)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Delete Form (hidden) -->
+<form asp-action="BulkDelete" method="post" id="bulkDeleteForm" class="d-none">
+    @Html.AntiForgeryToken()
+    <div id="bulkDeleteInputs"></div>
+</form>
+
+@section Scripts {
+<script>
+(function() {
+    var selectAll = document.getElementById('selectAll');
+    var bulkBar = document.getElementById('bulkBar');
+    var bulkCount = document.getElementById('bulkCount');
+
+    function getChecked() {
+        return document.querySelectorAll('.txn-check:checked');
+    }
+
+    function updateBulkBar() {
+        var checked = getChecked();
+        bulkCount.textContent = checked.length;
+        bulkBar.classList.toggle('d-none', checked.length === 0);
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            document.querySelectorAll('.txn-check').forEach(function(cb) { cb.checked = selectAll.checked; });
+            updateBulkBar();
+        });
+    }
+
+    document.querySelectorAll('.txn-check').forEach(function(cb) {
+        cb.addEventListener('change', updateBulkBar);
+    });
+
+    // Bulk category modal - populate hidden inputs
+    var bulkCatModal = document.getElementById('bulkCategoryModal');
+    if (bulkCatModal) {
+        bulkCatModal.addEventListener('show.bs.modal', function() {
+            var container = document.getElementById('bulkCategoryInputs');
+            container.innerHTML = '';
+            getChecked().forEach(function(cb) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'transactionIds';
+                input.value = cb.value;
+                container.appendChild(input);
+            });
+        });
+    }
+
+    // Bulk delete
+    window.bulkDelete = function() {
+        var checked = getChecked();
+        if (checked.length === 0) return;
+        if (!confirm('Delete ' + checked.length + ' selected transaction(s)?')) return;
+
+        var container = document.getElementById('bulkDeleteInputs');
+        container.innerHTML = '';
+        checked.forEach(function(cb) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'transactionIds';
+            input.value = cb.value;
+            container.appendChild(input);
+        });
+        document.getElementById('bulkDeleteForm').submit();
+    };
+
+    // Notes modal
+    var notesModal = document.getElementById('notesModal');
+    if (notesModal) {
+        notesModal.addEventListener('show.bs.modal', function(event) {
+            var btn = event.relatedTarget;
+            document.getElementById('notesModalTxnId').value = btn.getAttribute('data-txn-id');
+            document.getElementById('notesModalText').value = btn.getAttribute('data-txn-notes');
+        });
+    }
+})();
+</script>
 }

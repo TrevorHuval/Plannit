@@ -11,6 +11,21 @@
     </div>
 </div>
 
+@if (TempData["Message"] is string message)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @message
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @error
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
 @if (!Model.Categories.Any())
 {
     <div class="card">
@@ -55,7 +70,8 @@ else
                                     <span class="badge bg-primary">Custom</span>
                                 }
                             </td>
-                            <td class="text-end">
+                            <td class="text-end text-nowrap">
+                                <a asp-action="Merge" asp-route-id="@c.Id" class="btn btn-sm btn-outline-warning" title="Merge into another category">Merge</a>
                                 <a asp-action="Edit" asp-route-id="@c.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
                                 <form asp-action="Delete" asp-route-id="@c.Id" method="post" class="d-inline">
                                     @Html.AntiForgeryToken()

@@ -14,15 +14,18 @@ public class CategoriesController : Controller
 {
     private readonly CategorizationService _categorizationService;
     private readonly TransactionService _transactionService;
+    private readonly DataManagementService _dataService;
     private readonly ApplicationDbContext _db;
 
     public CategoriesController(
         CategorizationService categorizationService,
         TransactionService transactionService,
+        DataManagementService dataService,
         ApplicationDbContext db)
     {
         _categorizationService = categorizationService;
         _transactionService = transactionService;
+        _dataService = dataService;
         _db = db;
     }
 
@@ -261,5 +264,77 @@ public class CategoriesController : Controller
 
         TempData["Message"] = $"Rule created and transaction categorized as '{rule.Category?.Name ?? "selected category"}'.";
         return RedirectToAction("Index", "Transactions");
+    }
+
+    public async Task<IActionResult> Merge(int id)
+    {
+        var source = await _categorizationService.GetCategoryByIdAsync(id);
+        if (source is null) return NotFound();
+
+        var categories = await _categorizationService.GetAllCategoriesAsync();
+        var vm = new MergeCategoryViewModel
+        {
+            SourceId = id,
+            SourceName = source.Name,
+            AvailableTargets = categories
+                .Where(c => c.Id != id)
+                .Select(c => new CategoryOption { Id = c.Id, Name = c.Name }).ToList()
+        };
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Merge(MergeCategoryViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            var categories = await _categorizationService.GetAllCategoriesAsync();
+            model.AvailableTargets = categories
+                .Where(c => c.Id != model.SourceId)
+                .Select(c => new CategoryOption { Id = c.Id, Name = c.Name }).ToList();
+            return View(model);
+        }
+
+        var (success, message) = await _dataService.MergeCategoriesAsync(model.SourceId, model.TargetId);
+        TempData[success ? "Message" : "Error"] = message;
+        return RedirectToAction(nameof(Index));
+    }
+
+    public async Task<IActionResult> TestRule(string? matchText, string? matchType)
+    {
+        var categories = await _categorizationService.GetAllCategoriesAsync();
+        var vm = new RuleTestViewModel
+        {
+            MatchText = matchText,
+            MatchType = matchType ?? "Contains",
+            Categories = categories.Select(c => new CategoryOption { Id = c.Id, Name = c.Name }).ToList()
+        };
+
+        if (!string.IsNullOrWhiteSpace(matchText))
+        {
+            var mt = Enum.TryParse<Models.Entities.MatchType>(vm.MatchType, out var parsed)
+                ? parsed : Models.Entities.MatchType.Contains;
+            var matches = await _dataService.TestRuleMatchesAsync(matchText, mt);
+            vm.MatchingTransactions = matches.Select(t => new TransactionMatchViewModel
+            {
+                Id = t.Id,
+                Date = t.Date,
+                Description = t.Description,
+                Amount = t.Amount,
+                AccountName = t.Account.Name,
+                CurrentCategory = t.Category?.Name
+            }).ToList();
+        }
+
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> MoveRulePriority(int id, bool moveUp)
+    {
+        await _dataService.MoveRulePriorityAsync(id, moveUp);
+        return RedirectToAction(nameof(Rules));
     }
 }

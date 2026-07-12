@@ -1,0 +1,76 @@
+@model Plannit.Models.Entities.ImportBatch
+@{
+    ViewData["Title"] = $"Import: {Model.FileName}";
+    var editedCount = (int)ViewBag.EditedCount;
+}
+
+<div class="page-header">
+    <h1>Import Batch Detail</h1>
+    <div class="page-actions">
+        <a asp-action="Imports" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Imports</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">File</dt>
+            <dd class="col-sm-9">@Model.FileName</dd>
+            <dt class="col-sm-3">Account</dt>
+            <dd class="col-sm-9">@Model.Account.Name</dd>
+            <dt class="col-sm-3">Imported</dt>
+            <dd class="col-sm-9">@Model.ImportedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</dd>
+            <dt class="col-sm-3">Transactions</dt>
+            <dd class="col-sm-9">@Model.Transactions.Count</dd>
+            @if (editedCount > 0)
+            {
+                <dt class="col-sm-3">Modified since import</dt>
+                <dd class="col-sm-9"><span class="badge bg-warning text-dark">@editedCount transaction@(editedCount != 1 ? "s" : "")</span></dd>
+            }
+        </dl>
+    </div>
+</div>
+
+@if (editedCount > 0)
+{
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i>
+        <strong>Warning:</strong> @editedCount transaction@(editedCount != 1 ? "s have" : " has") been modified since import (categorized, notes added, or split). Undoing this batch will still delete them.
+    </div>
+}
+
+<form asp-action="UndoImport" asp-route-id="@Model.Id" method="post">
+    @Html.AntiForgeryToken()
+    <button type="submit" class="btn btn-danger"
+            onclick="return confirm('Delete all @Model.Transactions.Count transactions from this import batch?')">
+        <i class="bi bi-arrow-counterclockwise"></i> Undo Entire Import
+    </button>
+</form>
+
+@if (Model.Transactions.Any())
+{
+    <h5 class="mt-4">Transactions in this batch</h5>
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th class="text-end">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.Transactions.OrderByDescending(t => t.Date).ThenByDescending(t => t.Id))
+                    {
+                        <tr>
+                            <td>@t.Date.ToString("MMM d, yyyy")</td>
+                            <td>@t.Description</td>
+                            <td class="text-end @(t.Amount >= 0 ? "text-positive" : "text-negative")">@t.Amount.ToString("C")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

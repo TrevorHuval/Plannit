@@ -87,3 +87,32 @@ public class CreateRuleFromTransactionViewModel
 
     public List<CategoryOption> Categories { get; set; } = new();
 }
+
+public class MergeCategoryViewModel
+{
+    public int SourceId { get; set; }
+    public string SourceName { get; set; } = null!;
+
+    [Required]
+    public int TargetId { get; set; }
+
+    public List<CategoryOption> AvailableTargets { get; set; } = new();
+}
+
+public class RuleTestViewModel
+{
+    public string? MatchText { get; set; }
+    public string MatchType { get; set; } = "Contains";
+    public List<CategoryOption> Categories { get; set; } = new();
+    public List<TransactionMatchViewModel> MatchingTransactions { get; set; } = new();
+}
+
+public class TransactionMatchViewModel
+{
+    public int Id { get; set; }
+    public DateOnly Date { get; set; }
+    public string Description { get; set; } = null!;
+    public decimal Amount { get; set; }
+    public string AccountName { get; set; } = null!;
+    public string? CurrentCategory { get; set; }
+}

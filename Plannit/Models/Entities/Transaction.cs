@@ -12,6 +12,8 @@ public class Transaction
     public int? ImportBatchId { get; set; }
     public string? ImportHash { get; set; }
     public string? OfxFitId { get; set; }
+    public string? Notes { get; set; }
+    public Guid? SplitGroupId { get; set; }
 
     public Account Account { get; set; } = null!;
     public Category? Category { get; set; }

@@ -1,0 +1,140 @@
+@model Plannit.Models.ViewModels.SplitTransactionViewModel
+@{
+    ViewData["Title"] = "Split Transaction";
+}
+
+<div class="page-header">
+    <h1>Split Transaction</h1>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-2">Date</dt>
+            <dd class="col-sm-10">@Model.Date.ToString("MMM d, yyyy")</dd>
+            <dt class="col-sm-2">Description</dt>
+            <dd class="col-sm-10">@Model.OriginalDescription</dd>
+            <dt class="col-sm-2">Amount</dt>
+            <dd class="col-sm-10 @(Model.OriginalAmount >= 0 ? "text-positive" : "text-negative")">@Model.OriginalAmount.ToString("C")</dd>
+        </dl>
+    </div>
+</div>
+
+<div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+<form asp-action="Split" method="post" id="splitForm">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="TransactionId" value="@Model.TransactionId" />
+    <input type="hidden" name="OriginalDescription" value="@Model.OriginalDescription" />
+    <input type="hidden" name="OriginalAmount" value="@Model.OriginalAmount" />
+    <input type="hidden" name="Date" value="@Model.Date.ToString("yyyy-MM-dd")" />
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Split Lines</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="addLineBtn">
+                <i class="bi bi-plus"></i> Add Line
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="splitLines">
+                @for (int i = 0; i < Model.Splits.Count; i++)
+                {
+                    <div class="row g-2 mb-2 split-line">
+                        <div class="col-md-3">
+                            <input type="number" step="0.01" name="Splits[@i].Amount" value="@Model.Splits[i].Amount"
+                                   class="form-control split-amount" placeholder="Amount" required />
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" name="Splits[@i].Description" value="@Model.Splits[i].Description"
+                                   class="form-control" placeholder="Description" required />
+                        </div>
+                        <div class="col-md-4">
+                            <select name="Splits[@i].CategoryId" class="form-select">
+                                <option value="">No category</option>
+                                @foreach (var c in Model.Categories)
+                                {
+                                    <option value="@c.Id" selected="@(Model.Splits[i].CategoryId == c.Id)">@c.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            @if (i > 0)
+                            {
+                                <button type="button" class="btn btn-outline-danger btn-sm remove-line-btn">&times;</button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="mt-3">
+                <strong>Total: <span id="splitTotal">@Model.Splits.Sum(s => s.Amount).ToString("C")</span></strong>
+                <span class="ms-2 text-muted">(must equal @Model.OriginalAmount.ToString("C"))</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <button type="submit" class="btn btn-primary">Split Transaction</button>
+        <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+(function() {
+    var container = document.getElementById('splitLines');
+    var addBtn = document.getElementById('addLineBtn');
+    var originalAmount = @Model.OriginalAmount;
+
+    function getLineCount() { return container.querySelectorAll('.split-line').length; }
+
+    function reindex() {
+        container.querySelectorAll('.split-line').forEach(function(row, i) {
+            row.querySelectorAll('input, select').forEach(function(el) {
+                var name = el.getAttribute('name');
+                if (name) el.setAttribute('name', name.replace(/\[\d+\]/, '[' + i + ']'));
+            });
+        });
+        updateTotal();
+    }
+
+    function updateTotal() {
+        var total = 0;
+        container.querySelectorAll('.split-amount').forEach(function(input) {
+            total += parseFloat(input.value) || 0;
+        });
+        document.getElementById('splitTotal').textContent = '$' + total.toFixed(2);
+    }
+
+    addBtn.addEventListener('click', function() {
+        var i = getLineCount();
+        var categories = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Categories.Select(c => new { c.Id, c.Name })));
+        var opts = '<option value="">No category</option>';
+        categories.forEach(function(c) { opts += '<option value="' + c.Id + '">' + c.Name + '</option>'; });
+
+        var html = '<div class="row g-2 mb-2 split-line">' +
+            '<div class="col-md-3"><input type="number" step="0.01" name="Splits[' + i + '].Amount" class="form-control split-amount" placeholder="Amount" required /></div>' +
+            '<div class="col-md-4"><input type="text" name="Splits[' + i + '].Description" class="form-control" placeholder="Description" required /></div>' +
+            '<div class="col-md-4"><select name="Splits[' + i + '].CategoryId" class="form-select">' + opts + '</select></div>' +
+            '<div class="col-md-1"><button type="button" class="btn btn-outline-danger btn-sm remove-line-btn">&times;</button></div>' +
+            '</div>';
+        container.insertAdjacentHTML('beforeend', html);
+    });
+
+    container.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-line-btn')) {
+            e.target.closest('.split-line').remove();
+            reindex();
+        }
+    });
+
+    container.addEventListener('input', function(e) {
+        if (e.target.classList.contains('split-amount')) updateTotal();
+    });
+})();
+</script>
+}

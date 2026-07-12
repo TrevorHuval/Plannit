@@ -1,0 +1,28 @@
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<div class="page-header">
+    <h1>Settings</h1>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-cloud-download"></i> Data Export</h5>
+                <p class="card-text">Download a full backup of all your data as a JSON file. Includes accounts, snapshots, transactions, categories, rules, budgets, and projection scenarios.</p>
+                <a asp-action="ExportJson" class="btn btn-primary"><i class="bi bi-download"></i> Export Full Backup (JSON)</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-clock-history"></i> Import History</h5>
+                <p class="card-text">View and manage past file imports. Undo imports that went wrong by removing all transactions from a batch.</p>
+                <a asp-action="Imports" class="btn btn-outline-primary"><i class="bi bi-list-ul"></i> View Import Batches</a>
+            </div>
+        </div>
+    </div>
+</div>
