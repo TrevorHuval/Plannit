@@ -15,50 +15,32 @@ public class TransactionsController : Controller
 {
     private readonly TransactionService _transactionService;
     private readonly AccountService _accountService;
-    private readonly CsvImportService _csvImportService;
-    private readonly OfxImportService _ofxImportService;
-    private readonly PositionsCsvImportService _positionsCsvImportService;
-    private readonly PdfStatementService _pdfStatementService;
-    private readonly SnapshotImportService _snapshotImportService;
     private readonly CategorizationService _categorizationService;
     private readonly DataManagementService _dataService;
     private readonly AiSettingsService _aiSettings;
-    private readonly SmartCategorizationService _smartCategorization;
+    private readonly ImportWorkflowService _importWorkflow;
     private readonly AuditService _audit;
-    private readonly string _tempUploadPath;
-    private readonly ILogger<TransactionsController> _logger;
 
     public TransactionsController(
         TransactionService transactionService,
         AccountService accountService,
-        CsvImportService csvImportService,
-        OfxImportService ofxImportService,
-        PositionsCsvImportService positionsCsvImportService,
-        PdfStatementService pdfStatementService,
-        SnapshotImportService snapshotImportService,
         CategorizationService categorizationService,
         DataManagementService dataService,
         AiSettingsService aiSettings,
-        SmartCategorizationService smartCategorization,
-        AuditService audit,
-        IWebHostEnvironment env,
-        ILogger<TransactionsController> logger)
+        ImportWorkflowService importWorkflow,
+        AuditService audit)
     {
         _transactionService = transactionService;
         _accountService = accountService;
-        _csvImportService = csvImportService;
-        _ofxImportService = ofxImportService;
-        _positionsCsvImportService = positionsCsvImportService;
-        _pdfStatementService = pdfStatementService;
-        _snapshotImportService = snapshotImportService;
         _categorizationService = categorizationService;
         _dataService = dataService;
         _aiSettings = aiSettings;
-        _smartCategorization = smartCategorization;
+        _importWorkflow = importWorkflow;
         _audit = audit;
-        _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
-        _logger = logger;
     }
+
+    // TempData key holding the serialized multi-file import state between requests.
+    private const string WorkflowStateKey = "ImportWorkflowState";
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
@@ -225,103 +207,8 @@ public class TransactionsController : Controller
             }
         }
 
-        var multiResult = new MultiImportResultViewModel { AccountName = account.Name };
-        var pendingQueue = new List<PendingImportItemViewModel>();
-        Directory.CreateDirectory(_tempUploadPath);
-
-        foreach (var file in model.Files)
-        {
-            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-
-            if (ext is ".ofx" or ".qfx")
-            {
-                using var stream = file.OpenReadStream();
-                var result = await _ofxImportService.ImportAsync(stream, model.AccountId, file.FileName);
-                result.AccountName = account.Name;
-                multiResult.FileResults.Add(result);
-            }
-            else if (ext == ".pdf")
-            {
-                var tempId = await SaveTempFileAsync(file, ".pdf");
-                pendingQueue.Add(new PendingImportItemViewModel
-                {
-                    Kind = "PdfStatement",
-                    FileName = file.FileName,
-                    TempFileId = tempId,
-                    TempFileExtension = ".pdf",
-                    AccountId = model.AccountId,
-                    AccountName = account.Name
-                });
-            }
-            else
-            {
-                List<string> headers;
-                using (var peekStream = file.OpenReadStream())
-                {
-                    (headers, _) = _csvImportService.ReadPreview(peekStream);
-                }
-
-                if (model.PositionsStatement || PositionsCsvImportService.LooksLikePositionsExport(headers))
-                {
-                    var tempId = await SaveTempFileAsync(file, ".csv");
-                    pendingQueue.Add(new PendingImportItemViewModel
-                    {
-                        Kind = "PositionsCsv",
-                        FileName = file.FileName,
-                        TempFileId = tempId,
-                        TempFileExtension = ".csv",
-                        AccountId = model.AccountId,
-                        AccountName = account.Name
-                    });
-                    continue;
-                }
-
-                var profile = await _csvImportService.GetProfileAsync(model.AccountId);
-                if (profile is not null)
-                {
-                    using var stream = file.OpenReadStream();
-                    var result = await _csvImportService.ImportAsync(stream, model.AccountId, file.FileName,
-                        profile.DateColumn, profile.DateFormat,
-                        profile.AmountColumn, profile.DebitColumn, profile.CreditColumn,
-                        profile.DescriptionColumn, profile.InvertAmounts);
-                    result.AccountName = account.Name;
-                    multiResult.FileResults.Add(result);
-                }
-                else
-                {
-                    var tempId = await SaveTempFileAsync(file, ".csv");
-                    pendingQueue.Add(new PendingImportItemViewModel
-                    {
-                        Kind = "CsvMap",
-                        FileName = file.FileName,
-                        TempFileId = tempId,
-                        TempFileExtension = ".csv",
-                        AccountId = model.AccountId,
-                        AccountName = account.Name
-                    });
-                }
-            }
-        }
-
-        if (pendingQueue.Count > 0)
-        {
-            if (multiResult.FileResults.Count > 0)
-            {
-                var categorized = await _categorizationService.ApplyRulesToUncategorizedAsync();
-                multiResult.CategorizedCount = categorized;
-            }
-
-            TempData["MultiImportResults"] = JsonSerializer.Serialize(multiResult.FileResults);
-            TempData["MultiImportAccountName"] = account.Name;
-
-            var first = pendingQueue[0];
-            if (pendingQueue.Count > 1)
-                TempData["PendingImportQueue"] = JsonSerializer.Serialize(pendingQueue.Skip(1).ToList());
-
-            return await ShowPendingItemAsync(first);
-        }
-
-        return await FinalizeMultiImportAsync(multiResult.FileResults, account.Name, model.AccountId);
+        var step = await _importWorkflow.StartAsync(model.AccountId, account.Name, model.Files, model.PositionsStatement);
+        return RenderStep(step);
     }
 
     [HttpPost]
@@ -348,42 +235,17 @@ public class TransactionsController : Controller
 
         if (!ModelState.IsValid)
         {
-            var tempPath = GetSafeTempPath(model.TempFileId, ".csv");
-            if (tempPath is not null && System.IO.File.Exists(tempPath))
+            var preview = _importWorkflow.ReadCsvPreview(model.TempFileId);
+            if (preview is not null)
             {
-                using var stream = new FileStream(tempPath, FileMode.Open, FileAccess.Read);
-                var (headers, rows) = _csvImportService.ReadPreview(stream);
-                model.AvailableColumns = headers;
-                model.PreviewRows = rows;
+                model.AvailableColumns = preview.Value.Headers;
+                model.PreviewRows = preview.Value.PreviewRows;
             }
             return View("MapColumns", model);
         }
 
-        var tempFilePath = GetSafeTempPath(model.TempFileId, ".csv");
-        if (tempFilePath is null || !System.IO.File.Exists(tempFilePath))
-        {
-            TempData["Error"] = "Upload expired. Please re-upload the file.";
-            return RedirectToAction(nameof(Import));
-        }
-
-        await _csvImportService.SaveProfileAsync(model.AccountId, model.DateColumn, model.DateFormat,
-            model.AmountColumn, model.DebitColumn, model.CreditColumn, model.DescriptionColumn,
-            model.InvertAmounts);
-
-        ImportResultViewModel result;
-        using (var stream = new FileStream(tempFilePath, FileMode.Open, FileAccess.Read))
-        {
-            result = await _csvImportService.ImportAsync(stream, model.AccountId, model.FileName,
-                model.DateColumn, model.DateFormat, model.AmountColumn, model.DebitColumn,
-                model.CreditColumn, model.DescriptionColumn, model.InvertAmounts);
-        }
-
-        try { System.IO.File.Delete(tempFilePath); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete temp upload file {Path}", tempFilePath); }
-
-        result.AccountName = account.Name;
-
-        return await ContinueImportChainAsync(result, model.AccountId);
+        var step = await _importWorkflow.ConfirmCsvMapAsync(model, account.Name, ReadWorkflowState());
+        return RenderStep(step);
     }
 
     [HttpPost]
@@ -397,209 +259,36 @@ public class TransactionsController : Controller
 
         if (await _accountService.GetByIdAsync(model.AccountId) is null) return NotFound();
 
-        var snapshot = await _snapshotImportService.UpsertSnapshotAsync(model.AccountId, model.AsOfDate, model.Balance);
-
-        var confirmTempPath = GetSafeTempPath(model.TempFileId, model.TempFileExtension);
-        if (confirmTempPath is not null)
-        {
-            try { System.IO.File.Delete(confirmTempPath); }
-            catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete temp upload file {Path}", confirmTempPath); }
-        }
-
-        var result = new ImportResultViewModel
-        {
-            AccountName = model.AccountName,
-            FileName = model.FileName,
-            SnapshotOnly = true,
-            SnapshotUpdated = snapshot is not null,
-            SnapshotBalance = snapshot?.Balance,
-            SnapshotDate = snapshot?.Date
-        };
-
-        return await ContinueImportChainAsync(result, model.AccountId);
+        var step = await _importWorkflow.ConfirmSnapshotAsync(model, ReadWorkflowState());
+        return RenderStep(step);
     }
 
-    private static readonly string[] AllowedTempExtensions = [".csv", ".ofx", ".qfx", ".pdf"];
-
-    // Rebuilds the temp path from a parsed Guid and a whitelisted extension so
-    // client-posted identifiers can never traverse outside TempUploads.
-    private string? GetSafeTempPath(string? tempFileId, string? extension)
+    // Reads the multi-file import state persisted across the confirm/map round-trip.
+    // Returns a fresh (empty) state for a single-file flow that had nothing queued.
+    private ImportWorkflowState ReadWorkflowState()
     {
-        if (!Guid.TryParse(tempFileId, out var id)) return null;
-        var ext = string.IsNullOrEmpty(extension) ? ".csv" : extension.ToLowerInvariant();
-        if (!AllowedTempExtensions.Contains(ext)) return null;
-        return Path.Combine(_tempUploadPath, id.ToString("D") + ext);
+        if (TempData[WorkflowStateKey] is not string json || string.IsNullOrEmpty(json))
+            return new ImportWorkflowState();
+        return JsonSerializer.Deserialize<ImportWorkflowState>(json) ?? new ImportWorkflowState();
     }
 
-    private async Task<string> SaveTempFileAsync(IFormFile file, string extension)
+    // Translates a workflow step into an MVC result: render the next confirm screen
+    // (persisting remaining state), the combined result page, or a redirect on expiry.
+    private IActionResult RenderStep(ImportStep step)
     {
-        var tempId = Guid.NewGuid().ToString();
-        var tempPath = Path.Combine(_tempUploadPath, tempId + extension);
-        using (var stream = new FileStream(tempPath, FileMode.Create))
+        switch (step)
         {
-            await file.CopyToAsync(stream);
+            case ShowPendingImportStep show:
+                TempData[WorkflowStateKey] = JsonSerializer.Serialize(show.State);
+                return View(show.ViewName, show.Model);
+            case FinalizeImportStep finalize:
+                return View("MultiImportResult", finalize.Result);
+            case ImportExpiredStep expired:
+                TempData["Error"] = expired.Message;
+                return RedirectToAction(nameof(Import));
+            default:
+                throw new InvalidOperationException($"Unknown import step: {step.GetType().Name}");
         }
-        return tempId;
-    }
-
-    private async Task<IActionResult> ShowPendingItemAsync(PendingImportItemViewModel item)
-    {
-        var tempPath = GetSafeTempPath(item.TempFileId, item.TempFileExtension);
-        if (tempPath is null || !System.IO.File.Exists(tempPath))
-        {
-            TempData["Error"] = $"Upload expired for {item.FileName}. Please re-upload.";
-            return RedirectToAction(nameof(Import));
-        }
-
-        switch (item.Kind)
-        {
-            case "PositionsCsv":
-            {
-                using var stream = new FileStream(tempPath, FileMode.Open, FileAccess.Read);
-                var preview = _positionsCsvImportService.Parse(stream);
-                return View("ConfirmSnapshot", new SnapshotConfirmViewModel
-                {
-                    AccountId = item.AccountId,
-                    AccountName = item.AccountName,
-                    FileName = item.FileName,
-                    TempFileId = item.TempFileId,
-                    TempFileExtension = item.TempFileExtension,
-                    SourceType = "PositionsCsv",
-                    AsOfDate = preview.AsOfDate,
-                    Balance = preview.Total,
-                    BalanceFound = preview.Success,
-                    DateFound = preview.DateFromFile,
-                    Positions = preview.Positions
-                });
-            }
-            case "PdfStatement":
-            {
-                using var stream = new FileStream(tempPath, FileMode.Open, FileAccess.Read);
-                var preview = _pdfStatementService.Parse(stream);
-                return View("ConfirmSnapshot", new SnapshotConfirmViewModel
-                {
-                    AccountId = item.AccountId,
-                    AccountName = item.AccountName,
-                    FileName = item.FileName,
-                    TempFileId = item.TempFileId,
-                    TempFileExtension = item.TempFileExtension,
-                    SourceType = "PdfStatement",
-                    AsOfDate = preview.AsOfDate ?? DateOnly.FromDateTime(DateTime.Today),
-                    Balance = preview.Balance ?? 0,
-                    BalanceFound = preview.Balance.HasValue,
-                    DateFound = preview.AsOfDate.HasValue,
-                    ExtractedText = preview.ExtractedText
-                });
-            }
-            default: // "CsvMap"
-            {
-                using var stream = new FileStream(tempPath, FileMode.Open, FileAccess.Read);
-                var (headers, previewRows) = _csvImportService.ReadPreview(stream);
-                var profile = await _csvImportService.GetProfileAsync(item.AccountId);
-                var account = await _accountService.GetByIdAsync(item.AccountId);
-
-                var mapVm = new ImportMapViewModel
-                {
-                    AccountId = item.AccountId,
-                    AccountName = item.AccountName,
-                    FileName = item.FileName,
-                    TempFileId = item.TempFileId,
-                    AvailableColumns = headers,
-                    PreviewRows = previewRows
-                };
-
-                if (profile is not null)
-                {
-                    mapVm.DateColumn = profile.DateColumn;
-                    mapVm.DateFormat = profile.DateFormat;
-                    mapVm.AmountColumn = profile.AmountColumn;
-                    mapVm.DebitColumn = profile.DebitColumn;
-                    mapVm.CreditColumn = profile.CreditColumn;
-                    mapVm.DescriptionColumn = profile.DescriptionColumn;
-                    mapVm.InvertAmounts = profile.InvertAmounts;
-                }
-                else
-                {
-                    mapVm.InvertAmounts = _csvImportService.SuggestInvertAmounts(
-                        account is not null && NetWorthService.IsLiability(account.Type), headers, previewRows);
-                }
-
-                return View("MapColumns", mapVm);
-            }
-        }
-    }
-
-    private async Task<IActionResult> ContinueImportChainAsync(ImportResultViewModel newResult, int accountId)
-    {
-        var priorResultsJson = TempData["MultiImportResults"] as string;
-        var queueJson = TempData["PendingImportQueue"] as string;
-        var multiAccountName = TempData["MultiImportAccountName"] as string;
-
-        var allResults = new List<ImportResultViewModel>();
-        if (priorResultsJson != null)
-        {
-            var prior = JsonSerializer.Deserialize<List<ImportResultViewModel>>(priorResultsJson);
-            if (prior != null) allResults.AddRange(prior);
-        }
-        allResults.Add(newResult);
-
-        if (!string.IsNullOrEmpty(queueJson))
-        {
-            var remaining = JsonSerializer.Deserialize<List<PendingImportItemViewModel>>(queueJson);
-            if (remaining != null && remaining.Count > 0)
-            {
-                TempData["MultiImportResults"] = JsonSerializer.Serialize(allResults);
-                TempData["MultiImportAccountName"] = multiAccountName;
-
-                var next = remaining[0];
-                if (remaining.Count > 1)
-                    TempData["PendingImportQueue"] = JsonSerializer.Serialize(remaining.Skip(1).ToList());
-
-                return await ShowPendingItemAsync(next);
-            }
-        }
-
-        return await FinalizeMultiImportAsync(allResults, multiAccountName ?? newResult.AccountName, accountId);
-    }
-
-    private async Task<IActionResult> FinalizeMultiImportAsync(List<ImportResultViewModel> results, string accountName, int accountId)
-    {
-        var categorized = 0;
-        if (results.Any(r => r.ImportedCount > 0))
-        {
-            categorized = await _categorizationService.ApplyRulesToUncategorizedAsync();
-        }
-
-        var multiResult = new MultiImportResultViewModel
-        {
-            AccountName = accountName,
-            FileResults = results,
-            CategorizedCount = categorized,
-            AccountId = accountId
-        };
-
-        if (results.Any(r => r.ImportedCount > 0))
-        {
-            var account = await _accountService.GetByIdAsync(accountId);
-            var latestSnapshotDate = account?.Snapshots.MaxBy(s => s.Date)?.Date;
-            var newestTxnDate = await _transactionService.GetLatestTransactionDateAsync(accountId);
-
-            if (newestTxnDate.HasValue && (latestSnapshotDate is null || latestSnapshotDate < newestTxnDate))
-            {
-                multiResult.ShowSnapshotNudge = true;
-                multiResult.NudgeAccountId = accountId;
-                multiResult.NudgeLatestSnapshotDate = latestSnapshotDate;
-                multiResult.NudgeNewestTransactionDate = newestTxnDate.Value;
-            }
-
-            if (await _aiSettings.IsConfiguredAsync())
-            {
-                multiResult.AiConfigured = true;
-                multiResult.UncategorizedRemaining = await _smartCategorization.CountUncategorizedAsync(accountId);
-            }
-        }
-
-        return View("MultiImportResult", multiResult);
     }
 
     public async Task<IActionResult> ExportCsv(int? accountId, DateOnly? startDate, DateOnly? endDate, string? searchText, int? categoryId)

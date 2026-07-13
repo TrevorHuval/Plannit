@@ -47,6 +47,7 @@ builder.Services.AddScoped<ProjectionService>();
 builder.Services.AddScoped<BudgetService>();
 builder.Services.AddScoped<RecurringDetectionService>();
 builder.Services.AddScoped<DataManagementService>();
+builder.Services.AddScoped<ImportWorkflowService>();
 builder.Services.AddScoped<AuditService>();
 builder.Services.AddHostedService<MaintenanceBackgroundService>();
 builder.Services.AddSingleton<ClaudeCliStatus>();
@@ -318,3 +319,6 @@ static async Task SeedDevDataAsync(IServiceProvider services)
         await categorizationService.ApplyRulesToUncategorizedAsync();
     }
 }
+
+// Exposed so the integration test project (WebApplicationFactory<Program>) can boot the app.
+public partial class Program;
