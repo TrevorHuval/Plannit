@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -23,6 +24,7 @@ public class TransactionsController : Controller
     private readonly DataManagementService _dataService;
     private readonly AiSettingsService _aiSettings;
     private readonly SmartCategorizationService _smartCategorization;
+    private readonly AuditService _audit;
     private readonly string _tempUploadPath;
 
     public TransactionsController(
@@ -37,6 +39,7 @@ public class TransactionsController : Controller
         DataManagementService dataService,
         AiSettingsService aiSettings,
         SmartCategorizationService smartCategorization,
+        AuditService audit,
         IWebHostEnvironment env)
     {
         _transactionService = transactionService;
@@ -50,8 +53,11 @@ public class TransactionsController : Controller
         _dataService = dataService;
         _aiSettings = aiSettings;
         _smartCategorization = smartCategorization;
+        _audit = audit;
         _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
     }
+
+    private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     // Search text is echoed back into the page (filter box, export/pagination links);
     // constrain it at the boundary so reflected markup is impossible regardless of encoding.
@@ -607,6 +613,7 @@ public class TransactionsController : Controller
             sb.AppendLine($"{t.Date:yyyy-MM-dd},{desc},{t.Amount},{acct},{cat},{notes}");
         }
 
+        await _audit.LogAsync(UserId, "DataExport", $"CSV export ({items.Count} transactions)", HttpContext.Connection.RemoteIpAddress?.ToString());
         var bytes = Encoding.UTF8.GetBytes(sb.ToString());
         return File(bytes, "text/csv", $"transactions-{DateTime.UtcNow:yyyy-MM-dd}.csv");
     }
@@ -637,6 +644,8 @@ public class TransactionsController : Controller
         }
 
         var count = await _dataService.BulkDeleteAsync(transactionIds);
+        if (count > 0)
+            await _audit.LogAsync(UserId, "BulkDelete", $"Deleted {count} transaction(s)", HttpContext.Connection.RemoteIpAddress?.ToString());
         TempData["Message"] = $"Deleted {count} transaction{(count != 1 ? "s" : "")}.";
         return RedirectToReturnUrlOrIndex(returnUrl);
     }

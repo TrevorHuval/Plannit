@@ -94,9 +94,14 @@ public class AccountService
         return snapshot;
     }
 
+    /// <summary>
+    /// Startup-only cross-user repair; intentionally bypasses the per-user query filter
+    /// since it runs on a fresh, unauthenticated context with no current user set.
+    /// </summary>
     public async Task<int> RepairLiabilitySnapshotSignsAsync()
     {
         var negativeSnapshots = await _db.BalanceSnapshots
+            .IgnoreQueryFilters()
             .Include(s => s.Account)
             .Where(s => s.Balance < 0)
             .ToListAsync();

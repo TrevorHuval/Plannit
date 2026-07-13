@@ -472,4 +472,34 @@ public class TenancyTests : IDisposable
         var result = await service.UpdateCategoryAsync(_categoryBId, "Cat B", _categoryAId);
         Assert.False(result);
     }
+
+    // Fail-closed filters: a context with no current user set (anonymous / not-yet-authenticated)
+    // must see zero rows across every filtered entity, not "everyone's" rows.
+
+    [Fact]
+    public async Task AnonymousContext_SeesNoRows_AcrossAllFilteredEntities()
+    {
+        using var db = new ApplicationDbContext(_options);
+
+        Assert.Empty(await db.Accounts.ToListAsync());
+        Assert.Empty(await db.Transactions.ToListAsync());
+        Assert.Empty(await db.BalanceSnapshots.ToListAsync());
+        Assert.Empty(await db.ImportBatches.ToListAsync());
+        Assert.Empty(await db.ImportProfiles.ToListAsync());
+        Assert.Empty(await db.Categories.ToListAsync());
+        Assert.Empty(await db.CategoryRules.ToListAsync());
+        Assert.Empty(await db.ProjectionScenarios.ToListAsync());
+        Assert.Empty(await db.ProjectionAccountAssumptions.ToListAsync());
+        Assert.Empty(await db.Budgets.ToListAsync());
+        Assert.Empty(await db.AuditEvents.ToListAsync());
+    }
+
+    [Fact]
+    public async Task AccountService_ReturnsNoAccounts_ForAnonymousContext()
+    {
+        using var db = new ApplicationDbContext(_options);
+        var service = new AccountService(db);
+        var accounts = await service.GetAllAsync();
+        Assert.Empty(accounts);
+    }
 }

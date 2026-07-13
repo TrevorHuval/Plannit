@@ -11,10 +11,12 @@ namespace Plannit.Controllers;
 public class AccountsController : Controller
 {
     private readonly AccountService _accountService;
+    private readonly AuditService _audit;
 
-    public AccountsController(AccountService accountService)
+    public AccountsController(AccountService accountService, AuditService audit)
     {
         _accountService = accountService;
+        _audit = audit;
     }
 
     public async Task<IActionResult> Index()
@@ -143,7 +145,12 @@ public class AccountsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
-        await _accountService.DeactivateAsync(id);
+        var success = await _accountService.DeactivateAsync(id);
+        if (success)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            await _audit.LogAsync(userId, "AccountDeleted", $"Account #{id} deactivated", HttpContext.Connection.RemoteIpAddress?.ToString());
+        }
         return RedirectToAction(nameof(Index));
     }
 }

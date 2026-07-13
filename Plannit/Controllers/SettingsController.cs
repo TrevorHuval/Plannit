@@ -14,11 +14,13 @@ public class SettingsController : Controller
 {
     private readonly DataManagementService _dataService;
     private readonly AiSettingsService _aiSettings;
+    private readonly AuditService _audit;
 
-    public SettingsController(DataManagementService dataService, AiSettingsService aiSettings)
+    public SettingsController(DataManagementService dataService, AiSettingsService aiSettings, AuditService audit)
     {
         _dataService = dataService;
         _aiSettings = aiSettings;
+        _audit = audit;
     }
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -27,6 +29,14 @@ public class SettingsController : Controller
     {
         ViewBag.AiConfigured = await _aiSettings.IsConfiguredAsync();
         return View();
+    }
+
+    public async Task<IActionResult> AuditLog(DateOnly? startDate, DateOnly? endDate)
+    {
+        ViewBag.StartDate = startDate;
+        ViewBag.EndDate = endDate;
+        var events = await _audit.GetRecentAsync(startDate, endDate);
+        return View(events);
     }
 
     public async Task<IActionResult> Imports()
@@ -49,6 +59,8 @@ public class SettingsController : Controller
     public async Task<IActionResult> UndoImport(int id)
     {
         var (success, message) = await _dataService.UndoImportBatchAsync(id);
+        if (success)
+            await _audit.LogAsync(UserId, "ImportUndo", message, HttpContext.Connection.RemoteIpAddress?.ToString());
         TempData[success ? "Message" : "Error"] = message;
         return RedirectToAction(nameof(Imports));
     }
@@ -56,6 +68,7 @@ public class SettingsController : Controller
     public async Task<IActionResult> ExportJson()
     {
         var json = await _dataService.ExportFullBackupJsonAsync();
+        await _audit.LogAsync(UserId, "DataExport", "Full JSON backup", HttpContext.Connection.RemoteIpAddress?.ToString());
         var bytes = Encoding.UTF8.GetBytes(json);
         return File(bytes, "application/json", $"plannit-backup-{DateTime.UtcNow:yyyy-MM-dd}.json");
     }
@@ -90,6 +103,7 @@ public class SettingsController : Controller
         }
 
         await _aiSettings.SaveAsync(UserId, vm.Provider, vm.Endpoint, vm.Model, vm.ApiKey);
+        await _audit.LogAsync(UserId, "AiSettingsChanged", $"Provider set to {vm.Provider}", HttpContext.Connection.RemoteIpAddress?.ToString());
         TempData["Message"] = "AI settings saved.";
         return RedirectToAction(nameof(Ai));
     }

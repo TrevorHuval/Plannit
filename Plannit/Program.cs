@@ -1,7 +1,10 @@
+using System.Net;
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Plannit.Data;
 using Plannit.Models.Entities;
@@ -16,7 +19,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = false)
+builder.Services.AddDefaultIdentity<IdentityUser>(options =>
+    {
+        options.SignIn.RequireConfirmedAccount = false;
+        options.Password.RequiredLength = 12;
+    })
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
 
@@ -34,6 +41,7 @@ builder.Services.AddScoped<ProjectionService>();
 builder.Services.AddScoped<BudgetService>();
 builder.Services.AddScoped<RecurringDetectionService>();
 builder.Services.AddScoped<DataManagementService>();
+builder.Services.AddScoped<AuditService>();
 builder.Services.AddSingleton<ClaudeCliStatus>();
 builder.Services.AddScoped<AiSettingsService>();
 builder.Services.AddScoped<SmartCategorizationService>();
@@ -52,10 +60,39 @@ if (builder.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-        options.KnownIPNetworks.Clear();
-        options.KnownProxies.Clear();
+
+        if (builder.Configuration.GetValue<bool>("ForwardedHeaders:TrustProxyNetwork"))
+        {
+            // Opt-in only: trusts forwarded headers from any network. Use when the
+            // proxy's IP can't be pinned ahead of time (e.g. some managed load balancers).
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        }
+        else
+        {
+            foreach (var proxy in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
+            {
+                if (IPAddress.TryParse(proxy, out var ip))
+                    options.KnownProxies.Add(ip);
+            }
+        }
     });
 }
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, token) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString();
+        }
+        await context.HttpContext.Response.WriteAsync("Too many requests. Please try again later.", token);
+    };
+
+    options.GlobalLimiter = RateLimiterConfiguration.CreateGlobalLimiter();
+});
 
 var app = builder.Build();
 
@@ -96,6 +133,8 @@ app.Use(async (context, next) =>
 });
 
 app.UseRouting();
+
+app.UseRateLimiter();
 
 app.UseAuthorization();
 
@@ -144,6 +183,8 @@ await app.Services.GetRequiredService<ClaudeCliStatus>().DetectAsync();
 await RepairLiabilitySnapshotSignsAsync(app.Services, app.Logger);
 
 CleanupOldTempUploads(app.Environment.ContentRootPath);
+
+await PruneOldAuditEventsAsync(app.Services, app.Logger);
 
 if (app.Environment.IsDevelopment())
 {
@@ -253,6 +294,15 @@ static async Task RepairLiabilitySnapshotSignsAsync(IServiceProvider services, I
     var repaired = await accountService.RepairLiabilitySnapshotSignsAsync();
     if (repaired > 0)
         logger.LogInformation("Repaired sign on {Count} liability balance snapshot(s).", repaired);
+}
+
+static async Task PruneOldAuditEventsAsync(IServiceProvider services, ILogger logger)
+{
+    using var scope = services.CreateScope();
+    var auditService = scope.ServiceProvider.GetRequiredService<AuditService>();
+    var pruned = await auditService.PruneOldAsync(TimeSpan.FromDays(90));
+    if (pruned > 0)
+        logger.LogInformation("Pruned {Count} audit event(s) older than 90 days.", pruned);
 }
 
 static void CleanupOldTempUploads(string contentRootPath)

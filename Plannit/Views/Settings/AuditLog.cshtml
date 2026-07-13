@@ -1,0 +1,76 @@
+@model List<Plannit.Models.Entities.AuditEvent>
+@{
+    ViewData["Title"] = "Audit Log";
+    var startDate = ViewBag.StartDate as DateOnly?;
+    var endDate = ViewBag.EndDate as DateOnly?;
+}
+
+<div class="page-header">
+    <h1>Audit Log</h1>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Settings</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label">From</label>
+                <input type="date" name="startDate" class="form-control" value="@startDate?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label">To</label>
+                <input type="date" name="endDate" class="form-control" value="@endDate?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-filter"></i> Filter</button>
+            </div>
+            @if (startDate is not null || endDate is not null)
+            {
+                <div class="col-auto">
+                    <a asp-action="AuditLog" class="btn btn-outline-secondary">Clear</a>
+                </div>
+            }
+        </form>
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-shield-check"></i></div>
+            <h4>No audit events</h4>
+            <p>Sensitive actions like logins, exports, bulk deletes, and settings changes will appear here.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Action</th>
+                        <th>Detail</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var evt in Model)
+                    {
+                        <tr>
+                            <td>@evt.Utc.ToLocalTime().ToString("MMM d, yyyy h:mm:ss tt")</td>
+                            <td><span class="badge bg-secondary">@evt.Action</span></td>
+                            <td>@evt.Detail</td>
+                            <td>@evt.Ip</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
