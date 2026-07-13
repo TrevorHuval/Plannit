@@ -493,3 +493,8 @@ TempUploads/
 .claude/
 CLAUDE.md
 
+
+# Markdown docs/notes stay local; README and third-party licenses are the exceptions
+*.md
+!README.md
+!**/LICENSE.md
