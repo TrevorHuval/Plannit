@@ -863,6 +863,7 @@ p { text-wrap: pretty; }
 .badge.bg-success { background-color: var(--pl-positive) !important; }
 .badge.bg-danger { background-color: var(--pl-negative) !important; }
 .badge.bg-warning { background-color: var(--pl-warning) !important; color: #fff; }
+.badge.bg-info { background-color: var(--pl-info) !important; color: #fff; }
 
 /* ===== Empty states ===== */
 

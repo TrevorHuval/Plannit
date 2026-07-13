@@ -28,5 +28,7 @@ public class BudgetCategoryRow
 public class RecurringIndexViewModel
 {
     public List<RecurringGroup> RecurringGroups { get; set; } = new();
-    public decimal AnnualizedTotal => RecurringGroups.Sum(g => g.AnnualizedCost);
+    public List<RecurringGroup> ExpenseGroups => RecurringGroups.Where(g => !g.IsIncome).ToList();
+    public List<RecurringGroup> IncomeGroups => RecurringGroups.Where(g => g.IsIncome).ToList();
+    public decimal AnnualizedTotal => ExpenseGroups.Sum(g => g.AnnualizedCost);
 }

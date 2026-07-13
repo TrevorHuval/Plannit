@@ -24,7 +24,7 @@ else
             <div class="card">
                 <div class="pl-stat-card">
                     <div class="stat-label">Subscriptions Detected</div>
-                    <div class="stat-value">@Model.RecurringGroups.Count</div>
+                    <div class="stat-value">@Model.ExpenseGroups.Count</div>
                 </div>
             </div>
         </div>
@@ -33,7 +33,7 @@ else
                 <div class="pl-stat-card">
                     <div class="stat-label">Monthly Cost</div>
                     <div class="stat-value negative">
-                        @Model.RecurringGroups.Where(g => g.Cadence == Plannit.Services.RecurringCadence.Monthly).Sum(g => g.AverageAmount).ToString("C")
+                        @Model.ExpenseGroups.Where(g => g.Cadence == Plannit.Services.RecurringCadence.Monthly).Sum(g => g.AverageAmount).ToString("C")
                     </div>
                 </div>
             </div>
@@ -48,38 +48,99 @@ else
         </div>
     </div>
 
-    <div class="card">
+    <div class="card mb-4">
         <div class="card-header">
             <h5 class="mb-0">Detected Subscriptions &amp; Bills</h5>
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th>Description</th>
-                        <th>Cadence</th>
-                        <th class="text-end">Avg Amount</th>
-                        <th class="text-end">Annual Cost</th>
-                        <th>Last Seen</th>
-                        <th>Next Expected</th>
-                        <th class="text-end">Occurrences</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var group in Model.RecurringGroups)
-                    {
+        @if (!Model.ExpenseGroups.Any())
+        {
+            <div class="pl-empty-state">
+                <p class="mb-0">No recurring bills detected yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
                         <tr>
-                            <td>@group.Description</td>
-                            <td><span class="badge bg-secondary">@group.CadenceLabel</span></td>
-                            <td class="text-end">@group.AverageAmount.ToString("C")</td>
-                            <td class="text-end">@group.AnnualizedCost.ToString("C")</td>
-                            <td>@group.LastSeen.ToString("MMM d, yyyy")</td>
-                            <td>@group.NextExpected.ToString("MMM d, yyyy")</td>
-                            <td class="text-end">@group.OccurrenceCount</td>
+                            <th>Description</th>
+                            <th>Cadence</th>
+                            <th>Nature</th>
+                            <th class="text-end">Avg Amount</th>
+                            <th class="text-end">Annual Cost</th>
+                            <th>Last Seen</th>
+                            <th>Next Expected</th>
+                            <th class="text-end">Occurrences</th>
+                            <th class="text-end">Confidence</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody>
+                        @foreach (var group in Model.ExpenseGroups)
+                        {
+                            <tr>
+                                <td>
+                                    @group.Description
+                                    @if (group.RecentlyStopped)
+                                    {
+                                        <span class="badge bg-warning ms-1">Possibly stopped</span>
+                                    }
+                                </td>
+                                <td><span class="badge bg-secondary">@group.CadenceLabel</span></td>
+                                <td><span class="badge bg-info">@group.NatureLabel</span></td>
+                                <td class="text-end">@group.AverageAmount.ToString("C")</td>
+                                <td class="text-end">@group.AnnualizedCost.ToString("C")</td>
+                                <td>@group.LastSeen.ToString("MMM d, yyyy")</td>
+                                <td>@group.NextExpected.ToString("MMM d, yyyy")</td>
+                                <td class="text-end">@group.OccurrenceCount</td>
+                                <td class="text-end pl-num">@group.Confidence.ToString("P0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
     </div>
+
+    @if (Model.IncomeGroups.Any())
+    {
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Detected Recurring Income</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Cadence</th>
+                            <th>Nature</th>
+                            <th class="text-end">Avg Amount</th>
+                            <th class="text-end">Annual Total</th>
+                            <th>Last Seen</th>
+                            <th>Next Expected</th>
+                            <th class="text-end">Occurrences</th>
+                            <th class="text-end">Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var group in Model.IncomeGroups)
+                        {
+                            <tr>
+                                <td>@group.Description</td>
+                                <td><span class="badge bg-secondary">@group.CadenceLabel</span></td>
+                                <td><span class="badge bg-info">@group.NatureLabel</span></td>
+                                <td class="text-end text-positive">@group.AverageAmount.ToString("C")</td>
+                                <td class="text-end text-positive">@group.AnnualizedCost.ToString("C")</td>
+                                <td>@group.LastSeen.ToString("MMM d, yyyy")</td>
+                                <td>@group.NextExpected.ToString("MMM d, yyyy")</td>
+                                <td class="text-end">@group.OccurrenceCount</td>
+                                <td class="text-end pl-num">@group.Confidence.ToString("P0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 }
