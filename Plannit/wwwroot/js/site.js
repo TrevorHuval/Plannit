@@ -96,10 +96,11 @@
 
     window.PlChart = {
         getColors: getChartColors,
+        // Warm editorial series palette — bronzes, greens, slate, clay ("The Private Ledger")
         palette: [
-            '#4e79a7', '#f28e2b', '#59a14f', '#e15759', '#76b7b2',
-            '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac',
-            '#86bcb6', '#8cd17d', '#b6992d'
+            '#7e5e38', '#2f6b45', '#4a6b8a', '#b07a2b', '#9e6b52',
+            '#6f8f6a', '#8a6d9c', '#c79a5a', '#5a7d8c', '#a8895f',
+            '#3f6b57', '#9e3b2e', '#7a7259'
         ],
         applyTheme: function (chart) {
             if (!chart) return;

@@ -49,10 +49,10 @@ else
                                 </td>
                                 <td class="text-muted">@(account.Institution ?? "—")</td>
                                 @{ var isLiability = Plannit.Services.NetWorthService.IsLiability(account.Type); }
-                                <td class="text-end @(isLiability ? "text-negative" : "")">
+                                <td class="text-end pl-num fw-semibold @(isLiability ? "text-negative" : "")">
                                     @if (account.LatestBalance.HasValue)
                                     {
-                                        @account.LatestBalance.Value.ToString("C")
+                                        @(isLiability ? "−" : "")@account.LatestBalance.Value.ToString("C")
                                         @if (isLiability)
                                         {
                                             <span class="badge bg-negative-subtle text-negative ms-1">Debt</span>
@@ -60,13 +60,17 @@ else
                                     }
                                     else
                                     {
-                                        <span class="text-muted">No snapshots</span>
+                                        <span class="text-muted fw-normal">No snapshots</span>
                                     }
                                 </td>
-                                <td class="text-muted">
+                                <td>
                                     @if (account.LatestSnapshotDate.HasValue)
                                     {
-                                        @account.LatestSnapshotDate.Value.ToString("MMM d, yyyy")
+                                        <span class="pl-dateline">@account.LatestSnapshotDate.Value.ToString("MMM d, yyyy")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
                                     }
                                 </td>
                                 <td class="text-end">

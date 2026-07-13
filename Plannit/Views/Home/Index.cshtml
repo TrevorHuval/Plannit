@@ -36,16 +36,16 @@
 }
 else
 {
-    <!-- Net Worth + Deltas -->
+    <!-- Net Worth hero + secondary metrics -->
     <div class="row g-3 mb-4">
-        <div class="col-md-4">
+        <div class="col-lg-5">
             <div class="card h-100">
-                <div class="pl-stat-card">
+                <div class="pl-hero-card">
                     <div class="stat-label">Net Worth</div>
                     <div class="stat-value @(Model.NetWorth >= 0 ? "positive" : "negative")">
                         @Model.NetWorth.ToString("C")
                     </div>
-                    <div class="stat-deltas mt-2">
+                    <div class="stat-deltas mt-1">
                         @if (Model.NetWorth1MonthAgo != 0)
                         {
                             var delta1M = Model.NetWorth - Model.NetWorth1MonthAgo;
@@ -68,7 +68,7 @@ else
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-lg-4 col-md-6">
             <div class="card h-100">
                 <div class="pl-stat-card">
                     <div class="stat-label">This Month</div>
@@ -102,7 +102,7 @@ else
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-lg-3 col-md-6">
             <div class="card h-100">
                 <div class="pl-stat-card">
                     <div class="stat-label">Asset Allocation</div>
