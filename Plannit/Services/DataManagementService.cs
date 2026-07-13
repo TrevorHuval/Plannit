@@ -311,8 +311,7 @@ public class DataManagementService
         {
             MatchType.Contains => text.Contains(rule.MatchText, StringComparison.OrdinalIgnoreCase),
             MatchType.StartsWith => text.StartsWith(rule.MatchText, StringComparison.OrdinalIgnoreCase),
-            MatchType.Regex => System.Text.RegularExpressions.Regex.IsMatch(text, rule.MatchText,
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+            MatchType.Regex => CategorizationService.SafeRegexMatch(text, rule.MatchText),
             _ => false
         };
     }

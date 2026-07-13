@@ -293,8 +293,22 @@ public class CategorizationService
         {
             MatchType.Contains => text.Contains(rule.MatchText, StringComparison.OrdinalIgnoreCase),
             MatchType.StartsWith => text.StartsWith(rule.MatchText, StringComparison.OrdinalIgnoreCase),
-            MatchType.Regex => Regex.IsMatch(text, rule.MatchText, RegexOptions.IgnoreCase),
+            MatchType.Regex => SafeRegexMatch(text, rule.MatchText),
             _ => false
         };
+    }
+
+    // User-authored rule patterns are untrusted input: NonBacktracking prevents
+    // catastrophic backtracking (ReDoS) and invalid/unsupported patterns simply don't match.
+    public static bool SafeRegexMatch(string text, string pattern)
+    {
+        try
+        {
+            return Regex.IsMatch(text, pattern,
+                RegexOptions.IgnoreCase | RegexOptions.NonBacktracking,
+                TimeSpan.FromMilliseconds(250));
+        }
+        catch (ArgumentException) { return false; }
+        catch (RegexMatchTimeoutException) { return false; }
     }
 }

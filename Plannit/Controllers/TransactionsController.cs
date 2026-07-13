@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Plannit.Models.ViewModels;
@@ -45,9 +46,19 @@ public class TransactionsController : Controller
         _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
     }
 
+    // Search text is echoed back into the page (filter box, export/pagination links);
+    // constrain it at the boundary so reflected markup is impossible regardless of encoding.
+    private static string? SanitizeSearchText(string? searchText)
+    {
+        if (string.IsNullOrWhiteSpace(searchText)) return null;
+        var cleaned = Regex.Replace(searchText.Trim(), @"[<>""'\\]", "");
+        return cleaned.Length > 100 ? cleaned[..100] : cleaned;
+    }
+
     public async Task<IActionResult> Index(int? accountId, DateOnly? startDate, DateOnly? endDate, string? searchText, int? categoryId, int page = 1)
     {
         const int pageSize = 50;
+        searchText = SanitizeSearchText(searchText);
         var (items, totalCount) = await _transactionService.GetFilteredAsync(accountId, startDate, endDate, searchText, categoryId, page, pageSize);
         var accounts = await _accountService.GetAllAsync();
         var categories = await _categorizationService.GetAllCategoriesAsync();
@@ -306,8 +317,8 @@ public class TransactionsController : Controller
 
         if (!ModelState.IsValid)
         {
-            var tempPath = Path.Combine(_tempUploadPath, model.TempFileId + ".csv");
-            if (System.IO.File.Exists(tempPath))
+            var tempPath = GetSafeTempPath(model.TempFileId, ".csv");
+            if (tempPath is not null && System.IO.File.Exists(tempPath))
             {
                 using var stream = new FileStream(tempPath, FileMode.Open, FileAccess.Read);
                 var (headers, rows) = _csvImportService.ReadPreview(stream);
@@ -317,8 +328,8 @@ public class TransactionsController : Controller
             return View("MapColumns", model);
         }
 
-        var tempFilePath = Path.Combine(_tempUploadPath, model.TempFileId + ".csv");
-        if (!System.IO.File.Exists(tempFilePath))
+        var tempFilePath = GetSafeTempPath(model.TempFileId, ".csv");
+        if (tempFilePath is null || !System.IO.File.Exists(tempFilePath))
         {
             TempData["Error"] = "Upload expired. Please re-upload the file.";
             return RedirectToAction(nameof(Import));
@@ -355,10 +366,10 @@ public class TransactionsController : Controller
 
         var snapshot = await _snapshotImportService.UpsertSnapshotAsync(model.AccountId, model.AsOfDate, model.Balance);
 
-        if (!string.IsNullOrEmpty(model.TempFileId) && !string.IsNullOrEmpty(model.TempFileExtension))
+        var confirmTempPath = GetSafeTempPath(model.TempFileId, model.TempFileExtension);
+        if (confirmTempPath is not null)
         {
-            var tempPath = Path.Combine(_tempUploadPath, model.TempFileId + model.TempFileExtension);
-            try { System.IO.File.Delete(tempPath); } catch { }
+            try { System.IO.File.Delete(confirmTempPath); } catch { }
         }
 
         var result = new ImportResultViewModel
@@ -374,6 +385,18 @@ public class TransactionsController : Controller
         return await ContinueImportChainAsync(result, model.AccountId);
     }
 
+    private static readonly string[] AllowedTempExtensions = [".csv", ".ofx", ".qfx", ".pdf"];
+
+    // Rebuilds the temp path from a parsed Guid and a whitelisted extension so
+    // client-posted identifiers can never traverse outside TempUploads.
+    private string? GetSafeTempPath(string? tempFileId, string? extension)
+    {
+        if (!Guid.TryParse(tempFileId, out var id)) return null;
+        var ext = string.IsNullOrEmpty(extension) ? ".csv" : extension.ToLowerInvariant();
+        if (!AllowedTempExtensions.Contains(ext)) return null;
+        return Path.Combine(_tempUploadPath, id.ToString("D") + ext);
+    }
+
     private async Task<string> SaveTempFileAsync(IFormFile file, string extension)
     {
         var tempId = Guid.NewGuid().ToString();
@@ -387,8 +410,8 @@ public class TransactionsController : Controller
 
     private async Task<IActionResult> ShowPendingItemAsync(PendingImportItemViewModel item)
     {
-        var tempPath = Path.Combine(_tempUploadPath, item.TempFileId + item.TempFileExtension);
-        if (!System.IO.File.Exists(tempPath))
+        var tempPath = GetSafeTempPath(item.TempFileId, item.TempFileExtension);
+        if (tempPath is null || !System.IO.File.Exists(tempPath))
         {
             TempData["Error"] = $"Upload expired for {item.FileName}. Please re-upload.";
             return RedirectToAction(nameof(Import));
@@ -540,6 +563,7 @@ public class TransactionsController : Controller
 
     public async Task<IActionResult> ExportCsv(int? accountId, DateOnly? startDate, DateOnly? endDate, string? searchText, int? categoryId)
     {
+        searchText = SanitizeSearchText(searchText);
         var (items, _) = await _transactionService.GetFilteredAsync(accountId, startDate, endDate, searchText, categoryId, 1, int.MaxValue);
 
         var sb = new StringBuilder();

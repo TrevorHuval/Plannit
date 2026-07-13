@@ -34,7 +34,7 @@
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li>
                         <form asp-action="InvertAccountSigns" method="post"
-                              onsubmit="return confirm('Flip the sign of every transaction in @(selectedAccount?.Name)? Use this if a whole statement was imported with reversed polarity.');">
+                              onsubmit="return confirm('Flip the sign of every transaction in this account? Use this if a whole statement was imported with reversed polarity.');">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="accountId" value="@Model.AccountId" />
                             <button type="submit" class="dropdown-item">Invert all transaction signs</button>

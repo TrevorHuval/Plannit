@@ -66,6 +66,7 @@ public class BudgetsController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveBudgets(Dictionary<int, decimal?> amounts)
     {
         var existingBudgets = await _budgetService.GetAllBudgetsAsync();
