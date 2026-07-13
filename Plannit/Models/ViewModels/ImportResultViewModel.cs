@@ -38,4 +38,8 @@ public class MultiImportResultViewModel
     public int NudgeAccountId { get; set; }
     public DateOnly? NudgeLatestSnapshotDate { get; set; }
     public DateOnly NudgeNewestTransactionDate { get; set; }
+
+    public int AccountId { get; set; }
+    public bool AiConfigured { get; set; }
+    public int UncategorizedRemaining { get; set; }
 }

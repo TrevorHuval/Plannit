@@ -25,4 +25,19 @@
             </div>
         </div>
     </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-stars"></i> AI Categorization
+                    @if (ViewBag.AiConfigured == true)
+                    {
+                        <span class="badge bg-success ms-1">Configured</span>
+                    }
+                </h5>
+                <p class="card-text">Configure an AI provider to intelligently categorize your uncategorized transactions in one click. Conservative by design — unsure merchants are left untouched.</p>
+                <a asp-action="Ai" class="btn btn-outline-primary"><i class="bi bi-gear"></i> Configure AI Provider</a>
+            </div>
+        </div>
+    </div>
 </div>

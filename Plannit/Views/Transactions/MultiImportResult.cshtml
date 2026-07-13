@@ -156,6 +156,21 @@ else if (Model.FileResults.Count == 1 && Model.FileResults[0].SnapshotUpdated)
     </div>
 }
 
+@if (Model.AiConfigured && Model.UncategorizedRemaining > 0)
+{
+    <div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <i class="bi bi-stars"></i>
+            @Model.UncategorizedRemaining transaction@(Model.UncategorizedRemaining == 1 ? "" : "s") @(Model.UncategorizedRemaining == 1 ? "is" : "are") still uncategorized. Let AI propose categories?
+        </div>
+        <form asp-controller="SmartCategorize" asp-action="Review" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="accountId" value="@Model.AccountId" />
+            <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-stars"></i> Smart categorize @Model.UncategorizedRemaining remaining</button>
+        </form>
+    </div>
+}
+
 <div class="d-flex gap-2">
     <a asp-action="Index" class="btn btn-primary">View Transactions</a>
     <a asp-action="Import" class="btn btn-outline-secondary">Import More</a>

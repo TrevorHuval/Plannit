@@ -1,0 +1,139 @@
+@model Plannit.Models.ViewModels.SmartCategorizeReviewViewModel
+@{
+    ViewData["Title"] = "Smart Categorize";
+    var untouched = Model.Rows.Where(r => !r.HasProposal).ToList();
+}
+
+<div class="page-header">
+    <div>
+        <h1>Smart Categorize</h1>
+        <div class="pl-dateline">via @Model.ProviderName · @Model.GroupCount merchant@(Model.GroupCount == 1 ? "" : "s") · @Model.UncategorizedCount uncategorized</div>
+    </div>
+    <div class="page-actions">
+        <a asp-controller="Transactions" asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Transactions</a>
+    </div>
+</div>
+
+@if (Model.ProviderError is not null)
+{
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-exclamation-triangle"></i></div>
+            <h4>The AI provider couldn't be reached</h4>
+            <p>@Model.ProviderError</p>
+            <div class="d-flex gap-2 justify-content-center">
+                <a asp-controller="Settings" asp-action="Ai" class="btn btn-outline-primary"><i class="bi bi-gear"></i> Check AI settings</a>
+                <a asp-controller="Transactions" asp-action="Index" class="btn btn-primary">Back to Transactions</a>
+            </div>
+        </div>
+    </div>
+}
+else if (!Model.HasActionableRows)
+{
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-emoji-neutral"></i></div>
+            <h4>No confident suggestions</h4>
+            <p>@Model.ProviderName reviewed @Model.GroupCount merchant group@(Model.GroupCount == 1 ? "" : "s") but wasn't confident enough to propose a category for any. Nothing was changed.</p>
+            <a asp-controller="Transactions" asp-action="Index" class="btn btn-primary">Back to Transactions</a>
+        </div>
+    </div>
+}
+else
+{
+    <form asp-action="Apply" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="AccountId" />
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <p class="text-muted mb-0">Review the proposals below. Confident ones are pre-selected. Applying sets the category on every transaction in each accepted merchant group.</p>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(true)">Accept all</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(false)">Accept none</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width:36px"></th>
+                            <th>Merchant</th>
+                            <th class="text-end">Txns</th>
+                            <th class="text-end">Total</th>
+                            <th>Proposed category</th>
+                            <th class="text-end">Confidence</th>
+                            <th>Create rule</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ var i = 0; }
+                        @foreach (var row in Model.Rows.Where(r => r.HasProposal))
+                        {
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="accept-check" name="Rows[@i].Accepted" value="true" @(row.Accepted ? "checked" : "") />
+                                    <input type="hidden" name="Rows[@i].Accepted" value="false" />
+                                    <input type="hidden" name="Rows[@i].MerchantKey" value="@row.MerchantKey" />
+                                    <input type="hidden" name="Rows[@i].CategoryName" value="@row.ProposedCategory" />
+                                    <input type="hidden" name="Rows[@i].IsNew" value="@row.IsNew.ToString().ToLowerInvariant()" />
+                                </td>
+                                <td>
+                                    <div class="fw-medium">@row.MerchantKey</div>
+                                    <div class="text-muted small">@row.SampleDescription</div>
+                                </td>
+                                <td class="text-end pl-num">@row.Count</td>
+                                <td class="text-end pl-num @(row.TotalAmount >= 0 ? "text-positive" : "text-negative")">@row.TotalAmount.ToString("C")</td>
+                                <td>
+                                    @row.ProposedCategory
+                                    @if (row.IsNew)
+                                    {
+                                        <span class="badge bg-primary ms-1" title="A new category will be created">New</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge @(row.Confidence >= 0.8 ? "bg-success" : row.Confidence >= 0.5 ? "bg-warning" : "bg-secondary")">@row.ConfidencePercent</span>
+                                </td>
+                                <td>
+                                    <input type="checkbox" name="Rows[@i].CreateRule" value="true" @(row.CreateRule ? "checked" : "") title="Also create a categorization rule so future imports match automatically" />
+                                    <input type="hidden" name="Rows[@i].CreateRule" value="false" />
+                                </td>
+                            </tr>
+                            i++;
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check2-all"></i> Apply selected</button>
+            <a asp-controller="Transactions" asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+
+    @if (untouched.Any())
+    {
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-dash-circle text-muted"></i> Left untouched (@untouched.Count)</h5>
+                <p class="card-text text-muted">@Model.ProviderName wasn't confident about these merchants, so they were skipped. You can categorize them manually or create rules.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var row in untouched)
+                    {
+                        <span class="badge bg-secondary" title="@row.SampleDescription">@row.MerchantKey · @row.Count</span>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts {
+    <script>
+        function toggleAll(state) {
+            document.querySelectorAll('.accept-check').forEach(function (cb) { cb.checked = state; });
+        }
+    </script>
+}

@@ -18,6 +18,9 @@ public class TransactionListViewModel
     public int TotalPages { get; set; }
     public int TotalCount { get; set; }
     public int PageSize { get; set; } = 50;
+
+    /// <summary>Whether a usable AI provider is configured — gates the Smart Categorize button.</summary>
+    public bool AiConfigured { get; set; }
 }
 
 public class TransactionRowViewModel

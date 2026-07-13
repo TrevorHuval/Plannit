@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Plannit.Models.ViewModels;
 using Plannit.Services;
+using Plannit.Services.Ai;
 
 namespace Plannit.Controllers;
 
@@ -20,6 +21,8 @@ public class TransactionsController : Controller
     private readonly SnapshotImportService _snapshotImportService;
     private readonly CategorizationService _categorizationService;
     private readonly DataManagementService _dataService;
+    private readonly AiSettingsService _aiSettings;
+    private readonly SmartCategorizationService _smartCategorization;
     private readonly string _tempUploadPath;
 
     public TransactionsController(
@@ -32,6 +35,8 @@ public class TransactionsController : Controller
         SnapshotImportService snapshotImportService,
         CategorizationService categorizationService,
         DataManagementService dataService,
+        AiSettingsService aiSettings,
+        SmartCategorizationService smartCategorization,
         IWebHostEnvironment env)
     {
         _transactionService = transactionService;
@@ -43,6 +48,8 @@ public class TransactionsController : Controller
         _snapshotImportService = snapshotImportService;
         _categorizationService = categorizationService;
         _dataService = dataService;
+        _aiSettings = aiSettings;
+        _smartCategorization = smartCategorization;
         _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
     }
 
@@ -78,6 +85,7 @@ public class TransactionsController : Controller
             PageSize = pageSize,
             TotalCount = totalCount,
             TotalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize)),
+            AiConfigured = await _aiSettings.IsConfiguredAsync(),
             Accounts = accounts.Select(a => new AccountOption { Id = a.Id, Name = a.Name }).ToList(),
             Categories = categories.Select(c => new CategoryOption { Id = c.Id, Name = c.Name }).ToList(),
             Transactions = items.Select(t => new TransactionRowViewModel
@@ -547,7 +555,8 @@ public class TransactionsController : Controller
         {
             AccountName = accountName,
             FileResults = results,
-            CategorizedCount = categorized
+            CategorizedCount = categorized,
+            AccountId = accountId
         };
 
         if (results.Any(r => r.ImportedCount > 0))
@@ -562,6 +571,12 @@ public class TransactionsController : Controller
                 multiResult.NudgeAccountId = accountId;
                 multiResult.NudgeLatestSnapshotDate = latestSnapshotDate;
                 multiResult.NudgeNewestTransactionDate = newestTxnDate.Value;
+            }
+
+            if (await _aiSettings.IsConfiguredAsync())
+            {
+                multiResult.AiConfigured = true;
+                multiResult.UncategorizedRemaining = await _smartCategorization.CountUncategorizedAsync(accountId);
             }
         }
 

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Plannit.Data;
 using Plannit.Models.Entities;
 using Plannit.Services;
+using Plannit.Services.Ai;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +34,10 @@ builder.Services.AddScoped<ProjectionService>();
 builder.Services.AddScoped<BudgetService>();
 builder.Services.AddScoped<RecurringDetectionService>();
 builder.Services.AddScoped<DataManagementService>();
+builder.Services.AddSingleton<ClaudeCliStatus>();
+builder.Services.AddScoped<AiSettingsService>();
+builder.Services.AddScoped<SmartCategorizationService>();
+builder.Services.AddHttpClient("ai", c => c.Timeout = TimeSpan.FromSeconds(120));
 
 var dataProtectionKeyPath = builder.Configuration["DataProtection:KeyPath"];
 if (!string.IsNullOrEmpty(dataProtectionKeyPath))
@@ -118,6 +123,8 @@ if (!app.Environment.IsDevelopment())
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     db.Database.Migrate();
 }
+
+await app.Services.GetRequiredService<ClaudeCliStatus>().DetectAsync();
 
 await RepairLiabilitySnapshotSignsAsync(app.Services, app.Logger);
 

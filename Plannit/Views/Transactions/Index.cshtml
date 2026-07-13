@@ -21,6 +21,16 @@
                 <i class="bi bi-lightning"></i> Auto-Categorize
             </button>
         </form>
+        @if (Model.AiConfigured)
+        {
+            <form asp-controller="SmartCategorize" asp-action="Review" method="post" class="d-inline">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="accountId" value="@Model.AccountId" />
+                <button type="submit" class="btn btn-outline-primary" title="Use AI to propose categories for uncategorized transactions">
+                    <i class="bi bi-stars"></i> Smart Categorize
+                </button>
+            </form>
+        }
         <a asp-action="ExportCsv"
            asp-route-accountId="@Model.AccountId"
            asp-route-startDate="@(Model.StartDate?.ToString("yyyy-MM-dd"))"

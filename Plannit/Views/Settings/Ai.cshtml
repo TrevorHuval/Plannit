@@ -1,0 +1,127 @@
+@using Plannit.Models.Entities
+@model Plannit.Models.ViewModels.AiSettingsViewModel
+@{
+    ViewData["Title"] = "AI Categorization";
+}
+
+<div class="page-header">
+    <h1>AI Categorization</h1>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Settings</a>
+    </div>
+</div>
+
+@if (TempData["Message"] is string message)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @message
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (Model.TestResult is not null)
+{
+    <div class="alert @(Model.TestSucceeded ? "alert-success" : "alert-danger") alert-dismissible fade show">
+        @Model.TestResult
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-stars"></i> Provider</h5>
+                <p class="card-text text-muted">
+                    Smart Categorize sends grouped merchant descriptions to an AI provider you choose,
+                    then proposes categories for review. Leave this set to <strong>None</strong> to hide the feature.
+                </p>
+
+                <form asp-action="SaveAi" method="post" id="aiForm">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="Provider" class="form-label">AI provider</label>
+                        <select asp-for="Provider" class="form-select" id="providerSelect">
+                            <option value="@((int)AiProvider.None)">None (feature disabled)</option>
+                            @if (Model.ClaudeCliAvailable)
+                            {
+                                <option value="@((int)AiProvider.ClaudeCli)">Claude CLI (local, uses your Claude subscription)</option>
+                            }
+                            <option value="@((int)AiProvider.AnthropicApi)">Anthropic API (API key)</option>
+                            <option value="@((int)AiProvider.OpenAiCompatible)">OpenAI-compatible endpoint (OpenAI, Ollama, LM Studio…)</option>
+                        </select>
+                        @if (!Model.ClaudeCliAvailable)
+                        {
+                            <div class="form-text">The Claude CLI provider appears here only when the <code>claude</code> command is installed on this machine.</div>
+                        }
+                        else
+                        {
+                            <div class="form-text text-positive"><i class="bi bi-check-circle"></i> Claude CLI detected: <code>@Model.ClaudeCliVersion</code></div>
+                        }
+                    </div>
+
+                    <div class="mb-3 provider-field" data-providers="@((int)AiProvider.OpenAiCompatible)">
+                        <label asp-for="Endpoint" class="form-label"></label>
+                        <input asp-for="Endpoint" class="form-control" placeholder="http://localhost:11434/v1" />
+                        <span asp-validation-for="Endpoint" class="text-danger"></span>
+                        <div class="form-text">The chat-completions base URL (with or without a trailing <code>/v1</code>).</div>
+                    </div>
+
+                    <div class="mb-3 provider-field" data-providers="@((int)AiProvider.AnthropicApi) @((int)AiProvider.OpenAiCompatible)">
+                        <label asp-for="Model" class="form-label"></label>
+                        <input asp-for="Model" class="form-control" placeholder="claude-haiku-4-5" />
+                        <span asp-validation-for="Model" class="text-danger"></span>
+                        <div class="form-text">For the Anthropic API, <code>claude-haiku-4-5</code> is recommended — categorization is a cheap classification task.</div>
+                    </div>
+
+                    <div class="mb-3 provider-field" data-providers="@((int)AiProvider.AnthropicApi) @((int)AiProvider.OpenAiCompatible)">
+                        <label asp-for="ApiKey" class="form-label"></label>
+                        <input asp-for="ApiKey" type="password" class="form-control" autocomplete="off"
+                               placeholder="@(Model.HasStoredKey ? "•••••••• (leave blank to keep current key)" : "Paste your API key")" />
+                        <div class="form-text">Stored encrypted at rest. The key never leaves this server except in requests to the provider you configured.</div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
+                        <button type="submit" formaction="@Url.Action("TestConnection")" class="btn btn-outline-primary">
+                            <i class="bi bi-plug"></i> Test connection
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-shield-lock"></i> Privacy</h5>
+                <ul class="mb-0 ps-3 text-muted">
+                    <li>Only <strong>merchant descriptions</strong> and rounded average amounts are sent — grouped by merchant, not per transaction.</li>
+                    <li>No account numbers, balances, or personal identifiers are included.</li>
+                    <li>The Claude CLI provider runs entirely on this machine under your own Claude login — no API key, no separate account.</li>
+                    <li>The feature is <strong>conservative</strong>: when the model is unsure, the merchant is left untouched.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            var select = document.getElementById('providerSelect');
+            function sync() {
+                var current = select.value;
+                document.querySelectorAll('.provider-field').forEach(function (el) {
+                    var providers = (el.getAttribute('data-providers') || '').split(' ');
+                    el.style.display = providers.indexOf(current) >= 0 ? '' : 'none';
+                });
+            }
+            select.addEventListener('change', sync);
+            sync();
+        })();
+    </script>
+}

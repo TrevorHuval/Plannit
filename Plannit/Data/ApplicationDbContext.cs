@@ -17,6 +17,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<ProjectionAccountAssumption> ProjectionAccountAssumptions => Set<ProjectionAccountAssumption>();
     public DbSet<ProjectionEvent> ProjectionEvents => Set<ProjectionEvent>();
     public DbSet<Budget> Budgets => Set<Budget>();
+    public DbSet<AiSettings> AiSettings => Set<AiSettings>();
 
     private string? _currentUserId;
 
@@ -119,6 +120,13 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasOne(b => b.User).WithMany().HasForeignKey(b => b.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(b => b.Category).WithMany().HasForeignKey(b => b.CategoryId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(b => _currentUserId == null || b.UserId == _currentUserId);
+        });
+
+        builder.Entity<AiSettings>(e =>
+        {
+            e.HasIndex(s => s.UserId).IsUnique();
+            e.HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(s => _currentUserId == null || s.UserId == _currentUserId);
         });
     }
 }
