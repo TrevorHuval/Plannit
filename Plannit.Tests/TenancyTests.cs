@@ -346,4 +346,130 @@ public class TenancyTests : IDisposable
         var result = await service.DeleteSnapshotAsync(_snapshotAId);
         Assert.False(result);
     }
+
+    // Write-path isolation: the global query filters only scope reads, so every
+    // service must reject posted foreign keys that reference another user's rows.
+
+    [Fact]
+    public async Task TransactionService_Create_Fails_ForOtherUsersAccount()
+    {
+        using var db = CreateContext(_userBId);
+        var service = new TransactionService(db);
+        var created = await service.CreateAsync(_accountAId, new DateOnly(2026, 2, 1), -25, "Injected");
+        Assert.Null(created);
+
+        using var dbA = CreateContext(_userAId);
+        Assert.False(await dbA.Transactions.AnyAsync(t => t.Description == "Injected"));
+    }
+
+    [Fact]
+    public async Task TransactionService_Update_CannotMoveTransaction_IntoOtherUsersAccount()
+    {
+        using var db = CreateContext(_userBId);
+        var service = new TransactionService(db);
+        var txnB = await db.Transactions.FirstAsync();
+
+        var result = await service.UpdateAsync(txnB.Id, _accountAId, txnB.Date, txnB.Amount, txnB.Description);
+        Assert.False(result);
+
+        using var dbB = CreateContext(_userBId);
+        var unchanged = await dbB.Transactions.FirstAsync(t => t.Id == txnB.Id);
+        Assert.Equal(_accountBId, unchanged.AccountId);
+    }
+
+    [Fact]
+    public async Task DataManagementService_BulkSetCategory_Fails_ForOtherUsersCategory()
+    {
+        using var db = CreateContext(_userBId);
+        var txnB = await db.Transactions.FirstAsync();
+        var service = new DataManagementService(db);
+
+        var count = await service.BulkSetCategoryAsync([txnB.Id], _categoryAId);
+        Assert.Equal(0, count);
+
+        using var dbB = CreateContext(_userBId);
+        var unchanged = await dbB.Transactions.FirstAsync(t => t.Id == txnB.Id);
+        Assert.Null(unchanged.CategoryId);
+    }
+
+    [Fact]
+    public async Task DataManagementService_Split_Fails_ForOtherUsersCategory()
+    {
+        using var db = CreateContext(_userBId);
+        var txnB = await db.Transactions.FirstAsync();
+        var service = new DataManagementService(db);
+
+        var result = await service.SplitTransactionAsync(txnB.Id,
+            [(txnB.Amount / 2, "Part 1", _categoryAId), (txnB.Amount - txnB.Amount / 2, "Part 2", null)]);
+        Assert.Empty(result);
+
+        using var dbB = CreateContext(_userBId);
+        Assert.NotNull(await dbB.Transactions.FirstOrDefaultAsync(t => t.Id == txnB.Id));
+    }
+
+    [Fact]
+    public async Task BudgetService_CreateOrUpdate_Fails_ForOtherUsersCategory()
+    {
+        using var db = CreateContext(_userBId);
+        var service = new BudgetService(db);
+
+        var budget = await service.CreateOrUpdateBudgetAsync(_userBId, _categoryAId, 500);
+        Assert.Null(budget);
+
+        using var dbA = CreateContext(_userAId);
+        Assert.False(await dbA.Budgets.AnyAsync(b => b.CategoryId == _categoryAId));
+    }
+
+    [Fact]
+    public async Task CategorizationService_CreateRule_Fails_ForOtherUsersCategory()
+    {
+        using var db = CreateContext(_userBId);
+        var service = new CategorizationService(db);
+        var rule = await service.CreateRuleAsync(_userBId, "Injected", Plannit.Models.Entities.MatchType.Contains, _categoryAId, 1);
+        Assert.Null(rule);
+    }
+
+    [Fact]
+    public async Task CategorizationService_UpdateRule_Fails_ForOtherUsersCategory()
+    {
+        using var db = CreateContext(_userBId);
+        var service = new CategorizationService(db);
+        var ruleB = await db.CategoryRules.FirstAsync();
+
+        var result = await service.UpdateRuleAsync(ruleB.Id, ruleB.MatchText, ruleB.MatchType, _categoryAId, ruleB.Priority);
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task CategorizationService_CategorizeTransaction_Fails_ForOtherUsersCategory()
+    {
+        using var db = CreateContext(_userBId);
+        var service = new CategorizationService(db);
+        var txnB = await db.Transactions.FirstAsync();
+
+        var count = await service.CategorizeTransactionAsync(txnB.Id, _categoryAId);
+        Assert.Equal(0, count);
+
+        using var dbB = CreateContext(_userBId);
+        var unchanged = await dbB.Transactions.FirstAsync(t => t.Id == txnB.Id);
+        Assert.Null(unchanged.CategoryId);
+    }
+
+    [Fact]
+    public async Task CategorizationService_CreateCategory_Fails_ForOtherUsersParent()
+    {
+        using var db = CreateContext(_userBId);
+        var service = new CategorizationService(db);
+        var category = await service.CreateCategoryAsync(_userBId, "Injected", _categoryAId);
+        Assert.Null(category);
+    }
+
+    [Fact]
+    public async Task CategorizationService_UpdateCategory_Fails_ForOtherUsersParent()
+    {
+        using var db = CreateContext(_userBId);
+        var service = new CategorizationService(db);
+        var result = await service.UpdateCategoryAsync(_categoryBId, "Cat B", _categoryAId);
+        Assert.False(result);
+    }
 }

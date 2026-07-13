@@ -80,6 +80,21 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+// Clickjacking/MIME-sniffing/CSP defense-in-depth. script-src/style-src need
+// 'unsafe-inline' because views use inline Chart.js blocks and the dark-mode
+// FOUC-prevention script; all other sources are locked to self (assets are vendored).
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Frame-Options"] = "DENY";
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    headers["Content-Security-Policy"] =
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'";
+    await next();
+});
+
 app.UseRouting();
 
 app.UseAuthorization();

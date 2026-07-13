@@ -126,7 +126,9 @@ public class TransactionsController : Controller
             return View(model);
         }
 
-        await _transactionService.CreateAsync(model.AccountId, model.Date, model.Amount, model.Description);
+        var created = await _transactionService.CreateAsync(model.AccountId, model.Date, model.Amount, model.Description);
+        if (created is null) return NotFound();
+
         return RedirectToAction(nameof(Index));
     }
 
@@ -324,6 +326,11 @@ public class TransactionsController : Controller
             return RedirectToAction(nameof(Import));
         }
 
+        // The account is validated when the upload starts, but this confirm step is a
+        // separate POST whose AccountId must be re-checked against the current user.
+        var account = await _accountService.GetByIdAsync(model.AccountId);
+        if (account is null) return NotFound();
+
         if (string.IsNullOrEmpty(model.AmountColumn) &&
             (string.IsNullOrEmpty(model.DebitColumn) || string.IsNullOrEmpty(model.CreditColumn)))
         {
@@ -364,8 +371,7 @@ public class TransactionsController : Controller
 
         try { System.IO.File.Delete(tempFilePath); } catch { }
 
-        var account = await _accountService.GetByIdAsync(model.AccountId);
-        result.AccountName = account?.Name ?? "Unknown";
+        result.AccountName = account.Name;
 
         return await ContinueImportChainAsync(result, model.AccountId);
     }
@@ -378,6 +384,8 @@ public class TransactionsController : Controller
         {
             return View("ConfirmSnapshot", model);
         }
+
+        if (await _accountService.GetByIdAsync(model.AccountId) is null) return NotFound();
 
         var snapshot = await _snapshotImportService.UpsertSnapshotAsync(model.AccountId, model.AsOfDate, model.Balance);
 
@@ -592,10 +600,10 @@ public class TransactionsController : Controller
         sb.AppendLine("Date,Description,Amount,Account,Category,Notes");
         foreach (var t in items)
         {
-            var desc = CsvEscape(t.Description);
-            var acct = CsvEscape(t.Account.Name);
-            var cat = CsvEscape(t.Category?.Name ?? "");
-            var notes = CsvEscape(t.Notes ?? "");
+            var desc = CsvEscapeText(t.Description);
+            var acct = CsvEscapeText(t.Account.Name);
+            var cat = CsvEscapeText(t.Category?.Name ?? "");
+            var notes = CsvEscapeText(t.Notes ?? "");
             sb.AppendLine($"{t.Date:yyyy-MM-dd},{desc},{t.Amount},{acct},{cat},{notes}");
         }
 
@@ -722,5 +730,14 @@ public class TransactionsController : Controller
         if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
             return $"\"{value.Replace("\"", "\"\"")}\"";
         return value;
+    }
+
+    // Text cells only (never amounts/dates): a leading =, +, -, @, tab, or CR would be
+    // executed as a formula by Excel/Sheets, so neutralize it with a quote prefix.
+    internal static string CsvEscapeText(string value)
+    {
+        if (value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r')
+            value = "'" + value;
+        return CsvEscape(value);
     }
 }

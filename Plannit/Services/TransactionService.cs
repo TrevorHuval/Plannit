@@ -80,8 +80,12 @@ public class TransactionService
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 
-    public async Task<Transaction> CreateAsync(int accountId, DateOnly date, decimal amount, string description)
+    // The global query filters only scope reads; posted foreign keys must be checked
+    // against the filter-scoped set so one user can't write into another's account.
+    public async Task<Transaction?> CreateAsync(int accountId, DateOnly date, decimal amount, string description)
     {
+        if (!await _db.Accounts.AnyAsync(a => a.Id == accountId)) return null;
+
         var transaction = new Transaction
         {
             AccountId = accountId,
@@ -98,6 +102,9 @@ public class TransactionService
     {
         var transaction = await _db.Transactions.FirstOrDefaultAsync(t => t.Id == id);
         if (transaction is null) return false;
+
+        if (transaction.AccountId != accountId &&
+            !await _db.Accounts.AnyAsync(a => a.Id == accountId)) return false;
 
         transaction.AccountId = accountId;
         transaction.Date = date;

@@ -30,8 +30,17 @@ public class CategorizationService
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
-    public async Task<Category> CreateCategoryAsync(string userId, string name, int? parentId, bool isSystem = false)
+    // Query filters only scope reads; posted CategoryId/ParentId foreign keys must be
+    // validated against the filter-scoped set so they can't reference another user's rows.
+    private async Task<bool> IsOwnedCategoryAsync(int? categoryId)
     {
+        return categoryId is null || await _db.Categories.AnyAsync(c => c.Id == categoryId);
+    }
+
+    public async Task<Category?> CreateCategoryAsync(string userId, string name, int? parentId, bool isSystem = false)
+    {
+        if (!await IsOwnedCategoryAsync(parentId)) return null;
+
         var category = new Category
         {
             UserId = userId,
@@ -48,6 +57,7 @@ public class CategorizationService
     {
         var category = await _db.Categories.FirstOrDefaultAsync(c => c.Id == id);
         if (category is null) return false;
+        if (!await IsOwnedCategoryAsync(parentId)) return false;
 
         category.Name = name;
         category.ParentId = parentId;
@@ -86,8 +96,10 @@ public class CategorizationService
             .ToListAsync();
     }
 
-    public async Task<CategoryRule> CreateRuleAsync(string userId, string matchText, MatchType matchType, int categoryId, int priority)
+    public async Task<CategoryRule?> CreateRuleAsync(string userId, string matchText, MatchType matchType, int categoryId, int priority)
     {
+        if (!await IsOwnedCategoryAsync(categoryId)) return null;
+
         var rule = new CategoryRule
         {
             UserId = userId,
@@ -105,6 +117,7 @@ public class CategorizationService
     {
         var rule = await _db.CategoryRules.FirstOrDefaultAsync(r => r.Id == id);
         if (rule is null) return false;
+        if (!await IsOwnedCategoryAsync(categoryId)) return false;
 
         rule.MatchText = matchText;
         rule.MatchType = matchType;
@@ -128,6 +141,7 @@ public class CategorizationService
     {
         var txn = await _db.Transactions.FirstOrDefaultAsync(t => t.Id == transactionId);
         if (txn is null) return 0;
+        if (!await IsOwnedCategoryAsync(categoryId)) return 0;
 
         txn.CategoryId = categoryId;
         await _db.SaveChangesAsync();
