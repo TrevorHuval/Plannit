@@ -81,7 +81,9 @@ public class CategoriesController : Controller
             return View(model);
         }
 
-        await _categorizationService.CreateCategoryAsync(UserId, model.Name, model.ParentId);
+        var category = await _categorizationService.CreateCategoryAsync(UserId, model.Name, model.ParentId);
+        if (category is null) return NotFound();
+
         return RedirectToAction(nameof(Index));
     }
 
@@ -166,7 +168,9 @@ public class CategoriesController : Controller
             return View(model);
         }
 
-        await _categorizationService.CreateRuleAsync(UserId, model.MatchText, model.MatchType, model.CategoryId, model.Priority);
+        var rule = await _categorizationService.CreateRuleAsync(UserId, model.MatchText, model.MatchType, model.CategoryId, model.Priority);
+        if (rule is null) return NotFound();
+
         return RedirectToAction(nameof(Rules));
     }
 
@@ -258,6 +262,7 @@ public class CategoriesController : Controller
         }
 
         var rule = await _categorizationService.CreateRuleAsync(UserId, model.MatchText, model.MatchType, model.CategoryId, model.Priority);
+        if (rule is null) return NotFound();
 
         await _categorizationService.CategorizeTransactionAsync(model.TransactionId, model.CategoryId);
 

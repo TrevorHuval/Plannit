@@ -51,6 +51,11 @@ public class ProjectionsController : Controller
         if (!ModelState.IsValid)
             return View(vm);
 
+        // Posted AccountIds are attacker-controllable; keep only accounts the
+        // current user owns (the service query is filter-scoped).
+        var ownedAccountIds = await GetOwnedAccountIdsAsync();
+        vm.Accounts = vm.Accounts.Where(a => ownedAccountIds.Contains(a.AccountId)).ToList();
+
         var scenario = new ProjectionScenario
         {
             UserId = UserId,
@@ -104,6 +109,9 @@ public class ProjectionsController : Controller
 
         var scenario = await _projectionService.GetScenarioAsync(id);
         if (scenario is null) return NotFound();
+
+        var ownedAccountIds = await GetOwnedAccountIdsAsync();
+        vm.Accounts = vm.Accounts.Where(a => ownedAccountIds.Contains(a.AccountId)).ToList();
 
         scenario.Name = vm.Name;
         scenario.BirthYear = vm.BirthYear;
@@ -218,6 +226,12 @@ public class ProjectionsController : Controller
         }
 
         return View(new ScenarioCompareViewModel { Items = items });
+    }
+
+    private async Task<HashSet<int>> GetOwnedAccountIdsAsync()
+    {
+        var accounts = await _projectionService.GetActiveAccountsAsync();
+        return accounts.Select(a => a.Id).ToHashSet();
     }
 
     private static ScenarioFormViewModel BuildFormViewModel(ProjectionScenario? scenario, List<Account> accounts)

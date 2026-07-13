@@ -177,6 +177,9 @@ public class DataManagementService
 
     public async Task<int> BulkSetCategoryAsync(List<int> transactionIds, int categoryId)
     {
+        // Query filters only scope reads; a posted foreign CategoryId must be rejected here.
+        if (!await _db.Categories.AnyAsync(c => c.Id == categoryId)) return 0;
+
         var count = await _db.Transactions
             .Where(t => transactionIds.Contains(t.Id))
             .ExecuteUpdateAsync(s => s.SetProperty(t => t.CategoryId, categoryId));
@@ -274,6 +277,17 @@ public class DataManagementService
     {
         var original = await _db.Transactions.FirstOrDefaultAsync(t => t.Id == transactionId);
         if (original is null) return new();
+
+        var splitCategoryIds = splits
+            .Where(s => s.CategoryId is not null)
+            .Select(s => s.CategoryId!.Value)
+            .Distinct()
+            .ToList();
+        if (splitCategoryIds.Count > 0)
+        {
+            var ownedCount = await _db.Categories.CountAsync(c => splitCategoryIds.Contains(c.Id));
+            if (ownedCount != splitCategoryIds.Count) return new();
+        }
 
         var total = splits.Sum(s => s.Amount);
         if (Math.Abs(total - original.Amount) > 0.01m)

@@ -29,8 +29,11 @@ public class BudgetService
             .FirstOrDefaultAsync(b => b.Id == id);
     }
 
-    public async Task<Budget> CreateOrUpdateBudgetAsync(string userId, int categoryId, decimal monthlyAmount)
+    public async Task<Budget?> CreateOrUpdateBudgetAsync(string userId, int categoryId, decimal monthlyAmount)
     {
+        // Query filters only scope reads; a posted foreign CategoryId must be rejected here.
+        if (!await _db.Categories.AnyAsync(c => c.Id == categoryId)) return null;
+
         var existing = await _db.Budgets
             .FirstOrDefaultAsync(b => b.CategoryId == categoryId);
 
