@@ -31,8 +31,11 @@ public class TransactionService
             query = query.Where(t => t.Date <= endDate.Value);
 
         if (!string.IsNullOrWhiteSpace(searchText))
-            query = query.Where(t => t.Description.Contains(searchText) ||
-                                     (t.OriginalDescription != null && t.OriginalDescription.Contains(searchText)));
+        {
+            var pattern = $"%{EscapeLikePattern(searchText)}%";
+            query = query.Where(t => EF.Functions.Like(t.Description, pattern, "\\") ||
+                                     (t.OriginalDescription != null && EF.Functions.Like(t.OriginalDescription, pattern, "\\")));
+        }
 
         if (categoryId.HasValue)
         {
@@ -52,6 +55,13 @@ public class TransactionService
             .ToListAsync();
 
         return (items, totalCount);
+    }
+
+    // SQLite LIKE is case-insensitive for ASCII by default; escape user-supplied
+    // wildcard characters so search text is matched literally.
+    private static string EscapeLikePattern(string value)
+    {
+        return value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
     }
 
     public async Task<DateOnly?> GetLatestTransactionDateAsync(int accountId)

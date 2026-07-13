@@ -1,6 +1,9 @@
 @model Plannit.Models.ViewModels.CreateRuleFromTransactionViewModel
 @{
     ViewData["Title"] = "Create Rule from Transaction";
+    var backUrl = !string.IsNullOrEmpty(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Index", "Transactions");
 }
 
 <div class="page-header">
@@ -16,6 +19,7 @@
                     @Html.AntiForgeryToken()
                     <input type="hidden" asp-for="TransactionId" />
                     <input type="hidden" asp-for="Description" />
+                    <input type="hidden" asp-for="ReturnUrl" />
                     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
                     <div class="mb-3">
@@ -50,7 +54,7 @@
 
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">Create Rule & Categorize</button>
-                        <a asp-controller="Transactions" asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                        <a href="@backUrl" class="btn btn-outline-secondary">Cancel</a>
                     </div>
                 </form>
             </div>

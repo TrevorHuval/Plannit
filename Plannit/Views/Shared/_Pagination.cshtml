@@ -1,0 +1,99 @@
+@model Plannit.Models.ViewModels.PaginationViewModel
+@{
+    var currentPage = Model.Page;
+    var totalPages = Math.Max(Model.TotalPages, 1);
+    var windowStart = Math.Max(1, currentPage - 2);
+    var windowEnd = Math.Min(totalPages, currentPage + 2);
+
+    Dictionary<string, string> RouteFor(int targetPage)
+    {
+        var values = new Dictionary<string, string>(Model.RouteValues)
+        {
+            ["page"] = targetPage.ToString(),
+            ["pageSize"] = Model.PageSize.ToString()
+        };
+        return values;
+    }
+}
+
+<div class="pl-pagination-bar">
+    <div class="pl-pagination-caption">
+        Page @currentPage of @totalPages &middot; @Model.TotalCount.ToString("N0") @(Model.TotalCount == 1 ? Model.ItemNounSingular : Model.ItemNounPlural)
+    </div>
+
+    @if (totalPages > 1)
+    {
+        <nav aria-label="Pagination">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                    <a class="page-link" aria-label="First page" tabindex="@(currentPage <= 1 ? "-1" : null)"
+                       asp-controller="@Model.Controller" asp-action="@Model.Action" asp-all-route-data="@RouteFor(1)">&laquo; First</a>
+                </li>
+                <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                    <a class="page-link" aria-label="Previous page" tabindex="@(currentPage <= 1 ? "-1" : null)"
+                       asp-controller="@Model.Controller" asp-action="@Model.Action" asp-all-route-data="@RouteFor(Math.Max(currentPage - 1, 1))">&lsaquo; Prev</a>
+                </li>
+
+                @if (windowStart > 1)
+                {
+                    <li class="page-item">
+                        <a class="page-link" asp-controller="@Model.Controller" asp-action="@Model.Action" asp-all-route-data="@RouteFor(1)">1</a>
+                    </li>
+                    if (windowStart > 2)
+                    {
+                        <li class="page-item disabled"><span class="page-link pl-pagination-ellipsis">&hellip;</span></li>
+                    }
+                }
+
+                @for (var p = windowStart; p <= windowEnd; p++)
+                {
+                    <li class="page-item @(p == currentPage ? "active" : "")">
+                        @if (p == currentPage)
+                        {
+                            <span class="page-link" aria-current="page">@p</span>
+                        }
+                        else
+                        {
+                            <a class="page-link" asp-controller="@Model.Controller" asp-action="@Model.Action" asp-all-route-data="@RouteFor(p)">@p</a>
+                        }
+                    </li>
+                }
+
+                @if (windowEnd < totalPages)
+                {
+                    if (windowEnd < totalPages - 1)
+                    {
+                        <li class="page-item disabled"><span class="page-link pl-pagination-ellipsis">&hellip;</span></li>
+                    }
+                    <li class="page-item">
+                        <a class="page-link" asp-controller="@Model.Controller" asp-action="@Model.Action" asp-all-route-data="@RouteFor(totalPages)">@totalPages</a>
+                    </li>
+                }
+
+                <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                    <a class="page-link" aria-label="Next page" tabindex="@(currentPage >= totalPages ? "-1" : null)"
+                       asp-controller="@Model.Controller" asp-action="@Model.Action" asp-all-route-data="@RouteFor(Math.Min(currentPage + 1, totalPages))">Next &rsaquo;</a>
+                </li>
+                <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                    <a class="page-link" aria-label="Last page" tabindex="@(currentPage >= totalPages ? "-1" : null)"
+                       asp-controller="@Model.Controller" asp-action="@Model.Action" asp-all-route-data="@RouteFor(totalPages)">Last &raquo;</a>
+                </li>
+            </ul>
+        </nav>
+    }
+
+    <form method="get" asp-controller="@Model.Controller" asp-action="@Model.Action" class="pl-pagination-size">
+        @foreach (var kvp in Model.RouteValues)
+        {
+            <input type="hidden" name="@kvp.Key" value="@kvp.Value" />
+        }
+        <input type="hidden" name="page" value="1" />
+        <label for="pl-page-size" class="pl-pagination-size-label">Per page</label>
+        <select name="pageSize" id="pl-page-size" class="form-select form-select-sm" onchange="this.form.submit()">
+            @foreach (var size in Model.PageSizeOptions)
+            {
+                <option value="@size" selected="@(size == Model.PageSize)">@size</option>
+            }
+        </select>
+    </form>
+</div>

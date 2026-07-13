@@ -2,6 +2,13 @@
 @{
     ViewData["Title"] = "Transactions";
     var currentUrl = Context.Request.Path + Context.Request.QueryString;
+
+    var filterRouteValues = new Dictionary<string, string>();
+    if (Model.AccountId.HasValue) filterRouteValues["accountId"] = Model.AccountId.Value.ToString();
+    if (Model.CategoryId.HasValue) filterRouteValues["categoryId"] = Model.CategoryId.Value.ToString();
+    if (Model.StartDate.HasValue) filterRouteValues["startDate"] = Model.StartDate.Value.ToString("yyyy-MM-dd");
+    if (Model.EndDate.HasValue) filterRouteValues["endDate"] = Model.EndDate.Value.ToString("yyyy-MM-dd");
+    if (!string.IsNullOrEmpty(Model.SearchText)) filterRouteValues["searchText"] = Model.SearchText;
 }
 
 <div class="page-header">
@@ -9,6 +16,7 @@
     <div class="page-actions">
         <form asp-controller="Categories" asp-action="RecategorizeUncategorized" method="post" class="d-inline">
             @Html.AntiForgeryToken()
+            <input type="hidden" name="returnUrl" value="@currentUrl" />
             <button type="submit" class="btn btn-outline-success" title="Apply rules to uncategorized transactions">
                 <i class="bi bi-lightning"></i> Auto-Categorize
             </button>
@@ -37,6 +45,7 @@
                               onsubmit="return confirm('Flip the sign of every transaction in this account? Use this if a whole statement was imported with reversed polarity.');">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="accountId" value="@Model.AccountId" />
+                            <input type="hidden" name="returnUrl" value="@currentUrl" />
                             <button type="submit" class="dropdown-item">Invert all transaction signs</button>
                         </form>
                     </li>
@@ -62,6 +71,7 @@
 }
 
 <form method="get" class="pl-filter-bar">
+    <input type="hidden" name="pageSize" value="@Model.PageSize" />
     <div class="row g-3 align-items-end">
         <div class="col-md-2">
             <label for="accountId" class="form-label">Account</label>
@@ -187,15 +197,16 @@ else
                                         data-txn-id="@t.Id" data-txn-notes="@(t.Notes ?? "")">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
-                                <a asp-action="Split" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary" title="Split transaction">
+                                <a asp-action="Split" asp-route-id="@t.Id" asp-route-returnUrl="@currentUrl" class="btn btn-sm btn-outline-secondary" title="Split transaction">
                                     <i class="bi bi-scissors"></i>
                                 </a>
                                 <a asp-controller="Categories" asp-action="CreateRuleFromTransaction"
-                                   asp-route-transactionId="@t.Id"
+                                   asp-route-transactionId="@t.Id" asp-route-returnUrl="@currentUrl"
                                    class="btn btn-sm btn-outline-secondary" title="Create categorization rule">Rule</a>
-                                <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                <a asp-action="Edit" asp-route-id="@t.Id" asp-route-returnUrl="@currentUrl" class="btn btn-sm btn-outline-secondary">Edit</a>
                                 <form asp-action="Delete" asp-route-id="@t.Id" method="post" class="d-inline">
                                     @Html.AntiForgeryToken()
+                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
                                     <button type="submit" class="btn btn-sm btn-outline-danger"
                                             onclick="return confirm('Delete this transaction?')">Del</button>
                                 </form>
@@ -207,25 +218,18 @@ else
         </div>
     </div>
 
-    @if (Model.TotalPages > 1)
+    <partial name="_Pagination" model="@(new Plannit.Models.ViewModels.PaginationViewModel
     {
-        <nav class="mt-3">
-            <ul class="pagination justify-content-center">
-                @for (int p = 1; p <= Model.TotalPages; p++)
-                {
-                    <li class="page-item @(p == Model.Page ? "active" : "")">
-                        <a class="page-link" asp-action="Index"
-                           asp-route-accountId="@Model.AccountId"
-                           asp-route-categoryId="@Model.CategoryId"
-                           asp-route-startDate="@(Model.StartDate?.ToString("yyyy-MM-dd"))"
-                           asp-route-endDate="@(Model.EndDate?.ToString("yyyy-MM-dd"))"
-                           asp-route-searchText="@Model.SearchText"
-                           asp-route-page="@p">@p</a>
-                    </li>
-                }
-            </ul>
-        </nav>
-    }
+        Page = Model.Page,
+        TotalPages = Model.TotalPages,
+        TotalCount = Model.TotalCount,
+        PageSize = Model.PageSize,
+        Controller = "Transactions",
+        Action = "Index",
+        RouteValues = filterRouteValues,
+        ItemNounSingular = "transaction",
+        ItemNounPlural = "transactions"
+    })" />
 }
 
 <!-- Notes Modal -->
@@ -258,6 +262,7 @@ else
         <div class="modal-content">
             <form asp-action="BulkSetCategory" method="post" id="bulkCategoryForm">
                 @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@currentUrl" />
                 <div id="bulkCategoryInputs"></div>
                 <div class="modal-header">
                     <h5 class="modal-title">Set Category for Selected</h5>
@@ -284,6 +289,7 @@ else
 <!-- Bulk Delete Form (hidden) -->
 <form asp-action="BulkDelete" method="post" id="bulkDeleteForm" class="d-none">
     @Html.AntiForgeryToken()
+    <input type="hidden" name="returnUrl" value="@currentUrl" />
     <div id="bulkDeleteInputs"></div>
 </form>
 

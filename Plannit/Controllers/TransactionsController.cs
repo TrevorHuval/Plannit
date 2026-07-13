@@ -55,9 +55,13 @@ public class TransactionsController : Controller
         return cleaned.Length > 100 ? cleaned[..100] : cleaned;
     }
 
-    public async Task<IActionResult> Index(int? accountId, DateOnly? startDate, DateOnly? endDate, string? searchText, int? categoryId, int page = 1)
+    private static readonly int[] AllowedPageSizes = [25, 50, 100];
+
+    public async Task<IActionResult> Index(int? accountId, DateOnly? startDate, DateOnly? endDate, string? searchText, int? categoryId, int page = 1, int pageSize = 50)
     {
-        const int pageSize = 50;
+        if (!AllowedPageSizes.Contains(pageSize)) pageSize = 50;
+        if (page < 1) page = 1;
+
         searchText = SanitizeSearchText(searchText);
         var (items, totalCount) = await _transactionService.GetFilteredAsync(accountId, startDate, endDate, searchText, categoryId, page, pageSize);
         var accounts = await _accountService.GetAllAsync();
@@ -71,7 +75,9 @@ public class TransactionsController : Controller
             SearchText = searchText,
             CategoryId = categoryId,
             Page = page,
-            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize),
+            PageSize = pageSize,
+            TotalCount = totalCount,
+            TotalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize)),
             Accounts = accounts.Select(a => new AccountOption { Id = a.Id, Name = a.Name }).ToList(),
             Categories = categories.Select(c => new CategoryOption { Id = c.Id, Name = c.Name }).ToList(),
             Transactions = items.Select(t => new TransactionRowViewModel
@@ -116,7 +122,7 @@ public class TransactionsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    public async Task<IActionResult> Edit(int id)
+    public async Task<IActionResult> Edit(int id, string? returnUrl)
     {
         var transaction = await _transactionService.GetByIdAsync(id);
         if (transaction is null) return NotFound();
@@ -129,7 +135,8 @@ public class TransactionsController : Controller
             Date = transaction.Date,
             Amount = transaction.Amount,
             Description = transaction.Description,
-            Accounts = accounts.Select(a => new AccountOption { Id = a.Id, Name = a.Name }).ToList()
+            Accounts = accounts.Select(a => new AccountOption { Id = a.Id, Name = a.Name }).ToList(),
+            ReturnUrl = returnUrl
         });
     }
 
@@ -147,15 +154,15 @@ public class TransactionsController : Controller
         var success = await _transactionService.UpdateAsync(id, model.AccountId, model.Date, model.Amount, model.Description);
         if (!success) return NotFound();
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToReturnUrlOrIndex(model.ReturnUrl);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Delete(int id)
+    public async Task<IActionResult> Delete(int id, string? returnUrl)
     {
         await _transactionService.DeleteAsync(id);
-        return RedirectToAction(nameof(Index));
+        return RedirectToReturnUrlOrIndex(returnUrl);
     }
 
     public async Task<IActionResult> Import()
@@ -583,41 +590,41 @@ public class TransactionsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> BulkSetCategory(List<int> transactionIds, int categoryId)
+    public async Task<IActionResult> BulkSetCategory(List<int> transactionIds, int categoryId, string? returnUrl)
     {
         if (transactionIds.Count == 0)
         {
             TempData["Error"] = "No transactions selected.";
-            return RedirectToAction(nameof(Index));
+            return RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         var count = await _dataService.BulkSetCategoryAsync(transactionIds, categoryId);
         TempData["Message"] = $"Updated category for {count} transaction{(count != 1 ? "s" : "")}.";
-        return RedirectToAction(nameof(Index));
+        return RedirectToReturnUrlOrIndex(returnUrl);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> BulkDelete(List<int> transactionIds)
+    public async Task<IActionResult> BulkDelete(List<int> transactionIds, string? returnUrl)
     {
         if (transactionIds.Count == 0)
         {
             TempData["Error"] = "No transactions selected.";
-            return RedirectToAction(nameof(Index));
+            return RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         var count = await _dataService.BulkDeleteAsync(transactionIds);
         TempData["Message"] = $"Deleted {count} transaction{(count != 1 ? "s" : "")}.";
-        return RedirectToAction(nameof(Index));
+        return RedirectToReturnUrlOrIndex(returnUrl);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> InvertAccountSigns(int accountId)
+    public async Task<IActionResult> InvertAccountSigns(int accountId, string? returnUrl)
     {
         var count = await _dataService.InvertAccountTransactionSignsAsync(accountId);
         TempData["Message"] = $"Inverted the sign on {count} transaction{(count != 1 ? "s" : "")}.";
-        return RedirectToAction(nameof(Index), new { accountId });
+        return RedirectToReturnUrlOrIndex(returnUrl, new { accountId });
     }
 
     [HttpPost]
@@ -625,12 +632,10 @@ public class TransactionsController : Controller
     public async Task<IActionResult> UpdateNotes(int id, string? notes, string? returnUrl)
     {
         await _dataService.UpdateTransactionNotesAsync(id, notes);
-        if (!string.IsNullOrEmpty(returnUrl))
-            return LocalRedirect(returnUrl);
-        return RedirectToAction(nameof(Index));
+        return RedirectToReturnUrlOrIndex(returnUrl);
     }
 
-    public async Task<IActionResult> Split(int id)
+    public async Task<IActionResult> Split(int id, string? returnUrl)
     {
         var txn = await _transactionService.GetByIdAsync(id);
         if (txn is null) return NotFound();
@@ -647,7 +652,8 @@ public class TransactionsController : Controller
             {
                 new() { Amount = txn.Amount, Description = txn.Description, CategoryId = txn.CategoryId },
                 new() { Amount = 0, Description = txn.Description }
-            }
+            },
+            ReturnUrl = returnUrl
         };
         return View(vm);
     }
@@ -680,11 +686,20 @@ public class TransactionsController : Controller
         if (result.Count == 0)
         {
             TempData["Error"] = "Failed to split transaction.";
-            return RedirectToAction(nameof(Index));
+            return RedirectToReturnUrlOrIndex(model.ReturnUrl);
         }
 
         TempData["Message"] = $"Transaction split into {result.Count} parts.";
-        return RedirectToAction(nameof(Index));
+        return RedirectToReturnUrlOrIndex(model.ReturnUrl);
+    }
+
+    // Redirects back to the filtered/paged view the user came from when the URL is a
+    // safe local path, falling back to a bare Index otherwise (open-redirect guard).
+    private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl, object? routeValues = null)
+    {
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return LocalRedirect(returnUrl);
+        return RedirectToAction(nameof(Index), routeValues);
     }
 
     private static string CsvEscape(string value)

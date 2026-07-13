@@ -86,6 +86,7 @@ public class CreateRuleFromTransactionViewModel
     public int Priority { get; set; } = 50;
 
     public List<CategoryOption> Categories { get; set; } = new();
+    public string? ReturnUrl { get; set; }
 }
 
 public class MergeCategoryViewModel

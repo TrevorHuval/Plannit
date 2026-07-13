@@ -21,4 +21,6 @@ public class TransactionFormViewModel
     public string Description { get; set; } = null!;
 
     public List<AccountOption> Accounts { get; set; } = new();
+
+    public string? ReturnUrl { get; set; }
 }

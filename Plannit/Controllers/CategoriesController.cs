@@ -218,21 +218,19 @@ public class CategoriesController : Controller
     public async Task<IActionResult> SetTransactionCategory(int transactionId, int? categoryId, string? returnUrl)
     {
         await _categorizationService.CategorizeTransactionAsync(transactionId, categoryId);
-        if (!string.IsNullOrEmpty(returnUrl))
-            return LocalRedirect(returnUrl);
-        return RedirectToAction("Index", "Transactions");
+        return RedirectToReturnUrlOrTransactionsIndex(returnUrl);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RecategorizeUncategorized()
+    public async Task<IActionResult> RecategorizeUncategorized(string? returnUrl)
     {
         var count = await _categorizationService.ApplyRulesToUncategorizedAsync();
         TempData["Message"] = $"Categorized {count} transaction{(count != 1 ? "s" : "")}.";
-        return RedirectToAction("Index", "Transactions");
+        return RedirectToReturnUrlOrTransactionsIndex(returnUrl);
     }
 
-    public async Task<IActionResult> CreateRuleFromTransaction(int transactionId)
+    public async Task<IActionResult> CreateRuleFromTransaction(int transactionId, string? returnUrl)
     {
         var txn = await _transactionService.GetByIdAsync(transactionId);
         if (txn is null) return NotFound();
@@ -243,7 +241,8 @@ public class CategoriesController : Controller
             TransactionId = txn.Id,
             Description = txn.Description,
             MatchText = txn.Description,
-            Categories = categories.Select(c => new CategoryOption { Id = c.Id, Name = c.Name }).ToList()
+            Categories = categories.Select(c => new CategoryOption { Id = c.Id, Name = c.Name }).ToList(),
+            ReturnUrl = returnUrl
         });
     }
 
@@ -263,6 +262,15 @@ public class CategoriesController : Controller
         await _categorizationService.CategorizeTransactionAsync(model.TransactionId, model.CategoryId);
 
         TempData["Message"] = $"Rule created and transaction categorized as '{rule.Category?.Name ?? "selected category"}'.";
+        return RedirectToReturnUrlOrTransactionsIndex(model.ReturnUrl);
+    }
+
+    // Redirects back to the filtered/paged Transactions view the user came from when
+    // the URL is a safe local path, falling back to a bare Index otherwise (open-redirect guard).
+    private IActionResult RedirectToReturnUrlOrTransactionsIndex(string? returnUrl)
+    {
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return LocalRedirect(returnUrl);
         return RedirectToAction("Index", "Transactions");
     }
 

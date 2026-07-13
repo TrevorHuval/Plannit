@@ -16,6 +16,8 @@ public class TransactionListViewModel
 
     public int Page { get; set; } = 1;
     public int TotalPages { get; set; }
+    public int TotalCount { get; set; }
+    public int PageSize { get; set; } = 50;
 }
 
 public class TransactionRowViewModel
@@ -46,6 +48,7 @@ public class SplitTransactionViewModel
     public DateOnly Date { get; set; }
     public List<CategoryOption> Categories { get; set; } = new();
     public List<SplitLineViewModel> Splits { get; set; } = new();
+    public string? ReturnUrl { get; set; }
 }
 
 public class SplitLineViewModel
