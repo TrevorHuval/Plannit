@@ -16,6 +16,7 @@ public class AccountService
     public async Task<List<Account>> GetAllAsync()
     {
         return await _db.Accounts
+            .AsNoTracking()
             .Where(a => a.IsActive)
             .Include(a => a.Snapshots)
             .OrderBy(a => a.Type)
@@ -26,6 +27,7 @@ public class AccountService
     public async Task<Account?> GetByIdAsync(int id)
     {
         return await _db.Accounts
+            .AsNoTracking()
             .Include(a => a.Snapshots.OrderByDescending(s => s.Date))
             .FirstOrDefaultAsync(a => a.Id == id);
     }
@@ -92,32 +94,6 @@ public class AccountService
         _db.BalanceSnapshots.Add(snapshot);
         await _db.SaveChangesAsync();
         return snapshot;
-    }
-
-    /// <summary>
-    /// Startup-only cross-user repair; intentionally bypasses the per-user query filter
-    /// since it runs on a fresh, unauthenticated context with no current user set.
-    /// </summary>
-    public async Task<int> RepairLiabilitySnapshotSignsAsync()
-    {
-        var negativeSnapshots = await _db.BalanceSnapshots
-            .IgnoreQueryFilters()
-            .Include(s => s.Account)
-            .Where(s => s.Balance < 0)
-            .ToListAsync();
-
-        var changed = 0;
-        foreach (var snapshot in negativeSnapshots)
-        {
-            if (!NetWorthService.IsLiability(snapshot.Account.Type)) continue;
-            snapshot.Balance = Math.Abs(snapshot.Balance);
-            changed++;
-        }
-
-        if (changed > 0)
-            await _db.SaveChangesAsync();
-
-        return changed;
     }
 
     public async Task<bool> DeleteSnapshotAsync(int snapshotId)

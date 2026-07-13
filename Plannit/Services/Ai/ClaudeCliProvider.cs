@@ -14,6 +14,13 @@ public class ClaudeCliProvider : PromptBasedCategorizer
     public const string ExecutableName = "claude";
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(120);
 
+    private readonly ILogger<ClaudeCliProvider>? _logger;
+
+    public ClaudeCliProvider(ILogger<ClaudeCliProvider>? logger = null)
+    {
+        _logger = logger;
+    }
+
     public override string Name => "Claude CLI";
 
     /// <summary>
@@ -70,7 +77,8 @@ public class ClaudeCliProvider : PromptBasedCategorizer
         }
         catch (OperationCanceledException)
         {
-            try { process.Kill(entireProcessTree: true); } catch { }
+            try { process.Kill(entireProcessTree: true); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "Failed to kill timed-out Claude CLI process tree {ProcessId}", process.Id); }
             throw;
         }
 

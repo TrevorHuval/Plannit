@@ -7,6 +7,13 @@ namespace Plannit.Services;
 
 public class PdfStatementService
 {
+    private readonly ILogger<PdfStatementService> _logger;
+
+    public PdfStatementService(ILogger<PdfStatementService> logger)
+    {
+        _logger = logger;
+    }
+
     public PdfStatementPreview Parse(Stream pdfStream)
     {
         var sb = new StringBuilder();
@@ -20,15 +27,16 @@ public class PdfStatementService
                 {
                     sb.AppendLine(document.GetPage(i).Text);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // continue to next page
+                    _logger.LogWarning(ex, "Failed to extract text from PDF page {PageNumber}", i);
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Document couldn't be opened at all — fall through with whatever text (if any) was extracted.
+            _logger.LogWarning(ex, "Failed to open PDF statement for text extraction");
         }
 
         var preview = ParseFromText(sb.ToString());

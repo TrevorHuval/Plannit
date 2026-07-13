@@ -19,6 +19,7 @@ public class DataManagementService
     public async Task<List<ImportBatch>> GetImportBatchesAsync()
     {
         return await _db.ImportBatches
+            .AsNoTracking()
             .Include(b => b.Account)
             .OrderByDescending(b => b.ImportedAt)
             .ToListAsync();
@@ -27,6 +28,7 @@ public class DataManagementService
     public async Task<ImportBatch?> GetImportBatchAsync(int id)
     {
         return await _db.ImportBatches
+            .AsNoTracking()
             .Include(b => b.Account)
             .Include(b => b.Transactions)
             .FirstOrDefaultAsync(b => b.Id == id);
@@ -65,14 +67,16 @@ public class DataManagementService
     public async Task<string> ExportFullBackupJsonAsync()
     {
         var accounts = await _db.Accounts
+            .AsNoTracking()
             .Include(a => a.Snapshots)
             .ToListAsync();
 
-        var transactions = await _db.Transactions.ToListAsync();
-        var categories = await _db.Categories.ToListAsync();
-        var rules = await _db.CategoryRules.ToListAsync();
-        var budgets = await _db.Budgets.Include(b => b.Category).ToListAsync();
+        var transactions = await _db.Transactions.AsNoTracking().ToListAsync();
+        var categories = await _db.Categories.AsNoTracking().ToListAsync();
+        var rules = await _db.CategoryRules.AsNoTracking().ToListAsync();
+        var budgets = await _db.Budgets.AsNoTracking().Include(b => b.Category).ToListAsync();
         var scenarios = await _db.ProjectionScenarios
+            .AsNoTracking()
             .Include(s => s.AccountAssumptions)
             .Include(s => s.Events)
             .ToListAsync();
@@ -191,6 +195,8 @@ public class DataManagementService
         var count = await _db.Transactions
             .Where(t => transactionIds.Contains(t.Id))
             .ExecuteDeleteAsync();
+        if (count > 0)
+            _db.BumpCacheVersion();
         return count;
     }
 
@@ -230,6 +236,7 @@ public class DataManagementService
     public async Task<List<Transaction>> TestRuleMatchesAsync(string matchText, MatchType matchType)
     {
         var allTransactions = await _db.Transactions
+            .AsNoTracking()
             .Include(t => t.Account)
             .Include(t => t.Category)
             .ToListAsync();

@@ -17,6 +17,7 @@ public class TransactionService
         int? accountId, DateOnly? startDate, DateOnly? endDate, string? searchText, int? categoryId, int page, int pageSize = 50)
     {
         var query = _db.Transactions
+            .AsNoTracking()
             .Include(t => t.Account)
             .Include(t => t.Category)
             .AsQueryable();
@@ -75,6 +76,7 @@ public class TransactionService
     public async Task<Transaction?> GetByIdAsync(int id)
     {
         return await _db.Transactions
+            .AsNoTracking()
             .Include(t => t.Account)
             .Include(t => t.Category)
             .FirstOrDefaultAsync(t => t.Id == id);

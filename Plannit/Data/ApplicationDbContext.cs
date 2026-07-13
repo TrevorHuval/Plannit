@@ -1,11 +1,20 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Plannit.Models.Entities;
+using Plannit.Services;
 
 namespace Plannit.Data;
 
-public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext(options)
+public class ApplicationDbContext : IdentityDbContext
 {
+    private readonly ICacheVersionProvider? _cacheVersionProvider;
+
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, ICacheVersionProvider? cacheVersionProvider = null)
+        : base(options)
+    {
+        _cacheVersionProvider = cacheVersionProvider;
+    }
+
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<BalanceSnapshot> BalanceSnapshots => Set<BalanceSnapshot>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
@@ -23,6 +32,46 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     private string? _currentUserId;
 
     public void SetCurrentUser(string userId) => _currentUserId = userId;
+
+    public string? CurrentUserId => _currentUserId;
+
+    /// <summary>Current cache generation for the active user; bumped whenever a write touches
+    /// a cache-affecting entity (see <see cref="SaveChangesAsync(CancellationToken)"/>).</summary>
+    public int CacheVersion => _currentUserId is null ? 0 : (_cacheVersionProvider?.GetVersion(_currentUserId) ?? 0);
+
+    public void BumpCacheVersion()
+    {
+        if (_currentUserId is not null)
+            _cacheVersionProvider?.Bump(_currentUserId);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        BumpCacheVersionIfNeeded();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        BumpCacheVersionIfNeeded();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    // Transactions and balance snapshots feed the cached net-worth/recurring-detection
+    // aggregates; any tracked write to either invalidates this user's cache generation.
+    // ExecuteUpdate/ExecuteDelete bypass the change tracker and call BumpCacheVersion() directly
+    // at their call sites instead.
+    private void BumpCacheVersionIfNeeded()
+    {
+        if (_currentUserId is null) return;
+
+        var affectsCache = ChangeTracker.Entries<Transaction>().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            || ChangeTracker.Entries<BalanceSnapshot>().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            || ChangeTracker.Entries<Account>().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
+
+        if (affectsCache)
+            _cacheVersionProvider?.Bump(_currentUserId);
+    }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

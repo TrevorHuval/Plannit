@@ -10,9 +10,12 @@ RUN dotnet publish Plannit/Plannit.csproj -c Release -o /app/publish --no-restor
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-RUN mkdir -p /data /data/keys
+RUN groupadd --system --gid 1654 plannit \
+    && useradd --system --uid 1654 --gid plannit --no-create-home plannit \
+    && mkdir -p /data /data/keys \
+    && chown -R plannit:plannit /data /app
 
-COPY --from=build /app/publish .
+COPY --from=build --chown=plannit:plannit /app/publish .
 
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
@@ -20,5 +23,10 @@ ENV ConnectionStrings__DefaultConnection="DataSource=/data/plannit.db;Cache=Shar
 ENV DataProtection__KeyPath=/data/keys
 
 EXPOSE 8080
+
+USER plannit
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:8080/healthz || exit 1
 
 ENTRYPOINT ["dotnet", "Plannit.dll"]

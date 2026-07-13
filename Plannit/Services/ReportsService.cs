@@ -16,21 +16,18 @@ public class ReportsService
 
     public async Task<SpendByCategoryResult> GetSpendByCategoryAsync(DateOnly startDate, DateOnly endDate)
     {
-        var transactions = await _db.Transactions
-            .Include(t => t.Category)
+        var grouped = await _db.Transactions
+            .AsNoTracking()
             .Where(t => t.Date >= startDate && t.Date <= endDate && t.Amount < 0)
             .Where(t => t.Category == null || t.Category.Name != TransfersCategoryName)
-            .ToListAsync();
-
-        var grouped = transactions
-            .GroupBy(t => t.Category?.Name ?? "Uncategorized")
+            .GroupBy(t => t.Category != null ? t.Category.Name : null)
             .Select(g => new CategorySpend
             {
-                CategoryName = g.Key,
-                Total = Math.Abs(g.Sum(t => t.Amount))
+                CategoryName = g.Key ?? "Uncategorized",
+                Total = -g.Sum(t => t.Amount)
             })
             .OrderByDescending(c => c.Total)
-            .ToList();
+            .ToListAsync();
 
         return new SpendByCategoryResult
         {
@@ -44,27 +41,26 @@ public class ReportsService
         var today = DateOnly.FromDateTime(DateTime.Today);
         var startDate = new DateOnly(today.Year, today.Month, 1).AddMonths(-(months - 1));
 
-        var transactions = await _db.Transactions
-            .Include(t => t.Category)
+        var grouped = await _db.Transactions
+            .AsNoTracking()
             .Where(t => t.Date >= startDate && t.Amount < 0)
             .Where(t => t.Category == null || t.Category.Name != TransfersCategoryName)
-            .ToListAsync();
+            .GroupBy(t => new { t.Date.Year, t.Date.Month })
+            .Select(g => new { g.Key.Year, g.Key.Month, Total = -g.Sum(t => t.Amount) })
+            .ToDictionaryAsync(g => (g.Year, g.Month), g => g.Total);
 
         var result = new List<MonthlySpend>();
         for (int i = 0; i < months; i++)
         {
             var monthStart = startDate.AddMonths(i);
-            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
-
-            var monthTxns = transactions
-                .Where(t => t.Date >= monthStart && t.Date <= monthEnd);
+            grouped.TryGetValue((monthStart.Year, monthStart.Month), out var total);
 
             result.Add(new MonthlySpend
             {
                 Year = monthStart.Year,
                 Month = monthStart.Month,
                 Label = monthStart.ToString("MMM yyyy"),
-                Total = Math.Abs(monthTxns.Sum(t => t.Amount))
+                Total = total
             });
         }
 
@@ -73,16 +69,18 @@ public class ReportsService
 
     public async Task<IncomeExpenseSummary> GetIncomeExpenseSummaryAsync(DateOnly startDate, DateOnly endDate)
     {
-        var transactions = await _db.Transactions
-            .Include(t => t.Category)
+        var query = _db.Transactions
+            .AsNoTracking()
             .Where(t => t.Date >= startDate && t.Date <= endDate)
-            .Where(t => t.Category == null || t.Category.Name != TransfersCategoryName)
-            .ToListAsync();
+            .Where(t => t.Category == null || t.Category.Name != TransfersCategoryName);
+
+        var income = await query.Where(t => t.Amount > 0).SumAsync(t => (decimal?)t.Amount) ?? 0m;
+        var expenses = await query.Where(t => t.Amount < 0).SumAsync(t => (decimal?)t.Amount) ?? 0m;
 
         return new IncomeExpenseSummary
         {
-            Income = transactions.Where(t => t.Amount > 0).Sum(t => t.Amount),
-            Expenses = Math.Abs(transactions.Where(t => t.Amount < 0).Sum(t => t.Amount)),
+            Income = income,
+            Expenses = -expenses,
         };
     }
 
@@ -100,9 +98,16 @@ public class ReportsService
     /// an inter-account card payment are worth a warning, everything else unpaired is
     /// reported informationally.
     /// </summary>
+    // Bucket size matches the 5-day pairing window: two transactions within 5 days of each
+    // other land in the same bucket or an adjacent one, so scanning bucket-1..bucket+1 finds
+    // every candidate the old full O(n^2) scan did, without comparing transactions that are
+    // amount- or date-incompatible up front.
+    private const int TransferDateBucketDays = 5;
+
     public async Task<TransfersSanityResult> GetTransfersSanityAsync(DateOnly startDate, DateOnly endDate)
     {
         var transfers = await _db.Transactions
+            .AsNoTracking()
             .Include(t => t.Category)
             .Include(t => t.Account)
             .Where(t => t.Date >= startDate && t.Date <= endDate)
@@ -110,20 +115,40 @@ public class ReportsService
             .OrderBy(t => t.Date)
             .ToListAsync();
 
-        var candidates = new List<(Transaction A, Transaction B, int DateDiff)>();
-        for (var i = 0; i < transfers.Count; i++)
+        var buckets = new Dictionary<(decimal AbsAmount, int DateBucket), List<Transaction>>();
+        foreach (var t in transfers)
         {
-            for (var j = i + 1; j < transfers.Count; j++)
+            var key = (Math.Abs(t.Amount), t.Date.DayNumber / TransferDateBucketDays);
+            if (!buckets.TryGetValue(key, out var list))
+                buckets[key] = list = new List<Transaction>();
+            list.Add(t);
+        }
+
+        var candidates = new List<(Transaction A, Transaction B, int DateDiff)>();
+        var seenPairs = new HashSet<(int, int)>();
+        foreach (var a in transfers)
+        {
+            var absAmount = Math.Abs(a.Amount);
+            var bucketIndex = a.Date.DayNumber / TransferDateBucketDays;
+
+            for (var b = bucketIndex - 1; b <= bucketIndex + 1; b++)
             {
-                var a = transfers[i];
-                var b = transfers[j];
-                if (a.AccountId == b.AccountId) continue;
-                if (Math.Abs(a.Amount + b.Amount) > 0.01m) continue;
+                if (!buckets.TryGetValue((absAmount, b), out var bucketTransfers)) continue;
 
-                var dateDiff = Math.Abs(a.Date.DayNumber - b.Date.DayNumber);
-                if (dateDiff > 5) continue;
+                foreach (var candidateB in bucketTransfers)
+                {
+                    if (candidateB.Id == a.Id) continue;
+                    var pairKey = a.Id < candidateB.Id ? (a.Id, candidateB.Id) : (candidateB.Id, a.Id);
+                    if (!seenPairs.Add(pairKey)) continue;
 
-                candidates.Add((a, b, dateDiff));
+                    if (a.AccountId == candidateB.AccountId) continue;
+                    if (Math.Abs(a.Amount + candidateB.Amount) > 0.01m) continue;
+
+                    var dateDiff = Math.Abs(a.Date.DayNumber - candidateB.Date.DayNumber);
+                    if (dateDiff > 5) continue;
+
+                    candidates.Add((a, candidateB, dateDiff));
+                }
             }
         }
 
@@ -168,25 +193,20 @@ public class ReportsService
 
     public async Task<List<MerchantSpend>> GetTopMerchantsAsync(DateOnly startDate, DateOnly endDate, int count = 10)
     {
-        var transactions = await _db.Transactions
-            .Include(t => t.Category)
+        return await _db.Transactions
+            .AsNoTracking()
             .Where(t => t.Date >= startDate && t.Date <= endDate && t.Amount < 0)
             .Where(t => t.Category == null || t.Category.Name != TransfersCategoryName)
-            .ToListAsync();
-
-        var merchants = transactions
             .GroupBy(t => t.Description)
             .Select(g => new MerchantSpend
             {
                 MerchantName = g.Key,
-                Total = Math.Abs(g.Sum(t => t.Amount)),
+                Total = -g.Sum(t => t.Amount),
                 TransactionCount = g.Count()
             })
             .OrderByDescending(m => m.Total)
             .Take(count)
-            .ToList();
-
-        return merchants;
+            .ToListAsync();
     }
 }
 

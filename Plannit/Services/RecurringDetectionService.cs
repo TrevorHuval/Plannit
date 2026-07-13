@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Plannit.Data;
 using Plannit.Models.Entities;
 
@@ -7,20 +8,31 @@ namespace Plannit.Services;
 
 public class RecurringDetectionService
 {
-    private readonly ApplicationDbContext _db;
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
-    public RecurringDetectionService(ApplicationDbContext db)
+    private readonly ApplicationDbContext _db;
+    private readonly IMemoryCache _cache;
+
+    public RecurringDetectionService(ApplicationDbContext db, IMemoryCache cache)
     {
         _db = db;
+        _cache = cache;
     }
 
     public async Task<List<RecurringGroup>> DetectRecurringAsync()
     {
+        var key = $"recurring:{_db.CurrentUserId}:{_db.CacheVersion}";
+        if (_cache.TryGetValue(key, out List<RecurringGroup>? cached) && cached is not null)
+            return cached;
+
         var transactions = await _db.Transactions
+            .AsNoTracking()
             .OrderBy(t => t.Date)
             .ToListAsync();
 
-        return DetectFromTransactions(transactions);
+        var result = DetectFromTransactions(transactions);
+        _cache.Set(key, result, CacheTtl);
+        return result;
     }
 
     public static List<RecurringGroup> DetectFromTransactions(List<Transaction> transactions)

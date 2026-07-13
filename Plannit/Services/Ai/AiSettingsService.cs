@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Plannit.Data;
@@ -18,17 +19,23 @@ public class AiSettingsService
     private readonly IDataProtector _protector;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ClaudeCliStatus _cliStatus;
+    private readonly ILogger<AiSettingsService> _logger;
+    private readonly ILoggerFactory _loggerFactory;
 
     public AiSettingsService(
         ApplicationDbContext db,
         IDataProtectionProvider dataProtection,
         IHttpClientFactory httpClientFactory,
-        ClaudeCliStatus cliStatus)
+        ClaudeCliStatus cliStatus,
+        ILogger<AiSettingsService> logger,
+        ILoggerFactory loggerFactory)
     {
         _db = db;
         _protector = dataProtection.CreateProtector(ProtectorPurpose);
         _httpClientFactory = httpClientFactory;
         _cliStatus = cliStatus;
+        _logger = logger;
+        _loggerFactory = loggerFactory;
     }
 
     public bool ClaudeCliAvailable => _cliStatus.Available;
@@ -92,7 +99,11 @@ public class AiSettingsService
         if (!string.IsNullOrEmpty(settings.ApiKeyProtected))
         {
             try { apiKey = _protector.Unprotect(settings.ApiKeyProtected); }
-            catch { apiKey = null; }
+            catch (CryptographicException ex)
+            {
+                _logger.LogWarning(ex, "Failed to unprotect stored AI API key for user {UserId} — data protection keys may have rotated", settings.UserId);
+                apiKey = null;
+            }
         }
         return new AiProviderConfig(settings.Endpoint, settings.Model, apiKey);
     }
@@ -111,7 +122,7 @@ public class AiSettingsService
         switch (settings.Provider)
         {
             case AiProvider.ClaudeCli:
-                return _cliStatus.Available ? new ClaudeCliProvider() : null;
+                return _cliStatus.Available ? new ClaudeCliProvider(_loggerFactory.CreateLogger<ClaudeCliProvider>()) : null;
             case AiProvider.AnthropicApi:
                 return new AnthropicApiProvider(_httpClientFactory.CreateClient("ai"), BuildConfig(settings));
             case AiProvider.OpenAiCompatible:

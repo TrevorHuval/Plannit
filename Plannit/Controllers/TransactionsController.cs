@@ -26,6 +26,7 @@ public class TransactionsController : Controller
     private readonly SmartCategorizationService _smartCategorization;
     private readonly AuditService _audit;
     private readonly string _tempUploadPath;
+    private readonly ILogger<TransactionsController> _logger;
 
     public TransactionsController(
         TransactionService transactionService,
@@ -40,7 +41,8 @@ public class TransactionsController : Controller
         AiSettingsService aiSettings,
         SmartCategorizationService smartCategorization,
         AuditService audit,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        ILogger<TransactionsController> logger)
     {
         _transactionService = transactionService;
         _accountService = accountService;
@@ -55,6 +57,7 @@ public class TransactionsController : Controller
         _smartCategorization = smartCategorization;
         _audit = audit;
         _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
+        _logger = logger;
     }
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -375,7 +378,8 @@ public class TransactionsController : Controller
                 model.CreditColumn, model.DescriptionColumn, model.InvertAmounts);
         }
 
-        try { System.IO.File.Delete(tempFilePath); } catch { }
+        try { System.IO.File.Delete(tempFilePath); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete temp upload file {Path}", tempFilePath); }
 
         result.AccountName = account.Name;
 
@@ -398,7 +402,8 @@ public class TransactionsController : Controller
         var confirmTempPath = GetSafeTempPath(model.TempFileId, model.TempFileExtension);
         if (confirmTempPath is not null)
         {
-            try { System.IO.File.Delete(confirmTempPath); } catch { }
+            try { System.IO.File.Delete(confirmTempPath); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete temp upload file {Path}", confirmTempPath); }
         }
 
         var result = new ImportResultViewModel

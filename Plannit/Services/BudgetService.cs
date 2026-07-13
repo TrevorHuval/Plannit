@@ -17,6 +17,7 @@ public class BudgetService
     public async Task<List<Budget>> GetAllBudgetsAsync()
     {
         return await _db.Budgets
+            .AsNoTracking()
             .Include(b => b.Category)
             .OrderBy(b => b.Category.Name)
             .ToListAsync();
@@ -25,6 +26,7 @@ public class BudgetService
     public async Task<Budget?> GetBudgetAsync(int id)
     {
         return await _db.Budgets
+            .AsNoTracking()
             .Include(b => b.Category)
             .FirstOrDefaultAsync(b => b.Id == id);
     }
@@ -72,6 +74,7 @@ public class BudgetService
         var monthEnd = monthStart.AddMonths(1).AddDays(-1);
 
         var budgets = await _db.Budgets
+            .AsNoTracking()
             .Include(b => b.Category)
             .Where(b => b.StartMonth <= monthStart && (b.EndMonth == null || b.EndMonth >= monthStart))
             .ToListAsync();
@@ -80,15 +83,13 @@ public class BudgetService
 
         var categoryIds = budgets.Select(b => b.CategoryId).ToList();
 
-        var transactions = await _db.Transactions
-            .Include(t => t.Category)
+        var spendByCategory = await _db.Transactions
+            .AsNoTracking()
             .Where(t => t.Date >= monthStart && t.Date <= monthEnd && t.Amount < 0)
             .Where(t => t.CategoryId != null && categoryIds.Contains(t.CategoryId.Value))
-            .ToListAsync();
-
-        var spendByCategory = transactions
             .GroupBy(t => t.CategoryId!.Value)
-            .ToDictionary(g => g.Key, g => Math.Abs(g.Sum(t => t.Amount)));
+            .Select(g => new { CategoryId = g.Key, Spent = -g.Sum(t => t.Amount) })
+            .ToDictionaryAsync(g => g.CategoryId, g => g.Spent);
 
         return budgets.Select(b =>
         {

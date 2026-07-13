@@ -150,7 +150,7 @@ public class SnapshotImportTests
         // A real-world PdfPig parsing crash on a malformed page must degrade to an
         // editable confirm screen (null balance/date), never a 500.
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes("not a real pdf"));
-        var service = new PdfStatementService();
+        var service = new PdfStatementService(Microsoft.Extensions.Logging.Abstractions.NullLogger<PdfStatementService>.Instance);
 
         var preview = service.Parse(stream);
 

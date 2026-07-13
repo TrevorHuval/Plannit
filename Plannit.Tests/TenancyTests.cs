@@ -333,7 +333,7 @@ public class TenancyTests : IDisposable
     public async Task NetWorthService_ExcludesOtherUser_Data()
     {
         using var db = CreateContext(_userBId);
-        var service = new NetWorthService(db);
+        var service = new NetWorthService(db, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()));
         var netWorth = await service.GetCurrentNetWorthAsync();
         Assert.Equal(2000m, netWorth);
     }

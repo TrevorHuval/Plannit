@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -15,6 +16,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+builder.Services.AddSingleton<ICacheVersionProvider, CacheVersionProvider>();
+builder.Services.AddMemoryCache();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
@@ -26,6 +29,9 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options =>
     })
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
+
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<ApplicationDbContext>();
 
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<NetWorthService>();
@@ -42,6 +48,7 @@ builder.Services.AddScoped<BudgetService>();
 builder.Services.AddScoped<RecurringDetectionService>();
 builder.Services.AddScoped<DataManagementService>();
 builder.Services.AddScoped<AuditService>();
+builder.Services.AddHostedService<MaintenanceBackgroundService>();
 builder.Services.AddSingleton<ClaudeCliStatus>();
 builder.Services.AddScoped<AiSettingsService>();
 builder.Services.AddScoped<SmartCategorizationService>();
@@ -161,6 +168,37 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/healthz"))
+    {
+        await next();
+        return;
+    }
+
+    var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Plannit.RequestLogging");
+    var stopwatch = Stopwatch.StartNew();
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        stopwatch.Stop();
+        var failedUserId = context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
+        logger.LogError(ex, "Unhandled exception on {Method} {Path} (user {UserId}) after {ElapsedMs}ms",
+            context.Request.Method, context.Request.Path, failedUserId, stopwatch.ElapsedMilliseconds);
+        throw;
+    }
+
+    stopwatch.Stop();
+    var requestUserId = context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
+    logger.LogInformation("{Method} {Path} responded {StatusCode} in {ElapsedMs}ms (user {UserId})",
+        context.Request.Method, context.Request.Path, context.Response.StatusCode, stopwatch.ElapsedMilliseconds, requestUserId);
+});
+
+app.MapHealthChecks("/healthz").AllowAnonymous();
+
 app.MapStaticAssets();
 
 app.MapControllerRoute(
@@ -179,12 +217,6 @@ if (!app.Environment.IsDevelopment())
 }
 
 await app.Services.GetRequiredService<ClaudeCliStatus>().DetectAsync();
-
-await RepairLiabilitySnapshotSignsAsync(app.Services, app.Logger);
-
-CleanupOldTempUploads(app.Environment.ContentRootPath);
-
-await PruneOldAuditEventsAsync(app.Services, app.Logger);
 
 if (app.Environment.IsDevelopment())
 {
@@ -284,38 +316,5 @@ static async Task SeedDevDataAsync(IServiceProvider services)
         await db.SaveChangesAsync();
 
         await categorizationService.ApplyRulesToUncategorizedAsync();
-    }
-}
-
-static async Task RepairLiabilitySnapshotSignsAsync(IServiceProvider services, ILogger logger)
-{
-    using var scope = services.CreateScope();
-    var accountService = scope.ServiceProvider.GetRequiredService<AccountService>();
-    var repaired = await accountService.RepairLiabilitySnapshotSignsAsync();
-    if (repaired > 0)
-        logger.LogInformation("Repaired sign on {Count} liability balance snapshot(s).", repaired);
-}
-
-static async Task PruneOldAuditEventsAsync(IServiceProvider services, ILogger logger)
-{
-    using var scope = services.CreateScope();
-    var auditService = scope.ServiceProvider.GetRequiredService<AuditService>();
-    var pruned = await auditService.PruneOldAsync(TimeSpan.FromDays(90));
-    if (pruned > 0)
-        logger.LogInformation("Pruned {Count} audit event(s) older than 90 days.", pruned);
-}
-
-static void CleanupOldTempUploads(string contentRootPath)
-{
-    var tempDir = Path.Combine(contentRootPath, "TempUploads");
-    if (!Directory.Exists(tempDir)) return;
-
-    var cutoff = DateTime.UtcNow.AddHours(-24);
-    foreach (var file in Directory.GetFiles(tempDir))
-    {
-        if (File.GetCreationTimeUtc(file) < cutoff)
-        {
-            try { File.Delete(file); } catch { }
-        }
     }
 }

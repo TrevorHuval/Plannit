@@ -71,50 +71,6 @@ public class PolarityAndSnapshotTests : IDisposable
     }
 
     [Fact]
-    public async Task RepairLiabilitySnapshotSignsAsync_FixesOnlyNegativeLiabilitySnapshots()
-    {
-        using var db = CreateContext();
-        var card = new Account { UserId = UserId, Name = "Card", Type = AccountType.CreditCard };
-        var checking = new Account { UserId = UserId, Name = "Checking", Type = AccountType.Checking };
-        db.Accounts.AddRange(card, checking);
-        await db.SaveChangesAsync();
-
-        db.BalanceSnapshots.AddRange(
-            new BalanceSnapshot { AccountId = card.Id, Date = new DateOnly(2026, 6, 1), Balance = -110.46m },
-            new BalanceSnapshot { AccountId = checking.Id, Date = new DateOnly(2026, 6, 1), Balance = -50m }
-        );
-        await db.SaveChangesAsync();
-
-        var service = new AccountService(db);
-        var repaired = await service.RepairLiabilitySnapshotSignsAsync();
-
-        Assert.Equal(1, repaired);
-
-        var cardSnapshot = await db.BalanceSnapshots.FirstAsync(s => s.AccountId == card.Id);
-        var checkingSnapshot = await db.BalanceSnapshots.FirstAsync(s => s.AccountId == checking.Id);
-        Assert.Equal(110.46m, cardSnapshot.Balance);
-        Assert.Equal(-50m, checkingSnapshot.Balance);
-    }
-
-    [Fact]
-    public async Task RepairLiabilitySnapshotSignsAsync_IsIdempotent()
-    {
-        using var db = CreateContext();
-        var card = new Account { UserId = UserId, Name = "Card", Type = AccountType.CreditCard };
-        db.Accounts.Add(card);
-        await db.SaveChangesAsync();
-        db.BalanceSnapshots.Add(new BalanceSnapshot { AccountId = card.Id, Date = new DateOnly(2026, 6, 1), Balance = -110.46m });
-        await db.SaveChangesAsync();
-
-        var service = new AccountService(db);
-        var firstPass = await service.RepairLiabilitySnapshotSignsAsync();
-        var secondPass = await service.RepairLiabilitySnapshotSignsAsync();
-
-        Assert.Equal(1, firstPass);
-        Assert.Equal(0, secondPass);
-    }
-
-    [Fact]
     public async Task CsvImportAsync_InvertAmounts_FlipsSignAndHashReflectsInvertedAmount()
     {
         using var db = CreateContext();
