@@ -75,32 +75,58 @@ public class ClaudeCliProvider : PromptBasedCategorizer
         }
 
         var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        // The CLI emits a JSON envelope on stdout even for its own errors (auth, permissions),
+        // and signals those with a NON-ZERO exit code AND is_error=true — carrying the real
+        // reason in "result" (e.g. "Not logged in · Please run /login"). Interpret the envelope
+        // first so that message reaches the user, instead of a useless "exited with code N".
+        var (text, envelopeError) = InterpretEnvelope(stdout);
+        if (envelopeError is not null)
+            throw new InvalidOperationException(envelopeError);
+        if (text is not null)
+            return text;
+
+        // No parseable envelope: fall back to exit-code handling with whatever detail we have.
         if (process.ExitCode != 0)
         {
-            var stderr = await stderrTask;
-            throw new InvalidOperationException(
-                string.IsNullOrWhiteSpace(stderr) ? $"CLI exited with code {process.ExitCode}." : stderr.Trim());
+            var detail = !string.IsNullOrWhiteSpace(stderr) ? stderr.Trim()
+                : !string.IsNullOrWhiteSpace(stdout) ? stdout.Trim()
+                : $"exited with code {process.ExitCode}";
+            throw new InvalidOperationException(detail);
         }
 
-        return ExtractResultText(stdout);
+        return stdout;
     }
 
-    // The CLI's --output-format json wraps the model reply in an envelope whose "result"
-    // field holds the assistant text. Fall back to the raw output if the envelope is absent.
-    private static string ExtractResultText(string cliOutput)
+    // Interprets the CLI's --output-format json envelope. Returns (text, null) for a usable
+    // reply, (null, errorMessage) when the CLI reported an error, or (null, null) when the
+    // output isn't a recognizable envelope (caller falls back to exit-code handling).
+    internal static (string? Text, string? Error) InterpretEnvelope(string cliOutput)
     {
-        if (string.IsNullOrWhiteSpace(cliOutput)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(cliOutput)) return (null, null);
         try
         {
             using var doc = JsonDocument.Parse(cliOutput);
-            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
-                doc.RootElement.TryGetProperty("result", out var result) &&
-                result.ValueKind == JsonValueKind.String)
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty("result", out var result) ||
+                result.ValueKind != JsonValueKind.String)
             {
-                return result.GetString() ?? string.Empty;
+                return (null, null);
             }
+
+            var resultText = result.GetString() ?? string.Empty;
+            var isError = root.TryGetProperty("is_error", out var err)
+                && err.ValueKind == JsonValueKind.True;
+
+            return isError
+                ? (null, string.IsNullOrWhiteSpace(resultText) ? "the CLI reported an error." : resultText)
+                : (resultText, null);
         }
-        catch (JsonException) { /* not an envelope — use raw */ }
-        return cliOutput;
+        catch (JsonException)
+        {
+            return (null, null);
+        }
     }
 }
