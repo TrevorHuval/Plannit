@@ -21,6 +21,7 @@
     /* Lines */
     --pl-border: rgba(63, 53, 38, 0.14);
     --pl-border-strong: rgba(63, 53, 38, 0.24);
+    --pl-border-light: rgba(63, 53, 38, 0.08);
 
     /* Ink */
     --pl-text: #2b2822;
@@ -84,6 +85,7 @@
 
     --pl-border: rgba(240, 230, 210, 0.10);
     --pl-border-strong: rgba(240, 230, 210, 0.20);
+    --pl-border-light: rgba(240, 230, 210, 0.06);
 
     --pl-text: #ede8da;
     --pl-text-secondary: #b7af9c;
@@ -143,7 +145,7 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, .pl-serif {
+h1, h2, h3, h4, h5, h6, .pl-serif {
     font-family: var(--pl-font-serif);
     color: var(--pl-text);
 }
@@ -530,6 +532,19 @@ p { text-wrap: pretty; }
 
 .pl-stat-card .stat-value.positive { color: var(--pl-positive); }
 .pl-stat-card .stat-value.negative { color: var(--pl-negative); }
+.pl-stat-card .stat-value.accent { color: var(--pl-primary); }
+
+/* Serif ledger figure — reusable metric number (import tallies, FIRE panel, compare) */
+.pl-figure {
+    font-family: var(--pl-font-serif);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    color: var(--pl-text);
+}
+
+.pl-figure.accent { color: var(--pl-primary); }
 
 /* Hero metric — the dashboard focal point */
 .pl-hero-card { padding: 1.6rem 1.6rem; }
@@ -646,6 +661,15 @@ p { text-wrap: pretty; }
     --bs-table-border-color: var(--pl-border);
 }
 
+.table-warning,
+[data-bs-theme="dark"] .table-warning {
+    --bs-table-bg: rgba(176, 122, 43, 0.12);
+    --bs-table-color: var(--pl-text);
+    --bs-table-border-color: var(--pl-border);
+}
+
+[data-bs-theme="dark"] .table-warning { --bs-table-bg: rgba(216, 168, 90, 0.12); }
+
 /* ===== Money ===== */
 
 .text-positive, .amount-positive { color: var(--pl-positive) !important; }
@@ -698,6 +722,63 @@ p { text-wrap: pretty; }
 }
 
 .btn-link { color: var(--pl-primary); }
+
+/* Solid semantic buttons — mapped to the ledger money palette */
+.btn-danger { background: var(--pl-negative); border-color: var(--pl-negative); color: #fff; }
+.btn-danger:hover, .btn-danger:focus { background: var(--pl-negative); border-color: var(--pl-negative); color: #fff; filter: brightness(0.92); }
+.btn-success { background: var(--pl-positive); border-color: var(--pl-positive); color: #fff; }
+.btn-success:hover, .btn-success:focus { background: var(--pl-positive); border-color: var(--pl-positive); color: #fff; filter: brightness(0.92); }
+.btn-warning { background: var(--pl-warning); border-color: var(--pl-warning); color: #fff; }
+.btn-warning:hover, .btn-warning:focus { background: var(--pl-warning); border-color: var(--pl-warning); color: #fff; filter: brightness(0.92); }
+
+/* Semantic outline buttons — mapped to the ledger palette, not Bootstrap defaults */
+.btn-outline-danger {
+    border-color: var(--pl-negative);
+    color: var(--pl-negative);
+    background: transparent;
+}
+.btn-outline-danger:hover,
+.btn-outline-danger:focus {
+    background: var(--pl-negative);
+    border-color: var(--pl-negative);
+    color: #fff;
+}
+
+.btn-outline-success {
+    border-color: var(--pl-positive);
+    color: var(--pl-positive);
+    background: transparent;
+}
+.btn-outline-success:hover,
+.btn-outline-success:focus {
+    background: var(--pl-positive);
+    border-color: var(--pl-positive);
+    color: #fff;
+}
+
+.btn-outline-warning {
+    border-color: var(--pl-warning);
+    color: var(--pl-warning);
+    background: transparent;
+}
+.btn-outline-warning:hover,
+.btn-outline-warning:focus {
+    background: var(--pl-warning);
+    border-color: var(--pl-warning);
+    color: #fff;
+}
+
+.btn-outline-info {
+    border-color: var(--pl-info);
+    color: var(--pl-info);
+    background: transparent;
+}
+.btn-outline-info:hover,
+.btn-outline-info:focus {
+    background: var(--pl-info);
+    border-color: var(--pl-info);
+    color: #fff;
+}
 
 .btn-check:checked + .btn-outline-secondary,
 .btn-group .btn-outline-secondary.active {
@@ -844,6 +925,35 @@ p { text-wrap: pretty; }
 .dropdown-item { color: var(--pl-text); }
 .dropdown-item:hover, .dropdown-item:focus { background: var(--pl-surface-alt); color: var(--pl-text); }
 .dropdown-divider { border-color: var(--pl-border); }
+
+/* ===== Nav pills / tabs (Identity Manage, etc.) ===== */
+
+.nav-pills {
+    --bs-nav-pills-link-active-bg: var(--pl-primary);
+    --bs-nav-pills-link-active-color: var(--pl-primary-contrast);
+    --bs-nav-link-color: var(--pl-text-secondary);
+    --bs-nav-link-hover-color: var(--pl-primary);
+}
+
+.nav-pills .nav-link {
+    color: var(--pl-text-secondary);
+    border-radius: var(--pl-radius-sm);
+}
+.nav-pills .nav-link:hover { color: var(--pl-primary); background: var(--pl-surface-alt); }
+.nav-pills .nav-link.active,
+.nav-pills .show > .nav-link {
+    background: var(--pl-primary);
+    color: var(--pl-primary-contrast);
+}
+
+.nav-tabs {
+    border-bottom-color: var(--pl-border);
+    --bs-nav-tabs-link-active-bg: var(--pl-surface);
+    --bs-nav-tabs-link-active-color: var(--pl-text);
+    --bs-nav-tabs-link-active-border-color: var(--pl-border-strong);
+}
+.nav-tabs .nav-link { color: var(--pl-text-secondary); }
+.nav-tabs .nav-link:hover { color: var(--pl-primary); border-color: transparent; }
 
 /* ===== Progress ===== */
 

@@ -23,7 +23,7 @@
         <div class="card">
             <div class="pl-stat-card">
                 <div class="stat-label">Balance at Retirement (Age @Model.RetirementAge)</div>
-                <div class="stat-value" style="color: var(--pl-primary)">@Model.Result.RetirementBalance.ToString("C0")</div>
+                <div class="stat-value accent">@Model.Result.RetirementBalance.ToString("C0")</div>
             </div>
         </div>
     </div>
@@ -82,30 +82,30 @@
     <div class="card-body">
         <div class="row g-3">
             <div class="col-md-3">
-                <div class="text-muted small">FIRE Number (25&times; spending)</div>
-                <div class="fs-5 fw-bold">@Model.Fire.FireNumber.ToString("C0")</div>
+                <div class="pl-eyebrow mb-1">FIRE Number (25&times; spending)</div>
+                <div class="pl-figure fs-4">@Model.Fire.FireNumber.ToString("C0")</div>
             </div>
             <div class="col-md-3">
-                <div class="text-muted small">Current Portfolio</div>
-                <div class="fs-5 fw-bold">@Model.Fire.CurrentTotal.ToString("C0")</div>
+                <div class="pl-eyebrow mb-1">Current Portfolio</div>
+                <div class="pl-figure fs-4">@Model.Fire.CurrentTotal.ToString("C0")</div>
             </div>
             <div class="col-md-3">
-                <div class="text-muted small">Progress</div>
-                <div class="fs-5 fw-bold">@Model.Fire.ProgressPercent%</div>
+                <div class="pl-eyebrow mb-1">Progress</div>
+                <div class="pl-figure fs-4 accent">@Model.Fire.ProgressPercent%</div>
                 <div class="progress mt-1" style="height: 8px;">
                     <div class="progress-bar" style="width: @Math.Min(100, Model.Fire.ProgressPercent)%"></div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="text-muted small">Projected FIRE Age</div>
-                <div class="fs-5 fw-bold">
+                <div class="pl-eyebrow mb-1">Projected FIRE Age</div>
+                <div class="pl-figure fs-4">
                     @if (Model.Fire.ProjectedFireAge.HasValue)
                     {
                         @:Age @Model.Fire.ProjectedFireAge
                     }
                     else
                     {
-                        <span class="text-danger">Not reachable</span>
+                        <span class="text-negative">Not reachable</span>
                     }
                 </div>
             </div>
@@ -267,7 +267,8 @@
             }
 
             function buildMonteCarloDatasets() {
-                var primary = getComputedStyle(document.documentElement).getPropertyValue('--pl-primary').trim() || '#4f8cff';
+                var primary = getComputedStyle(document.documentElement).getPropertyValue('--pl-primary').trim() || c.primary;
+                var deterministicColor = c.negative;
                 return [
                     {
                         label: '90th percentile',
@@ -318,7 +319,7 @@
                     {
                         label: 'Deterministic',
                         data: snapshots.map(function (s) { return s.total; }),
-                        borderColor: '#ff6b35',
+                        borderColor: deterministicColor,
                         borderWidth: 2,
                         borderDash: [6, 3],
                         fill: false,

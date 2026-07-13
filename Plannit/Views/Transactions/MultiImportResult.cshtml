@@ -14,28 +14,28 @@
     <div class="card-body">
         <div class="row g-3 text-center">
             <div class="col">
-                <div class="fs-3 fw-bold">@Model.TotalRows</div>
-                <div class="text-muted small">Total Rows</div>
+                <div class="pl-figure fs-3">@Model.TotalRows</div>
+                <div class="pl-eyebrow mt-1">Total Rows</div>
             </div>
             <div class="col">
-                <div class="fs-3 fw-bold text-positive">@Model.TotalImported</div>
-                <div class="text-muted small">Imported</div>
+                <div class="pl-figure fs-3 text-positive">@Model.TotalImported</div>
+                <div class="pl-eyebrow mt-1">Imported</div>
             </div>
             <div class="col">
-                <div class="fs-3 fw-bold" style="color: var(--pl-warning)">@Model.TotalDuplicates</div>
-                <div class="text-muted small">Duplicates Skipped</div>
+                <div class="pl-figure fs-3 text-warning">@Model.TotalDuplicates</div>
+                <div class="pl-eyebrow mt-1">Duplicates Skipped</div>
             </div>
             <div class="col">
-                <div class="fs-3 fw-bold text-negative">@Model.TotalErrors</div>
-                <div class="text-muted small">Errors</div>
+                <div class="pl-figure fs-3 text-negative">@Model.TotalErrors</div>
+                <div class="pl-eyebrow mt-1">Errors</div>
             </div>
             <div class="col">
-                <div class="fs-3 fw-bold" style="color: var(--pl-info)">@Model.CategorizedCount</div>
-                <div class="text-muted small">Auto-Categorized</div>
+                <div class="pl-figure fs-3 text-info">@Model.CategorizedCount</div>
+                <div class="pl-eyebrow mt-1">Auto-Categorized</div>
             </div>
             <div class="col">
-                <div class="fs-3 fw-bold" style="color: var(--pl-info)">@Model.SnapshotsUpdated</div>
-                <div class="text-muted small">Snapshots Updated</div>
+                <div class="pl-figure fs-3 text-info">@Model.SnapshotsUpdated</div>
+                <div class="pl-eyebrow mt-1">Snapshots Updated</div>
             </div>
         </div>
     </div>
@@ -101,7 +101,7 @@
                                 {
                                     <td class="text-end">@file.TotalRows</td>
                                     <td class="text-end text-positive">@file.ImportedCount</td>
-                                    <td class="text-end" style="color: var(--pl-warning)">@file.DuplicateCount</td>
+                                    <td class="text-end text-warning">@file.DuplicateCount</td>
                                     <td class="text-end text-negative">@file.ErrorCount</td>
                                 }
                                 <td class="text-end">
