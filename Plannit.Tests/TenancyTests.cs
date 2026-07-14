@@ -22,6 +22,7 @@ public class TenancyTests : IDisposable
     private readonly int _scenarioBId;
     private readonly int _transactionAId;
     private readonly int _snapshotAId;
+    private readonly int _billAId;
 
     public TenancyTests()
     {
@@ -100,6 +101,12 @@ public class TenancyTests : IDisposable
                 new ImportProfile { AccountId = _accountBId, DateColumn = "Date", DateFormat = "yyyy-MM-dd", AmountColumn = "Amount", DescriptionColumn = "Desc" }
             );
             seedDb.SaveChanges();
+
+            var billA = new Bill { UserId = _userAId, MerchantKey = "NETFLIX", Name = "Netflix", Cadence = RecurringCadence.Monthly, ExpectedAmount = 15.99m, NextDue = new DateOnly(2026, 2, 1), IsIncome = false, Source = BillSource.Manual };
+            var billB = new Bill { UserId = _userBId, MerchantKey = "SPOTIFY", Name = "Spotify", Cadence = RecurringCadence.Monthly, ExpectedAmount = 9.99m, NextDue = new DateOnly(2026, 2, 1), IsIncome = false, Source = BillSource.Manual };
+            seedDb.Bills.AddRange(billA, billB);
+            seedDb.SaveChanges();
+            _billAId = billA.Id;
         }
     }
 
@@ -157,6 +164,32 @@ public class TenancyTests : IDisposable
         using var db = CreateContext(_userBId);
         var profiles = await db.ImportProfiles.ToListAsync();
         Assert.All(profiles, p => Assert.Equal(_accountBId, p.AccountId));
+    }
+
+    [Fact]
+    public async Task UserB_CannotSee_UserA_Bills()
+    {
+        using var db = CreateContext(_userBId);
+        var bills = await db.Bills.ToListAsync();
+        Assert.All(bills, b => Assert.Equal(_userBId, b.UserId));
+        Assert.DoesNotContain(bills, b => b.Id == _billAId);
+    }
+
+    [Fact]
+    public async Task BillService_GetByIdAsync_ReturnsNull_ForOtherUsersBill()
+    {
+        using var db = CreateContext(_userBId);
+        var service = new BillService(db);
+
+        var bill = await service.GetByIdAsync(_billAId);
+        Assert.Null(bill);
+
+        var updated = await service.UpdateAsync(_billAId, "Hijacked", RecurringCadence.Monthly, 1m, new DateOnly(2026, 3, 1), false);
+        Assert.False(updated);
+
+        using var dbA = CreateContext(_userAId);
+        var stillOwnedByA = await dbA.Bills.FirstAsync(b => b.Id == _billAId);
+        Assert.Equal("Netflix", stillOwnedByA.Name);
     }
 
     [Fact]
@@ -492,6 +525,7 @@ public class TenancyTests : IDisposable
         Assert.Empty(await db.ProjectionAccountAssumptions.ToListAsync());
         Assert.Empty(await db.Budgets.ToListAsync());
         Assert.Empty(await db.AuditEvents.ToListAsync());
+        Assert.Empty(await db.Bills.ToListAsync());
     }
 
     [Fact]

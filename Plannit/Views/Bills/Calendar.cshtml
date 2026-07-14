@@ -1,0 +1,93 @@
+@model Plannit.Models.ViewModels.CalendarViewModel
+@{
+    ViewData["Title"] = "Bills Calendar";
+    var prevMonth = Model.Month.AddMonths(-1);
+    var nextMonth = Model.Month.AddMonths(1);
+    var weekdayNames = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+}
+
+<div class="page-header">
+    <h1>Calendar</h1>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-list-ul me-1"></i>Bill List
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+            <a asp-action="Calendar" asp-route-year="@prevMonth.Year" asp-route-month="@prevMonth.Month" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            <h5 class="mb-0">@Model.MonthLabel</h5>
+            <a asp-action="Calendar" asp-route-year="@nextMonth.Year" asp-route-month="@nextMonth.Month" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+        <a asp-action="Calendar" class="btn btn-sm btn-outline-secondary">Today</a>
+    </div>
+
+    <div class="pl-calendar">
+        @foreach (var name in weekdayNames)
+        {
+            <div class="pl-calendar-weekday">@name</div>
+        }
+        @foreach (var day in Model.Days)
+        {
+            <div class="pl-calendar-day @(day.IsCurrentMonth ? "" : "is-outside") @(day.IsToday ? "is-today" : "")">
+                <div class="pl-calendar-day-number">@day.Date.Day</div>
+                @foreach (var occ in day.Occurrences)
+                {
+                    <span class="pl-calendar-chip @(occ.Bill.IsIncome ? "income" : "expense") @(occ.IsOverdue ? "overdue" : "")"
+                          title="@occ.Bill.Name — @occ.Bill.ExpectedAmount.ToString("C")">
+                        @occ.Bill.Name.Substring(0, Math.Min(occ.Bill.Name.Length, 12)) @(occ.Bill.IsIncome ? "+" : "−")@occ.Bill.ExpectedAmount.ToString("C0")
+                    </span>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<div class="pl-calendar-list card">
+    <div class="card-header">
+        <h5 class="mb-0">This Month</h5>
+    </div>
+    @if (!Model.UpcomingList.Any())
+    {
+        <div class="pl-empty-state"><p class="mb-0">No bills expected this month.</p></div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Bill</th>
+                        <th class="text-end">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var occ in Model.UpcomingList)
+                    {
+                        <tr>
+                            <td class="text-nowrap">
+                                @occ.Date.ToString("MMM d")
+                                @if (occ.IsOverdue)
+                                {
+                                    <span class="badge bg-danger ms-1">Overdue</span>
+                                }
+                            </td>
+                            <td>@occ.Bill.Name</td>
+                            <td class="text-end @(occ.Bill.IsIncome ? "text-positive" : "text-negative")">
+                                @(occ.Bill.IsIncome ? "+" : "−")@occ.Bill.ExpectedAmount.ToString("C")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

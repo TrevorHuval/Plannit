@@ -28,7 +28,11 @@ public class BudgetCategoryRow
 public class RecurringIndexViewModel
 {
     public List<RecurringGroup> RecurringGroups { get; set; } = new();
+    public HashSet<(string MerchantKey, bool IsIncome)> PromotedKeys { get; set; } = new();
     public List<RecurringGroup> ExpenseGroups => RecurringGroups.Where(g => !g.IsIncome).ToList();
     public List<RecurringGroup> IncomeGroups => RecurringGroups.Where(g => g.IsIncome).ToList();
     public decimal AnnualizedTotal => ExpenseGroups.Sum(g => g.AnnualizedCost);
+
+    public bool IsPromoted(RecurringGroup group) =>
+        PromotedKeys.Contains((RecurringDetectionService.NormalizeMerchant(group.Description), group.IsIncome));
 }

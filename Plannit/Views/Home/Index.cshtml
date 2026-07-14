@@ -301,32 +301,38 @@ else
         }
     </div>
 
-    <!-- Upcoming Recurring + Stale Accounts row -->
+    <!-- Upcoming Bills + Stale Accounts row -->
     <div class="row g-3 mb-4">
-        @if (Model.UpcomingRecurring.Any())
+        @if (Model.UpcomingBills.Any())
         {
             <div class="@(Model.StaleAccounts.Any() ? "col-md-6" : "col-12")">
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-arrow-repeat me-1"></i> Upcoming Recurring</h5>
-                        <a asp-controller="Budgets" asp-action="Recurring" class="btn btn-sm btn-outline-secondary">View All</a>
+                        <h5 class="mb-0"><i class="bi bi-calendar-check me-1"></i> Upcoming Bills</h5>
+                        <a asp-controller="Bills" asp-action="Index" class="btn btn-sm btn-outline-secondary">View All</a>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th>Description</th>
+                                    <th>Name</th>
                                     <th class="text-end">Amount</th>
-                                    <th>Expected</th>
+                                    <th>Due</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var item in Model.UpcomingRecurring)
+                                @foreach (var bill in Model.UpcomingBills)
                                 {
                                     <tr>
-                                        <td>@item.Description</td>
-                                        <td class="text-end">@item.AverageAmount.ToString("C")</td>
-                                        <td>@item.NextExpected.ToString("MMM d")</td>
+                                        <td>
+                                            @bill.Name
+                                            @if (bill.IsOverdue())
+                                            {
+                                                <span class="badge bg-danger ms-1">Overdue</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">@bill.ExpectedAmount.ToString("C")</td>
+                                        <td>@bill.NextDue.ToString("MMM d")</td>
                                     </tr>
                                 }
                             </tbody>
@@ -337,7 +343,7 @@ else
         }
         @if (Model.StaleAccounts.Any())
         {
-            <div class="@(Model.UpcomingRecurring.Any() ? "col-md-6" : "col-12")">
+            <div class="@(Model.UpcomingBills.Any() ? "col-md-6" : "col-12")">
                 <div class="card h-100">
                     <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-1"></i> Needs Attention</h5>

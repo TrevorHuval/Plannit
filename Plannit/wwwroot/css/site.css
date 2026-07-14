@@ -957,6 +957,78 @@ p { text-wrap: pretty; }
 
 .pl-chart-container { position: relative; padding: 0.4rem 0; }
 
+/* ===== Calendar (bills ledger page) ===== */
+
+.pl-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-top: 1px solid var(--pl-border);
+    border-left: 1px solid var(--pl-border);
+}
+
+.pl-calendar-weekday {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--pl-text-muted);
+    text-align: center;
+    border-right: 1px solid var(--pl-border);
+    border-bottom: 1px solid var(--pl-border);
+    background: var(--pl-surface-alt);
+}
+
+.pl-calendar-day {
+    min-height: 96px;
+    padding: 0.4rem 0.5rem;
+    border-right: 1px solid var(--pl-border);
+    border-bottom: 1px solid var(--pl-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.pl-calendar-day.is-outside { background: var(--pl-surface-alt); }
+.pl-calendar-day.is-outside .pl-calendar-day-number { color: var(--pl-text-muted); }
+
+.pl-calendar-day.is-today { background: var(--pl-primary-subtle); }
+
+.pl-calendar-day-number {
+    font-family: var(--pl-font-serif);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--pl-text-secondary);
+}
+
+.pl-calendar-day.is-today .pl-calendar-day-number { color: var(--pl-primary); }
+
+.pl-calendar-chip {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pl-calendar-chip.expense { background: var(--pl-negative-bg); color: var(--pl-negative); }
+.pl-calendar-chip.income { background: var(--pl-positive-bg); color: var(--pl-positive); }
+.pl-calendar-chip.overdue { border: 1px solid var(--pl-negative); }
+
+@media (max-width: 767.98px) {
+    .pl-calendar { display: none; }
+}
+
+.pl-calendar-list { display: none; }
+
+@media (max-width: 767.98px) {
+    .pl-calendar-list { display: block; }
+}
+
 /* ===== Dropdowns / overlays ===== */
 
 .dropdown-menu, .offcanvas, .modal-content {

@@ -12,7 +12,7 @@ public class DashboardViewModel
     public required List<NetWorthPointViewModel> NetWorthHistory { get; set; }
     public bool HasAccounts { get; set; }
     public List<BudgetStatus> BudgetAlerts { get; set; } = new();
-    public List<RecurringGroup> UpcomingRecurring { get; set; } = new();
+    public List<Bill> UpcomingBills { get; set; } = new();
     public decimal ThisMonthIncome { get; set; }
     public decimal ThisMonthSpending { get; set; }
     public decimal ThisMonthBudgetTotal { get; set; }

@@ -233,7 +233,10 @@ public class RecurringDetectionService
         return n % 2 == 1 ? sorted[n / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0;
     }
 
-    private static DateOnly EstimateNextDate(DateOnly lastDate, RecurringCadence cadence) => cadence switch
+    // Internal (not private): BillService/ForecastService reuse this cadence math to
+    // project future occurrences and advance a persisted Bill's NextDue on reconciliation,
+    // rather than re-deriving the same day-stepping logic.
+    internal static DateOnly EstimateNextDate(DateOnly lastDate, RecurringCadence cadence) => cadence switch
     {
         RecurringCadence.Weekly => lastDate.AddDays(7),
         RecurringCadence.Biweekly => lastDate.AddDays(14),
@@ -243,7 +246,7 @@ public class RecurringDetectionService
         _ => lastDate.AddMonths(1)
     };
 
-    private static int CadencePeriodDays(RecurringCadence cadence) => cadence switch
+    internal static int CadencePeriodDays(RecurringCadence cadence) => cadence switch
     {
         RecurringCadence.Weekly => 7,
         RecurringCadence.Biweekly => 14,
@@ -251,6 +254,16 @@ public class RecurringDetectionService
         RecurringCadence.Quarterly => 91,
         RecurringCadence.Yearly => 365,
         _ => 30
+    };
+
+    internal static string CadenceLabel(RecurringCadence cadence) => cadence switch
+    {
+        RecurringCadence.Weekly => "Weekly",
+        RecurringCadence.Biweekly => "Biweekly",
+        RecurringCadence.Monthly => "Monthly",
+        RecurringCadence.Quarterly => "Quarterly",
+        RecurringCadence.Yearly => "Yearly",
+        _ => "Unknown"
     };
 }
 
@@ -283,15 +296,7 @@ public class RecurringGroup
     public bool RecentlyStopped { get; set; }
     public List<Transaction> Transactions { get; set; } = new();
 
-    public string CadenceLabel => Cadence switch
-    {
-        RecurringCadence.Weekly => "Weekly",
-        RecurringCadence.Biweekly => "Biweekly",
-        RecurringCadence.Monthly => "Monthly",
-        RecurringCadence.Quarterly => "Quarterly",
-        RecurringCadence.Yearly => "Yearly",
-        _ => "Unknown"
-    };
+    public string CadenceLabel => RecurringDetectionService.CadenceLabel(Cadence);
 
     public string NatureLabel => Nature == AmountNature.Fixed ? "Fixed" : "Variable";
 

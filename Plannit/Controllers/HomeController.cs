@@ -12,7 +12,7 @@ public class HomeController : Controller
 {
     private readonly NetWorthService _netWorthService;
     private readonly BudgetService _budgetService;
-    private readonly RecurringDetectionService _recurringService;
+    private readonly BillService _billService;
     private readonly ReportsService _reportsService;
     private readonly TransactionService _transactionService;
     private readonly CategorizationService _categorizationService;
@@ -20,14 +20,14 @@ public class HomeController : Controller
     public HomeController(
         NetWorthService netWorthService,
         BudgetService budgetService,
-        RecurringDetectionService recurringService,
+        BillService billService,
         ReportsService reportsService,
         TransactionService transactionService,
         CategorizationService categorizationService)
     {
         _netWorthService = netWorthService;
         _budgetService = budgetService;
-        _recurringService = recurringService;
+        _billService = billService;
         _reportsService = reportsService;
         _transactionService = transactionService;
         _categorizationService = categorizationService;
@@ -39,7 +39,8 @@ public class HomeController : Controller
         var typeTotals = await _netWorthService.GetTotalsByTypeAsync();
         var history = await _netWorthService.GetNetWorthHistoryAsync();
         var budgetAlerts = await _budgetService.GetTopBudgetAlertsAsync(3);
-        var upcomingRecurring = await _recurringService.GetUpcomingAsync(7);
+        await _billService.ReconcileAsync();
+        var upcomingBills = await _billService.GetUpcomingAsync(7);
 
         var today = DateOnly.FromDateTime(DateTime.Today);
         var oneMonthAgo = today.AddMonths(-1);
@@ -85,7 +86,7 @@ public class HomeController : Controller
                 NetWorth = h.NetWorth
             }).ToList(),
             BudgetAlerts = budgetAlerts,
-            UpcomingRecurring = upcomingRecurring,
+            UpcomingBills = upcomingBills,
             ThisMonthIncome = incomeExpense.Income,
             ThisMonthSpending = incomeExpense.Expenses,
             ThisMonthBudgetTotal = totalBudgeted,

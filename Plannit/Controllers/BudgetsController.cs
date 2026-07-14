@@ -12,15 +12,18 @@ public class BudgetsController : Controller
     private readonly BudgetService _budgetService;
     private readonly CategorizationService _categorizationService;
     private readonly RecurringDetectionService _recurringService;
+    private readonly BillService _billService;
 
     public BudgetsController(
         BudgetService budgetService,
         CategorizationService categorizationService,
-        RecurringDetectionService recurringService)
+        RecurringDetectionService recurringService,
+        BillService billService)
     {
         _budgetService = budgetService;
         _categorizationService = categorizationService;
         _recurringService = recurringService;
+        _billService = billService;
     }
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -92,7 +95,12 @@ public class BudgetsController : Controller
     public async Task<IActionResult> Recurring()
     {
         var groups = await _recurringService.DetectRecurringAsync();
-        var vm = new RecurringIndexViewModel { RecurringGroups = groups };
+        var bills = await _billService.GetAllAsync();
+        var promotedKeys = bills
+            .Where(b => b.IsActive)
+            .Select(b => (b.MerchantKey, b.IsIncome))
+            .ToHashSet();
+        var vm = new RecurringIndexViewModel { RecurringGroups = groups, PromotedKeys = promotedKeys };
         return View(vm);
     }
 }

@@ -28,6 +28,7 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<Budget> Budgets => Set<Budget>();
     public DbSet<AiSettings> AiSettings => Set<AiSettings>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<Bill> Bills => Set<Bill>();
 
     private string? _currentUserId;
 
@@ -208,6 +209,15 @@ public class ApplicationDbContext : IdentityDbContext
             // No FK to AspNetUsers: audit rows must survive account deletion, and some
             // events (e.g. a failed login for an unrecognized email) have no UserId at all.
             e.HasQueryFilter(a => _currentUserId != null && a.UserId == _currentUserId);
+        });
+
+        builder.Entity<Bill>(e =>
+        {
+            e.HasIndex(b => b.UserId);
+            e.HasIndex(b => new { b.UserId, b.MerchantKey, b.IsIncome });
+            e.HasOne(b => b.User).WithMany().HasForeignKey(b => b.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(b => b.ExpectedAmount).HasColumnType("decimal(18,2)");
+            e.HasQueryFilter(b => _currentUserId != null && b.UserId == _currentUserId);
         });
     }
 }
