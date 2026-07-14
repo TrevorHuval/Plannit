@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Plannit.Data;
+using Plannit.Services.Sync;
 
 namespace Plannit.Services;
 
@@ -16,12 +17,14 @@ public class MaintenanceBackgroundService : BackgroundService
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _config;
     private readonly ILogger<MaintenanceBackgroundService> _logger;
 
-    public MaintenanceBackgroundService(IServiceScopeFactory scopeFactory, IWebHostEnvironment env, ILogger<MaintenanceBackgroundService> logger)
+    public MaintenanceBackgroundService(IServiceScopeFactory scopeFactory, IWebHostEnvironment env, IConfiguration config, ILogger<MaintenanceBackgroundService> logger)
     {
         _scopeFactory = scopeFactory;
         _env = env;
+        _config = config;
         _logger = logger;
     }
 
@@ -60,6 +63,33 @@ public class MaintenanceBackgroundService : BackgroundService
         }
 
         await RunNotificationChecksAsync(ct);
+
+        if (SyncService.IsFeatureEnabled(_config))
+            await RunBankSyncAsync(ct);
+    }
+
+    private async Task RunBankSyncAsync(CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var syncService = scope.ServiceProvider.GetRequiredService<SyncService>();
+
+        var userIds = await db.Users.Select(u => u.Id).ToListAsync(ct);
+        foreach (var userId in userIds)
+        {
+            if (ct.IsCancellationRequested) break;
+            try
+            {
+                db.SetCurrentUser(userId);
+                var synced = await syncService.SyncActiveConnectionsAsync(ct);
+                if (synced > 0)
+                    _logger.LogInformation("Ran {Count} bank sync connection(s) for user {UserId}.", synced, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Bank sync failed for user {UserId}.", userId);
+            }
+        }
     }
 
     private async Task RunNotificationChecksAsync(CancellationToken ct)

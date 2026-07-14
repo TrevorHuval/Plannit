@@ -1,0 +1,9 @@
+@inject IConfiguration Configuration
+@if (User.Identity?.IsAuthenticated == true && Plannit.Services.Sync.SyncService.IsFeatureEnabled(Configuration))
+{
+    var isActive = ViewContext.RouteData.Values["controller"]?.ToString() == "Sync";
+    <a asp-controller="Sync" asp-action="Index" class="pl-nav-link @(isActive ? "active" : "")">
+        <i class="bi bi-bank"></i>
+        <span class="nav-label">Bank Sync</span>
+    </a>
+}

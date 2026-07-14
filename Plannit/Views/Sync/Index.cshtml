@@ -1,0 +1,132 @@
+@using Plannit.Models.Entities
+@model Plannit.Models.ViewModels.SyncIndexViewModel
+@{
+    ViewData["Title"] = "Bank Sync";
+}
+
+@functions {
+    string StatusBadgeClass(SyncStatus s) => s switch
+    {
+        SyncStatus.Success => "bg-success-subtle text-success",
+        SyncStatus.PartialSuccess => "bg-warning-subtle text-warning",
+        SyncStatus.Failed => "bg-danger-subtle text-danger",
+        SyncStatus.TokenExpired => "bg-danger-subtle text-danger",
+        _ => "bg-secondary-subtle text-secondary"
+    };
+
+    string StatusLabel(SyncStatus s) => s switch
+    {
+        SyncStatus.Success => "Synced",
+        SyncStatus.PartialSuccess => "Partial",
+        SyncStatus.Failed => "Failed",
+        SyncStatus.TokenExpired => "Needs re-link",
+        _ => "Never synced"
+    };
+}
+
+<div class="page-header">
+    <h1>Bank Sync</h1>
+    <div class="page-actions">
+        <a asp-action="Connect" class="btn btn-sm btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Connect a bank
+        </a>
+    </div>
+</div>
+
+@if (TempData["Message"] is string msg)
+{
+    <div class="alert alert-success alert-dismissible fade show">@msg<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+}
+@if (TempData["Error"] is string err)
+{
+    <div class="alert alert-danger alert-dismissible fade show">@err<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+}
+
+<p class="text-muted mb-4" style="max-width: 60ch;">
+    Automatically pull transactions and balances from your banks through
+    <a href="https://www.simplefin.org/" target="_blank" rel="noopener">SimpleFIN Bridge</a>.
+    Synced data flows through the same de-duplication and categorization pipeline as file imports —
+    file import stays available and is the default.
+</p>
+
+@if (!Model.Connections.Any())
+{
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-bank"></i></div>
+            <h4>No banks connected</h4>
+            <p>Connect a SimpleFIN Bridge account to sync transactions and balances automatically each day.</p>
+            <a asp-action="Connect" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Connect a bank</a>
+        </div>
+    </div>
+}
+else
+{
+    @foreach (var conn in Model.Connections)
+    {
+        var mappedCount = conn.AccountMappings.Count(m => m.AccountId.HasValue);
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                    <div>
+                        <h5 class="card-title mb-1">
+                            <i class="bi bi-bank me-1"></i>@conn.Name
+                            <span class="badge @StatusBadgeClass(conn.LastSyncStatus) ms-1">@StatusLabel(conn.LastSyncStatus)</span>
+                            @if (!conn.IsActive)
+                            {
+                                <span class="badge bg-secondary-subtle text-secondary ms-1">Auto-sync paused</span>
+                            }
+                        </h5>
+                        <div class="text-muted small">
+                            @mappedCount of @conn.AccountMappings.Count account(s) mapped ·
+                            @if (conn.LastSyncedAt.HasValue)
+                            {
+                                <span class="pl-dateline">Last synced @conn.LastSyncedAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                            }
+                            else
+                            {
+                                <span>never synced</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(conn.LastSyncMessage))
+                        {
+                            <div class="text-muted small mt-1">@conn.LastSyncMessage</div>
+                        }
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        @if (conn.LastSyncStatus == SyncStatus.TokenExpired)
+                        {
+                            <a asp-action="Connect" class="btn btn-sm btn-warning"><i class="bi bi-arrow-repeat me-1"></i>Re-link</a>
+                        }
+                        else
+                        {
+                            <form asp-action="SyncNow" asp-route-id="@conn.Id" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-arrow-repeat me-1"></i>Sync now</button>
+                            </form>
+                        }
+                        <a asp-action="Map" asp-route-id="@conn.Id" class="btn btn-sm btn-outline-secondary"><i class="bi bi-diagram-3 me-1"></i>Map accounts</a>
+                        <a asp-action="Logs" asp-route-id="@conn.Id" class="btn btn-sm btn-outline-secondary"><i class="bi bi-clock-history me-1"></i>Log</a>
+                        <form asp-action="ToggleActive" asp-route-id="@conn.Id" method="post" class="d-inline">
+                            <input type="hidden" name="active" value="@((!conn.IsActive).ToString().ToLowerInvariant())" />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                @(conn.IsActive ? "Pause" : "Resume")
+                            </button>
+                        </form>
+                        <form asp-action="Delete" asp-route-id="@conn.Id" method="post" class="d-inline"
+                              onsubmit="return confirm('Remove this bank connection? Already-imported transactions stay; future automatic syncing stops.');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </div>
+                </div>
+
+                @if (mappedCount == 0)
+                {
+                    <div class="alert alert-warning mt-3 mb-0 py-2 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        No accounts mapped yet — <a asp-action="Map" asp-route-id="@conn.Id">map this connection's accounts</a> before syncing.
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}

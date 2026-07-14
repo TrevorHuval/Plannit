@@ -1,0 +1,65 @@
+@model Plannit.Models.ViewModels.SyncLogsViewModel
+@{
+    ViewData["Title"] = "Sync log";
+}
+
+<div class="page-header">
+    <h1>Sync log</h1>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Bank Sync</a>
+    </div>
+</div>
+
+<p class="text-muted mb-4">@Model.Connection.Name — most recent runs.</p>
+
+@if (!Model.Logs.Any())
+{
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-clock-history"></i></div>
+            <h4>No syncs yet</h4>
+            <p>Run <strong>Sync now</strong> from the Bank Sync page, or wait for the daily automatic sync.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Result</th>
+                        <th class="text-end">Imported</th>
+                        <th class="text-end">Duplicates</th>
+                        <th class="text-end">Balances</th>
+                        <th>Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in Model.Logs)
+                    {
+                        <tr>
+                            <td class="text-nowrap">@log.Utc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</td>
+                            <td>
+                                @if (log.Success)
+                                {
+                                    <span class="badge bg-success-subtle text-success">Success</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger-subtle text-danger">Failed</span>
+                                }
+                            </td>
+                            <td class="text-end">@log.TransactionsImported</td>
+                            <td class="text-end">@log.DuplicatesSkipped</td>
+                            <td class="text-end">@log.SnapshotsUpdated</td>
+                            <td class="text-muted small">@log.Message</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

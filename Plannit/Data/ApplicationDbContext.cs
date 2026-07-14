@@ -34,6 +34,9 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Holding> Holdings => Set<Holding>();
     public DbSet<HoldingSnapshot> HoldingSnapshots => Set<HoldingSnapshot>();
+    public DbSet<SyncConnection> SyncConnections => Set<SyncConnection>();
+    public DbSet<SyncAccountMapping> SyncAccountMappings => Set<SyncAccountMapping>();
+    public DbSet<SyncLog> SyncLogs => Set<SyncLog>();
 
     private string? _currentUserId;
 
@@ -270,6 +273,30 @@ public class ApplicationDbContext : IdentityDbContext
             e.Property(hs => hs.Value).HasColumnType("decimal(18,2)");
             e.HasOne(hs => hs.Holding).WithMany(h => h.Snapshots).HasForeignKey(hs => hs.HoldingId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(hs => _currentUserId != null && hs.Holding.Account.UserId == _currentUserId);
+        });
+
+        builder.Entity<SyncConnection>(e =>
+        {
+            e.HasIndex(c => c.UserId);
+            e.HasOne(c => c.User).WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(c => _currentUserId != null && c.UserId == _currentUserId);
+        });
+
+        builder.Entity<SyncAccountMapping>(e =>
+        {
+            e.HasIndex(m => new { m.SyncConnectionId, m.ExternalAccountId }).IsUnique();
+            e.HasOne(m => m.SyncConnection).WithMany(c => c.AccountMappings).HasForeignKey(m => m.SyncConnectionId).OnDelete(DeleteBehavior.Cascade);
+            // Unmapping (deleting the account) leaves the mapping row with a null AccountId
+            // rather than cascading it away, so the external account stays discoverable.
+            e.HasOne(m => m.Account).WithMany().HasForeignKey(m => m.AccountId).OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(m => _currentUserId != null && m.SyncConnection.UserId == _currentUserId);
+        });
+
+        builder.Entity<SyncLog>(e =>
+        {
+            e.HasIndex(l => new { l.SyncConnectionId, l.Utc });
+            e.HasOne(l => l.SyncConnection).WithMany(c => c.Logs).HasForeignKey(l => l.SyncConnectionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(l => _currentUserId != null && l.SyncConnection.UserId == _currentUserId);
         });
     }
 }

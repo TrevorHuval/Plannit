@@ -1,0 +1,64 @@
+@model Plannit.Models.ViewModels.SyncConnectViewModel
+@{
+    ViewData["Title"] = "Connect a bank";
+}
+
+<div class="page-header">
+    <h1>Connect a bank</h1>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Bank Sync</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-key me-1"></i> SimpleFIN setup token</h5>
+                <p class="card-text text-muted">
+                    Paste the one-time <strong>setup token</strong> from your SimpleFIN Bridge account. Plannit
+                    exchanges it for a durable access URL, which is stored <strong>encrypted at rest</strong> and
+                    used only to fetch your accounts and transactions.
+                </p>
+
+                <form asp-action="Connect" method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="SetupToken" class="form-label"></label>
+                        <textarea asp-for="SetupToken" class="form-control" rows="4" autocomplete="off"
+                                  placeholder="Paste your base64 setup token here"></textarea>
+                        <span asp-validation-for="SetupToken" class="text-danger"></span>
+                        <div class="form-text">This is a long base64 string, not a URL. It can only be claimed once.</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-link-45deg me-1"></i>Link account</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-info-circle me-1"></i> How to get a token</h5>
+                <ol class="ps-3 text-muted small mb-3">
+                    <li>Sign up at <a href="https://beta-bridge.simplefin.org/" target="_blank" rel="noopener">SimpleFIN Bridge</a> (about $1.50/mo) and connect your banks.</li>
+                    <li>Create a new app/connection — it gives you a one-time <strong>setup token</strong>.</li>
+                    <li>Paste that token here.</li>
+                </ol>
+                <h6 class="mb-1"><i class="bi bi-shield-lock me-1"></i> Privacy</h6>
+                <ul class="ps-3 text-muted small mb-0">
+                    <li>The access URL is encrypted with ASP.NET Data Protection and never shown again.</li>
+                    <li>Only your account and transaction data is read — Plannit can't move money.</li>
+                    <li>Remove the connection any time; already-imported data stays.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

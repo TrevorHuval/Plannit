@@ -11,6 +11,7 @@ using Plannit.Data;
 using Plannit.Models.Entities;
 using Plannit.Services;
 using Plannit.Services.Ai;
+using Plannit.Services.Sync;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -61,6 +62,8 @@ builder.Services.AddSingleton<ClaudeCliStatus>();
 builder.Services.AddScoped<AiSettingsService>();
 builder.Services.AddScoped<SmartCategorizationService>();
 builder.Services.AddHttpClient("ai", c => c.Timeout = TimeSpan.FromSeconds(120));
+builder.Services.AddScoped<SyncService>();
+builder.Services.AddHttpClient<SimpleFinClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
 
 var dataProtectionKeyPath = builder.Configuration["DataProtection:KeyPath"];
 if (!string.IsNullOrEmpty(dataProtectionKeyPath))

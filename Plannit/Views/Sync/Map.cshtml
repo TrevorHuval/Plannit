@@ -1,0 +1,85 @@
+@model Plannit.Models.ViewModels.SyncMapViewModel
+@{
+    ViewData["Title"] = "Map accounts";
+}
+
+<div class="page-header">
+    <h1>Map accounts</h1>
+    <div class="page-actions">
+        <form asp-action="Refresh" asp-route-id="@Model.ConnectionId" method="post" class="d-inline">
+            <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise me-1"></i>Refresh from bank</button>
+        </form>
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Bank Sync</a>
+    </div>
+</div>
+
+@if (TempData["Message"] is string msg)
+{
+    <div class="alert alert-success alert-dismissible fade show">@msg<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+}
+@if (TempData["Error"] is string err)
+{
+    <div class="alert alert-danger alert-dismissible fade show">@err<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+}
+
+<p class="text-muted mb-4" style="max-width: 60ch;">
+    Link each bank account SimpleFIN reports to a Plannit account. Unlinked accounts are skipped during sync.
+    Transactions and balances flow into the mapped Plannit account.
+</p>
+
+@if (!Model.Rows.Any())
+{
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-diagram-3"></i></div>
+            <h4>No accounts reported yet</h4>
+            <p>SimpleFIN hasn't returned any accounts for this connection. Use <strong>Refresh from bank</strong> once your banks finish linking on the SimpleFIN side.</p>
+        </div>
+    </div>
+}
+else
+{
+    <form asp-action="Map" asp-route-id="@Model.ConnectionId" method="post">
+        @Html.AntiForgeryToken()
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Bank account</th>
+                            <th>Institution</th>
+                            <th>Plannit account</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < Model.Rows.Count; i++)
+                        {
+                            <tr>
+                                <td>
+                                    <input type="hidden" asp-for="Rows[i].ExternalAccountId" />
+                                    <strong>@(Model.Rows[i].ExternalAccountName ?? "(unnamed)")</strong>
+                                    <div class="text-muted small">ID @Model.Rows[i].ExternalAccountId</div>
+                                </td>
+                                <td class="text-muted">@(Model.Rows[i].ExternalOrgName ?? "—")</td>
+                                <td>
+                                    <select asp-for="Rows[i].AccountId" class="form-select form-select-sm" style="max-width: 320px;">
+                                        <option value="">— Don't sync —</option>
+                                        @foreach (var acct in Model.Accounts)
+                                        {
+                                            <option value="@acct.Id" selected="@(Model.Rows[i].AccountId == acct.Id)">
+                                                @acct.Name@(string.IsNullOrWhiteSpace(acct.Institution) ? "" : $" ({acct.Institution})")
+                                            </option>
+                                        }
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Save mappings</button>
+        </div>
+    </form>
+}
