@@ -108,6 +108,10 @@
                                     @if (file.SnapshotUpdated)
                                     {
                                         <span>@file.SnapshotBalance!.Value.ToString("C") as of @file.SnapshotDate!.Value.ToString("MMM d, yyyy")</span>
+                                        @if (file.HoldingsUpdated > 0)
+                                        {
+                                            <span class="d-block text-muted small">@file.HoldingsUpdated holdings updated</span>
+                                        }
                                     }
                                     else
                                     {
@@ -127,6 +131,11 @@ else if (Model.FileResults.Count == 1 && Model.FileResults[0].SnapshotUpdated)
     var f = Model.FileResults[0];
     <div class="alert alert-success mb-4">
         Balance snapshot updated: @f.SnapshotBalance!.Value.ToString("C") as of @f.SnapshotDate!.Value.ToString("MMM d, yyyy")
+        @if (f.HoldingsUpdated > 0)
+        {
+            <text> — @f.HoldingsUpdated holdings updated.</text>
+            <a asp-controller="Accounts" asp-action="Details" asp-route-id="@Model.AccountId">View holdings</a>
+        }
     </div>
 }
 

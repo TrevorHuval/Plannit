@@ -29,6 +29,9 @@ public class PositionsCsvImportService
         var symbolIdx = headers.FindIndex(h => h.Trim().Equals("Symbol", StringComparison.OrdinalIgnoreCase));
         var descIdx = headers.FindIndex(h => h.Trim().Equals("Description", StringComparison.OrdinalIgnoreCase));
         var valueIdx = headers.FindIndex(h => h.Trim().Equals("Current value", StringComparison.OrdinalIgnoreCase));
+        var qtyIdx = headers.FindIndex(h => h.Trim().Equals("Quantity", StringComparison.OrdinalIgnoreCase));
+        var priceIdx = headers.FindIndex(h => h.Trim().Equals("Last price", StringComparison.OrdinalIgnoreCase));
+        var costIdx = headers.FindIndex(h => h.Trim().Equals("Cost basis total", StringComparison.OrdinalIgnoreCase));
 
         var preview = new PositionsImportPreview();
 
@@ -52,7 +55,10 @@ public class PositionsCsvImportService
                 {
                     Symbol = symbol.Trim(),
                     Description = description.Trim(),
-                    Value = value
+                    Value = value,
+                    Quantity = qtyIdx >= 0 && TryParseCurrency(csv.GetField(qtyIdx), out var qty) ? qty : null,
+                    Price = priceIdx >= 0 && TryParseCurrency(csv.GetField(priceIdx), out var price) ? price : null,
+                    CostBasis = costIdx >= 0 && TryParseCurrency(csv.GetField(costIdx), out var cost) ? cost : null
                 });
                 preview.Total += value;
                 continue;

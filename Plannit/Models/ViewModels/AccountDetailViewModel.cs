@@ -11,6 +11,12 @@ public class AccountDetailViewModel
     public string? Institution { get; set; }
     public bool IsActive { get; set; }
     public required List<SnapshotViewModel> Snapshots { get; set; }
+
+    /// <summary>Whether this account holds securities (investment types) — drives the holdings section.</summary>
+    public bool IsInvestment { get; set; }
+
+    /// <summary>Per-holding detail; null/empty for non-investment accounts or before any positions import.</summary>
+    public AccountHoldingsViewModel? Holdings { get; set; }
 }
 
 public class SnapshotViewModel

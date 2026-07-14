@@ -58,6 +58,7 @@ public class ImportWorkflowService
     private readonly PositionsCsvImportService _positionsCsvImportService;
     private readonly PdfStatementService _pdfStatementService;
     private readonly SnapshotImportService _snapshotImportService;
+    private readonly HoldingService _holdingService;
     private readonly CategorizationService _categorizationService;
     private readonly AiSettingsService _aiSettings;
     private readonly SmartCategorizationService _smartCategorization;
@@ -73,6 +74,7 @@ public class ImportWorkflowService
         PositionsCsvImportService positionsCsvImportService,
         PdfStatementService pdfStatementService,
         SnapshotImportService snapshotImportService,
+        HoldingService holdingService,
         CategorizationService categorizationService,
         AiSettingsService aiSettings,
         SmartCategorizationService smartCategorization,
@@ -87,6 +89,7 @@ public class ImportWorkflowService
         _positionsCsvImportService = positionsCsvImportService;
         _pdfStatementService = pdfStatementService;
         _snapshotImportService = snapshotImportService;
+        _holdingService = holdingService;
         _categorizationService = categorizationService;
         _aiSettings = aiSettings;
         _smartCategorization = smartCategorization;
@@ -242,6 +245,32 @@ public class ImportWorkflowService
         var snapshot = await _snapshotImportService.UpsertSnapshotAsync(model.AccountId, model.AsOfDate, model.Balance);
 
         var confirmTempPath = GetSafeTempPath(model.TempFileId, model.TempFileExtension);
+
+        // A positions export also populates per-holding detail. The confirm form only
+        // round-trips the total balance + date, so re-parse the temp file for the full
+        // position rows (quantity/price/cost basis) and upsert holdings at the same date.
+        var holdingsUpdated = 0;
+        if (model.SourceType == "PositionsCsv" && confirmTempPath is not null && File.Exists(confirmTempPath))
+        {
+            try
+            {
+                PositionsImportPreview preview;
+                using (var stream = new FileStream(confirmTempPath, FileMode.Open, FileAccess.Read))
+                {
+                    preview = _positionsCsvImportService.Parse(stream);
+                }
+                if (preview.Success)
+                {
+                    holdingsUpdated = await _holdingService.UpsertHoldingsAsync(
+                        model.AccountId, model.AsOfDate, preview.Positions);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Holding upsert failed for positions import {FileName}", model.FileName);
+            }
+        }
+
         if (confirmTempPath is not null)
         {
             DeleteTempFile(confirmTempPath);
@@ -254,7 +283,8 @@ public class ImportWorkflowService
             SnapshotOnly = true,
             SnapshotUpdated = snapshot is not null,
             SnapshotBalance = snapshot?.Balance,
-            SnapshotDate = snapshot?.Date
+            SnapshotDate = snapshot?.Date,
+            HoldingsUpdated = holdingsUpdated
         };
 
         return await ContinueAsync(result, model.AccountId, priorState);

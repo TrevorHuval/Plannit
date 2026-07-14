@@ -1,0 +1,153 @@
+@model Plannit.Models.ViewModels.PortfolioViewModel
+@{
+    ViewData["Title"] = "Portfolio";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Portfolio</h1>
+        <div class="mt-1 text-muted">Holdings aggregated by symbol across all investment accounts.</div>
+    </div>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Accounts</a>
+    </div>
+</div>
+
+@if (!Model.HasHoldings)
+{
+    <div class="pl-empty-state">
+        <div class="empty-icon"><i class="bi bi-pie-chart"></i></div>
+        <p>No holdings yet. Import a positions statement (e.g. a Fidelity portfolio export) into a brokerage or retirement account to populate holdings.</p>
+        <a asp-controller="Transactions" asp-action="Import" class="btn btn-primary">Import Statements</a>
+    </div>
+}
+else
+{
+    @if (Model.ConcentrationWarnings.Any())
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>Concentration:</strong>
+            @string.Join(", ", Model.ConcentrationWarnings.Select(p => $"{p.Symbol} ({p.Weight:P1})"))
+            @(Model.ConcentrationWarnings.Count == 1 ? "is" : "are") over 20% of your portfolio.
+        </div>
+    }
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Positions</h5>
+                    <span class="pl-eyebrow text-muted">Total @Model.TotalValue.ToString("C")</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Description</th>
+                                <th>Accounts</th>
+                                <th class="text-end">Value</th>
+                                <th class="text-end">Weight</th>
+                                <th class="text-end">Gain / Loss</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in Model.Positions)
+                            {
+                                <tr>
+                                    <td class="fw-semibold">
+                                        @p.Symbol
+                                        @if (p.IsConcentrated)
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning ms-1" title="Over 20% of portfolio">Concentrated</span>
+                                        }
+                                    </td>
+                                    <td class="text-muted small">@p.Description</td>
+                                    <td class="text-muted small">@string.Join(", ", p.Accounts)</td>
+                                    <td class="text-end">@p.Value.ToString("C")</td>
+                                    <td class="text-end">@p.Weight.ToString("P1")</td>
+                                    <td class="text-end">
+                                        @if (p.GainLoss.HasValue)
+                                        {
+                                            <span class="@(p.GainLoss.Value >= 0 ? "text-positive" : "text-negative")">
+                                                @(p.GainLoss.Value >= 0 ? "+" : "")@p.GainLoss.Value.ToString("C")@if (p.GainLossPercent.HasValue) {<text> (@p.GainLossPercent.Value.ToString("P1"))</text>}
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-bold">
+                                <td colspan="3">Total</td>
+                                <td class="text-end">@Model.TotalValue.ToString("C")</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Allocation</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="portfolioAllocChart" height="240"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    @if (Model.HasHoldings)
+    {
+        <script src="~/lib/chart.js/chart.umd.min.js"></script>
+        <script>
+            (function () {
+                var c = PlChart.getColors();
+                var labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Positions.Select(p => p.Symbol)));
+                var data = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Positions.Select(p => p.Value)));
+                var chart = new Chart(document.getElementById('portfolioAllocChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: labels.map(function (_, i) { return PlChart.palette[i % PlChart.palette.length]; }),
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '58%',
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: c.textMuted, boxWidth: 12, padding: 8, font: { size: 11 } } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (ctx) {
+                                        var total = ctx.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                                        var pct = total ? (ctx.parsed / total * 100).toFixed(1) : '0';
+                                        return ctx.label + ': $' + ctx.parsed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' (' + pct + '%)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                document.addEventListener('themechanged', function () {
+                    chart.options.plugins.legend.labels.color = PlChart.getColors().textMuted;
+                    chart.update('none');
+                });
+            })();
+        </script>
+    }
+}

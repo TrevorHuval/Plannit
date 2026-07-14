@@ -27,6 +27,12 @@
                 <i class="bi bi-table"></i> Amortization Schedule
             </a>
         }
+        @if (Model.IsInvestment)
+        {
+            <a asp-action="Portfolio" class="btn btn-outline-secondary">
+                <i class="bi bi-pie-chart"></i> Portfolio
+            </a>
+        }
         <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Edit</a>
         <form asp-action="Delete" asp-route-id="@Model.Id" method="post" class="d-inline"
               onsubmit="return confirm('Deactivate this account? It will be hidden from lists and net worth calculations.');">
@@ -34,6 +40,92 @@
         </form>
     </div>
 </div>
+
+@if (Model.IsInvestment && Model.Holdings is { HasHoldings: true } holdings)
+{
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Holdings</h5>
+                    @if (holdings.AsOfDate.HasValue)
+                    {
+                        <span class="pl-eyebrow text-muted">As of @holdings.AsOfDate.Value.ToString("MMM d, yyyy")</span>
+                    }
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Description</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Price</th>
+                                <th class="text-end">Value</th>
+                                <th class="text-end">Weight</th>
+                                <th class="text-end">Gain / Loss</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var h in holdings.Holdings)
+                            {
+                                <tr>
+                                    <td class="fw-semibold">@h.Symbol</td>
+                                    <td class="text-muted small">@h.Description</td>
+                                    <td class="text-end">@(h.Quantity.HasValue ? h.Quantity.Value.ToString("0.###") : "—")</td>
+                                    <td class="text-end">@(h.Price.HasValue ? h.Price.Value.ToString("C") : "—")</td>
+                                    <td class="text-end">@h.Value.ToString("C")</td>
+                                    <td class="text-end">@h.Weight.ToString("P1")</td>
+                                    <td class="text-end">
+                                        @if (h.GainLoss.HasValue)
+                                        {
+                                            <span class="@(h.GainLoss.Value >= 0 ? "text-positive" : "text-negative")">
+                                                @(h.GainLoss.Value >= 0 ? "+" : "")@h.GainLoss.Value.ToString("C")@if (h.GainLossPercent.HasValue) {<text> (@h.GainLossPercent.Value.ToString("P1"))</text>}
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-bold">
+                                <td colspan="4">Total</td>
+                                <td class="text-end">@holdings.TotalValue.ToString("C")</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Allocation</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="allocationChart" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (holdings.History.Any(s => s.Points.Count >= 2))
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Value History by Holding</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="holdingHistoryChart" height="90"></canvas>
+            </div>
+        </div>
+    }
+}
 
 <div class="row g-4">
     <div class="col-md-8">
@@ -116,3 +208,98 @@
 <div class="mt-4">
     <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Accounts</a>
 </div>
+
+@section Scripts {
+@if (Model.IsInvestment && Model.Holdings is { HasHoldings: true } chartData)
+{
+    <script src="~/lib/chart.js/chart.umd.min.js"></script>
+    <script>
+        (function () {
+            var c = PlChart.getColors();
+
+            // Allocation doughnut — current value by holding
+            var allocLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(chartData.Holdings.Select(h => h.Symbol)));
+            var allocData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(chartData.Holdings.Select(h => h.Value)));
+            var allocChart = new Chart(document.getElementById('allocationChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: allocLabels,
+                    datasets: [{
+                        data: allocData,
+                        backgroundColor: allocLabels.map(function (_, i) { return PlChart.palette[i % PlChart.palette.length]; }),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '58%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: c.textMuted, boxWidth: 12, padding: 8, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    var total = ctx.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                                    var pct = total ? (ctx.parsed / total * 100).toFixed(1) : '0';
+                                    return ctx.label + ': $' + ctx.parsed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' (' + pct + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            var historyChart = null;
+            @if (chartData.History.Any(s => s.Points.Count >= 2))
+            {
+                var series = chartData.History.Where(s => s.Points.Count >= 1).ToList();
+                <text>
+                var seriesData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(series.Select(s => new {
+                    symbol = s.Symbol,
+                    points = s.Points.Select(p => new { date = p.Date.ToString("yyyy-MM-dd"), value = p.Value })
+                })));
+                var dateSet = {};
+                seriesData.forEach(function (s) { s.points.forEach(function (p) { dateSet[p.date] = true; }); });
+                var labels = Object.keys(dateSet).sort();
+                var datasets = seriesData.map(function (s, i) {
+                    var byDate = {};
+                    s.points.forEach(function (p) { byDate[p.date] = p.value; });
+                    return {
+                        label: s.symbol,
+                        data: labels.map(function (d) { return byDate[d] !== undefined ? byDate[d] : null; }),
+                        borderColor: PlChart.palette[i % PlChart.palette.length],
+                        backgroundColor: 'transparent',
+                        spanGaps: true,
+                        tension: 0.3,
+                        pointRadius: 2
+                    };
+                });
+                historyChart = new Chart(document.getElementById('holdingHistoryChart'), {
+                    type: 'line',
+                    data: { labels: labels, datasets: datasets },
+                    options: {
+                        responsive: true,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: c.textMuted, boxWidth: 12, padding: 8, font: { size: 11 } } },
+                            tooltip: { callbacks: { label: function (ctx) { return ctx.dataset.label + ': $' + Number(ctx.parsed.y).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); } } }
+                        },
+                        scales: {
+                            x: PlChart.defaultScaleOptions(),
+                            y: Object.assign(PlChart.defaultScaleOptions(), { ticks: { color: c.textMuted, callback: function (v) { return '$' + v.toLocaleString(); } } })
+                        }
+                    }
+                });
+                </text>
+            }
+
+            document.addEventListener('themechanged', function () {
+                var nc = PlChart.getColors();
+                allocChart.options.plugins.legend.labels.color = nc.textMuted;
+                allocChart.update('none');
+                if (historyChart) { historyChart.options.plugins.legend.labels.color = nc.textMuted; PlChart.applyTheme(historyChart); }
+            });
+        })();
+    </script>
+}
+}

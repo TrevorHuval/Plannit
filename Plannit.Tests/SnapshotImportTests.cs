@@ -97,6 +97,31 @@ public class SnapshotImportTests
     }
 
     [Fact]
+    public void PositionsCsv_Parse_CapturesQuantityPriceAndCostBasis()
+    {
+        var csv = "Account number,Account name,Symbol,Description,Quantity,Last price,Last price change,Current value,Today's gain/loss dollar,Today's gain/loss percent,Total gain/loss dollar,Total gain/loss percent,Percent of account,Cost basis total,Average cost basis,Type\n" +
+                  "249345586,ROTH IRA,SPAXX**,HELD IN MONEY MARKET,,,,\"$4.72\",,,,,0.01%,,,Cash,\n" +
+                  "249345586,ROTH IRA,FXAIX,FIDELITY 500 INDEX FUND,81.529,$263.26,+$0.43,\"$21463.32\",--,--,+$6460.69,+43.06%,55.54%,\"$15002.63\",$184.02,Cash,\n";
+
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
+        var preview = new PositionsCsvImportService().Parse(stream);
+
+        Assert.True(preview.Success);
+        var fxaix = preview.Positions.Single(p => p.Symbol == "FXAIX");
+        Assert.Equal(81.529m, fxaix.Quantity);
+        Assert.Equal(263.26m, fxaix.Price);
+        Assert.Equal(21463.32m, fxaix.Value);
+        Assert.Equal(15002.63m, fxaix.CostBasis);
+
+        // Cash line has no quantity/price/cost basis.
+        var spaxx = preview.Positions.Single(p => p.Symbol == "SPAXX**");
+        Assert.Null(spaxx.Quantity);
+        Assert.Null(spaxx.Price);
+        Assert.Null(spaxx.CostBasis);
+        Assert.Equal(4.72m, spaxx.Value);
+    }
+
+    [Fact]
     public void PositionsCsv_Parse_FallsBackToTodayWhenNoDownloadDateFound()
     {
         var csv = "Symbol,Description,Current value\nFXAIX,FIDELITY 500 INDEX FUND,\"$100.00\"\n";

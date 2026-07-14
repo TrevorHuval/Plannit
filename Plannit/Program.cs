@@ -37,6 +37,7 @@ builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<NetWorthService>();
 builder.Services.AddScoped<TransactionService>();
 builder.Services.AddScoped<SnapshotImportService>();
+builder.Services.AddScoped<HoldingService>();
 builder.Services.AddScoped<CsvImportService>();
 builder.Services.AddScoped<OfxImportService>();
 builder.Services.AddScoped<PositionsCsvImportService>();

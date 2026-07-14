@@ -38,7 +38,7 @@
                 <span class="nav-label">Dashboard</span>
             </a>
             <a asp-controller="Accounts" asp-action="Index"
-               class="pl-nav-link @(controller == "Accounts" ? "active" : "")">
+               class="pl-nav-link @(controller == "Accounts" && ViewContext.RouteData.Values["action"]?.ToString() != "Portfolio" ? "active" : "")">
                 <i class="bi bi-wallet2"></i>
                 <span class="nav-label">Accounts</span>
             </a>
@@ -51,6 +51,11 @@
                class="pl-nav-link @(controller == "Reports" ? "active" : "")">
                 <i class="bi bi-bar-chart-line"></i>
                 <span class="nav-label">Reports</span>
+            </a>
+            <a asp-controller="Accounts" asp-action="Portfolio"
+               class="pl-nav-link @(controller == "Accounts" && ViewContext.RouteData.Values["action"]?.ToString() == "Portfolio" ? "active" : "")">
+                <i class="bi bi-pie-chart"></i>
+                <span class="nav-label">Portfolio</span>
             </a>
             <a asp-controller="Projections" asp-action="Index"
                class="pl-nav-link @(controller == "Projections" ? "active" : "")">

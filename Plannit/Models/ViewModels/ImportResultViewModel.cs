@@ -16,6 +16,9 @@ public class ImportResultViewModel
     public bool SnapshotUpdated { get; set; }
     public decimal? SnapshotBalance { get; set; }
     public DateOnly? SnapshotDate { get; set; }
+
+    /// <summary>Number of holdings upserted from a positions export (0 for other files).</summary>
+    public int HoldingsUpdated { get; set; }
 }
 
 public class ImportRowError

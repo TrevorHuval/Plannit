@@ -12,11 +12,13 @@ namespace Plannit.Controllers;
 public class AccountsController : Controller
 {
     private readonly AccountService _accountService;
+    private readonly HoldingService _holdingService;
     private readonly AuditService _audit;
 
-    public AccountsController(AccountService accountService, AuditService audit)
+    public AccountsController(AccountService accountService, HoldingService holdingService, AuditService audit)
     {
         _accountService = accountService;
+        _holdingService = holdingService;
         _audit = audit;
     }
 
@@ -125,6 +127,7 @@ public class AccountsController : Controller
             TypeDisplayName = NetWorthService.FormatAccountType(account.Type),
             Institution = account.Institution,
             IsActive = account.IsActive,
+            IsInvestment = HoldingService.IsInvestment(account.Type),
             Snapshots = account.Snapshots
                 .OrderByDescending(s => s.Date)
                 .Select(s => new SnapshotViewModel
@@ -135,7 +138,16 @@ public class AccountsController : Controller
                 }).ToList()
         };
 
+        if (vm.IsInvestment)
+            vm.Holdings = await _holdingService.GetAccountHoldingsAsync(id);
+
         ViewBag.AddSnapshot = new AddSnapshotViewModel { AccountId = id };
+        return View(vm);
+    }
+
+    public async Task<IActionResult> Portfolio()
+    {
+        var vm = await _holdingService.GetPortfolioAsync();
         return View(vm);
     }
 

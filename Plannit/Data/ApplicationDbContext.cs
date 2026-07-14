@@ -32,6 +32,8 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<SavingsGoal> SavingsGoals => Set<SavingsGoal>();
     public DbSet<NotificationPreferences> NotificationPreferences => Set<NotificationPreferences>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<Holding> Holdings => Set<Holding>();
+    public DbSet<HoldingSnapshot> HoldingSnapshots => Set<HoldingSnapshot>();
 
     private string? _currentUserId;
 
@@ -249,6 +251,25 @@ public class ApplicationDbContext : IdentityDbContext
             e.HasIndex(n => new { n.UserId, n.IsRead });
             e.HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(n => _currentUserId != null && n.UserId == _currentUserId);
+        });
+
+        builder.Entity<Holding>(e =>
+        {
+            e.HasIndex(h => new { h.AccountId, h.Symbol }).IsUnique();
+            e.Property(h => h.Quantity).HasColumnType("decimal(18,6)");
+            e.Property(h => h.CostBasis).HasColumnType("decimal(18,2)");
+            e.HasOne(h => h.Account).WithMany().HasForeignKey(h => h.AccountId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(h => _currentUserId != null && h.Account.UserId == _currentUserId);
+        });
+
+        builder.Entity<HoldingSnapshot>(e =>
+        {
+            e.HasIndex(hs => new { hs.HoldingId, hs.Date }).IsUnique();
+            e.Property(hs => hs.Quantity).HasColumnType("decimal(18,6)");
+            e.Property(hs => hs.Price).HasColumnType("decimal(18,4)");
+            e.Property(hs => hs.Value).HasColumnType("decimal(18,2)");
+            e.HasOne(hs => hs.Holding).WithMany(h => h.Snapshots).HasForeignKey(hs => hs.HoldingId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(hs => _currentUserId != null && hs.Holding.Account.UserId == _currentUserId);
         });
     }
 }
