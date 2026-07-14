@@ -103,7 +103,7 @@ namespace Plannit.Areas.Identity.Pages.Account
 
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
 
-            ReturnUrl = returnUrl;
+            ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
         }
 
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)

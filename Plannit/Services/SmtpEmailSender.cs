@@ -51,7 +51,7 @@ public class SmtpEmailSender : IEmailSender
         }
         catch (SmtpException ex)
         {
-            _logger.LogWarning(ex, "SMTP send to {Email} failed.", toEmail);
+            _logger.LogWarning(ex, "SMTP send to {Email} failed.", LogSanitizer.MaskEmail(toEmail));
             throw;
         }
     }

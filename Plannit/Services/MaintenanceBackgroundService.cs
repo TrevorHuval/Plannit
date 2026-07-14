@@ -133,7 +133,7 @@ public class MaintenanceBackgroundService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to delete stale temp upload file {Path}", file);
+                _logger.LogWarning(ex, "Failed to delete stale temp upload file {File}", LogSanitizer.Clean(Path.GetFileName(file)));
             }
         }
 

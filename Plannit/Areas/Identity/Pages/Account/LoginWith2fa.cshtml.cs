@@ -83,7 +83,7 @@ namespace Plannit.Areas.Identity.Pages.Account
                 throw new InvalidOperationException($"Unable to load two-factor authentication user.");
             }
 
-            ReturnUrl = returnUrl;
+            ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
             RememberMe = rememberMe;
 
             return Page();

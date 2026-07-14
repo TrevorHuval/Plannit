@@ -47,11 +47,14 @@ public class TransactionsController : Controller
 
     // Search text is echoed back into the page (filter box, export/pagination links);
     // constrain it at the boundary so reflected markup is impossible regardless of encoding.
-    private static string? SanitizeSearchText(string? searchText)
+    // Positive validation: accept the value only if it fully matches a safe charset,
+    // otherwise drop it to null. A recognized allow-list guard (unlike a strip regex) so
+    // there is no way for markup metacharacters to survive.
+    public static string? SanitizeSearchText(string? searchText)
     {
         if (string.IsNullOrWhiteSpace(searchText)) return null;
-        var cleaned = Regex.Replace(searchText.Trim(), @"[<>""'\\]", "");
-        return cleaned.Length > 100 ? cleaned[..100] : cleaned;
+        var trimmed = searchText.Trim();
+        return Regex.IsMatch(trimmed, @"^[\w\s.,'&*$#/-]{1,100}$") ? trimmed : null;
     }
 
     private static readonly int[] AllowedPageSizes = [25, 50, 100];

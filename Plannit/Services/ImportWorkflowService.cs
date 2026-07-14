@@ -267,7 +267,7 @@ public class ImportWorkflowService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Holding upsert failed for positions import {FileName}", model.FileName);
+                _logger.LogWarning(ex, "Holding upsert failed for positions import {FileName}", LogSanitizer.Clean(model.FileName));
             }
         }
 
@@ -510,6 +510,6 @@ public class ImportWorkflowService
     private void DeleteTempFile(string path)
     {
         try { File.Delete(path); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete temp upload file {Path}", path); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete temp upload file {File}", LogSanitizer.Clean(Path.GetFileName(path))); }
     }
 }
