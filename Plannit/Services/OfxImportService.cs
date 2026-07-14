@@ -127,6 +127,7 @@ public class OfxImportService
         }
 
         result.ImportedCount = transactions.Count;
+        result.ImportBatchId = transactions.Count > 0 ? batch.Id : null;
 
         var (ledgerBalance, ledgerDate) = ParseLedgerBalance(content);
         if (ledgerBalance.HasValue && ledgerDate.HasValue)

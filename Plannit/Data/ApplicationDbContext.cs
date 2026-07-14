@@ -30,6 +30,8 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<Bill> Bills => Set<Bill>();
     public DbSet<SavingsGoal> SavingsGoals => Set<SavingsGoal>();
+    public DbSet<NotificationPreferences> NotificationPreferences => Set<NotificationPreferences>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     private string? _currentUserId;
 
@@ -232,6 +234,21 @@ public class ApplicationDbContext : IdentityDbContext
             e.Property(g => g.TargetAmount).HasColumnType("decimal(18,2)");
             e.Property(g => g.ManualProgress).HasColumnType("decimal(18,2)");
             e.HasQueryFilter(g => _currentUserId != null && g.UserId == _currentUserId);
+        });
+
+        builder.Entity<NotificationPreferences>(e =>
+        {
+            e.HasIndex(p => p.UserId).IsUnique();
+            e.HasOne(p => p.User).WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(p => _currentUserId != null && p.UserId == _currentUserId);
+        });
+
+        builder.Entity<Notification>(e =>
+        {
+            e.HasIndex(n => new { n.UserId, n.DedupKey }).IsUnique();
+            e.HasIndex(n => new { n.UserId, n.IsRead });
+            e.HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(n => _currentUserId != null && n.UserId == _currentUserId);
         });
     }
 }

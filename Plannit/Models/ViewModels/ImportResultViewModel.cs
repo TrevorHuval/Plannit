@@ -6,6 +6,7 @@ public class ImportResultViewModel
     public string FileName { get; set; } = null!;
     public int TotalRows { get; set; }
     public int ImportedCount { get; set; }
+    public int? ImportBatchId { get; set; }
     public int DuplicateCount { get; set; }
     public int ErrorCount { get; set; }
     public int CategorizedCount { get; set; }

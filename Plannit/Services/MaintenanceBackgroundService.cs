@@ -1,8 +1,12 @@
+using Microsoft.EntityFrameworkCore;
+using Plannit.Data;
+
 namespace Plannit.Services;
 
 /// <summary>
-/// Daily housekeeping: sweeps stale temp upload files and prunes old audit events. Runs once
-/// shortly after startup and then on a fixed interval — home for future scheduled work too.
+/// Daily housekeeping: sweeps stale temp upload files, prunes old audit events, and runs the
+/// per-user notification alert engine. Runs once shortly after startup and then on a fixed
+/// interval — home for future scheduled work too.
 /// </summary>
 public class MaintenanceBackgroundService : BackgroundService
 {
@@ -53,6 +57,31 @@ public class MaintenanceBackgroundService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Audit event pruning failed.");
+        }
+
+        await RunNotificationChecksAsync(ct);
+    }
+
+    private async Task RunNotificationChecksAsync(CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var notificationService = scope.ServiceProvider.GetRequiredService<NotificationService>();
+
+        var userIds = await db.Users.Select(u => u.Id).ToListAsync(ct);
+        foreach (var userId in userIds)
+        {
+            try
+            {
+                db.SetCurrentUser(userId);
+                var created = await notificationService.RunDailyChecksAsync(userId, ct);
+                if (created > 0)
+                    _logger.LogInformation("Created {Count} notification(s) for user {UserId}.", created, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Notification checks failed for user {UserId}.", userId);
+            }
         }
     }
 

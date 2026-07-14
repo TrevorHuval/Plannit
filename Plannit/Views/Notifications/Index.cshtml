@@ -1,0 +1,70 @@
+@using Plannit.Models.Entities
+@model List<Notification>
+@{
+    ViewData["Title"] = "Notifications";
+    var unreadCount = Model.Count(n => !n.IsRead);
+}
+
+<div class="page-header">
+    <h1>Notifications</h1>
+    <div class="page-actions">
+        @if (unreadCount > 0)
+        {
+            <form asp-action="MarkAllRead" method="post" class="d-inline">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-check2-all"></i> Mark all as read</button>
+            </form>
+        }
+        <a asp-controller="Settings" asp-action="Notifications" class="btn btn-outline-secondary"><i class="bi bi-gear"></i> Preferences</a>
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-bell"></i></div>
+            <h4>No notifications yet</h4>
+            <p>Budget overages, upcoming bills, low forecast balances, unusual transactions, and stale accounts will show up here.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="list-group list-group-flush">
+            @foreach (var n in Model)
+            {
+                <div class="list-group-item @(n.IsRead ? "" : "fw-bold")">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div>
+                                @if (!n.IsRead)
+                                {
+                                    <span class="badge bg-primary me-1">New</span>
+                                }
+                                @if (n.Url is not null)
+                                {
+                                    <a href="@n.Url" class="text-decoration-none">@n.Title</a>
+                                }
+                                else
+                                {
+                                    @n.Title
+                                }
+                            </div>
+                            <div class="text-muted fw-normal small mt-1">@n.Message</div>
+                            <div class="text-muted fw-normal small">@n.CreatedUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</div>
+                        </div>
+                        @if (!n.IsRead)
+                        {
+                            <form asp-action="MarkRead" asp-route-id="@n.Id" asp-route-returnUrl="@Url.Action("Index")" method="post" class="flex-shrink-0">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">Mark read</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}

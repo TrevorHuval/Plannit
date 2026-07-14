@@ -1,0 +1,15 @@
+@using Plannit.Services
+@inject NotificationService NotificationSvc
+@if (User.Identity?.IsAuthenticated == true)
+{
+    var isActive = ViewContext.RouteData.Values["controller"]?.ToString() == "Notifications";
+    var unread = await NotificationSvc.GetUnreadCountAsync();
+    <a asp-controller="Notifications" asp-action="Index" class="pl-nav-link @(isActive ? "active" : "")">
+        <i class="bi bi-bell"></i>
+        <span class="nav-label">Notifications</span>
+        @if (unread > 0)
+        {
+            <span class="badge bg-danger rounded-pill ms-auto">@unread</span>
+        }
+    </a>
+}

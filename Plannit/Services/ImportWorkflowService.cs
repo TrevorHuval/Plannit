@@ -61,6 +61,7 @@ public class ImportWorkflowService
     private readonly CategorizationService _categorizationService;
     private readonly AiSettingsService _aiSettings;
     private readonly SmartCategorizationService _smartCategorization;
+    private readonly NotificationService _notificationService;
     private readonly ILogger<ImportWorkflowService> _logger;
     private readonly string _tempUploadPath;
 
@@ -75,6 +76,7 @@ public class ImportWorkflowService
         CategorizationService categorizationService,
         AiSettingsService aiSettings,
         SmartCategorizationService smartCategorization,
+        NotificationService notificationService,
         IWebHostEnvironment env,
         ILogger<ImportWorkflowService> logger)
     {
@@ -88,6 +90,7 @@ public class ImportWorkflowService
         _categorizationService = categorizationService;
         _aiSettings = aiSettings;
         _smartCategorization = smartCategorization;
+        _notificationService = notificationService;
         _logger = logger;
         _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
     }
@@ -393,6 +396,20 @@ public class ImportWorkflowService
         if (results.Any(r => r.ImportedCount > 0))
         {
             categorized = await _categorizationService.ApplyRulesToUncategorizedAsync();
+
+            // Runs after categorization so category-rule-matched transactions have a CategoryId
+            // to compare against their category's historical average.
+            foreach (var batchId in results.Where(r => r.ImportBatchId.HasValue).Select(r => r.ImportBatchId!.Value).Distinct())
+            {
+                try
+                {
+                    await _notificationService.CheckImportAnomaliesAsync(batchId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Anomaly check failed for import batch {BatchId}", batchId);
+                }
+            }
         }
 
         var multiResult = new MultiImportResultViewModel

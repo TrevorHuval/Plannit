@@ -15,12 +15,16 @@ public class SettingsController : Controller
     private readonly DataManagementService _dataService;
     private readonly AiSettingsService _aiSettings;
     private readonly AuditService _audit;
+    private readonly NotificationService _notifications;
+    private readonly IEmailSender _emailSender;
 
-    public SettingsController(DataManagementService dataService, AiSettingsService aiSettings, AuditService audit)
+    public SettingsController(DataManagementService dataService, AiSettingsService aiSettings, AuditService audit, NotificationService notifications, IEmailSender emailSender)
     {
         _dataService = dataService;
         _aiSettings = aiSettings;
         _audit = audit;
+        _notifications = notifications;
+        _emailSender = emailSender;
     }
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -127,6 +131,71 @@ public class SettingsController : Controller
         vm.TestSucceeded = ok;
         vm.TestResult = message;
         return View("Ai", vm);
+    }
+
+    // ===== Notification settings =====
+
+    public async Task<IActionResult> Notifications()
+    {
+        var vm = await BuildNotificationViewModelAsync();
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveNotifications(NotificationSettingsViewModel vm)
+    {
+        if (vm.EmailEnabled && string.IsNullOrWhiteSpace(vm.Email))
+            ModelState.AddModelError(nameof(vm.Email), "An email address is required to enable email alerts.");
+
+        if (!ModelState.IsValid)
+        {
+            vm.SmtpConfigured = _emailSender.IsConfigured;
+            return View("Notifications", vm);
+        }
+
+        await _notifications.SavePreferencesAsync(
+            UserId, vm.Email, vm.EmailEnabled, vm.DigestMode,
+            vm.BudgetOverageEnabled, vm.BillDueEnabled, vm.LowForecastBalanceEnabled, vm.LargeTransactionEnabled, vm.StaleAccountEnabled);
+        await _audit.LogAsync(UserId, "NotificationSettingsChanged", null, HttpContext.Connection.RemoteIpAddress?.ToString());
+        TempData["Message"] = "Notification settings saved.";
+        return RedirectToAction(nameof(Notifications));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendTestEmail()
+    {
+        var vm = await BuildNotificationViewModelAsync();
+
+        if (string.IsNullOrWhiteSpace(vm.Email))
+        {
+            vm.TestSucceeded = false;
+            vm.TestResult = "Enter and save an email address first.";
+            return View("Notifications", vm);
+        }
+
+        var (ok, message) = await _notifications.SendTestEmailAsync(vm.Email);
+        vm.TestSucceeded = ok;
+        vm.TestResult = message;
+        return View("Notifications", vm);
+    }
+
+    private async Task<NotificationSettingsViewModel> BuildNotificationViewModelAsync()
+    {
+        var prefs = await _notifications.GetPreferencesAsync(UserId);
+        return new NotificationSettingsViewModel
+        {
+            Email = prefs.Email,
+            EmailEnabled = prefs.EmailEnabled,
+            DigestMode = prefs.DigestMode,
+            BudgetOverageEnabled = prefs.BudgetOverageEnabled,
+            BillDueEnabled = prefs.BillDueEnabled,
+            LowForecastBalanceEnabled = prefs.LowForecastBalanceEnabled,
+            LargeTransactionEnabled = prefs.LargeTransactionEnabled,
+            StaleAccountEnabled = prefs.StaleAccountEnabled,
+            SmtpConfigured = _emailSender.IsConfigured
+        };
     }
 
     private async Task<AiSettingsViewModel> BuildAiViewModelAsync()

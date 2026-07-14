@@ -1,0 +1,117 @@
+@using Plannit.Models.Entities
+@model Plannit.Models.ViewModels.NotificationSettingsViewModel
+@{
+    ViewData["Title"] = "Notification Preferences";
+}
+
+<div class="page-header">
+    <h1>Notification Preferences</h1>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Settings</a>
+    </div>
+</div>
+
+@if (TempData["Message"] is string message)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @message
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (Model.TestResult is not null)
+{
+    <div class="alert @(Model.TestSucceeded ? "alert-success" : "alert-danger") alert-dismissible fade show">
+        @Model.TestResult
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (!Model.SmtpConfigured)
+{
+    <div class="alert alert-warning">
+        <i class="bi bi-info-circle"></i> SMTP isn't configured on this server, so alerts will only appear in the in-app notification center — email delivery is disabled until an administrator sets the <code>Smtp</code> configuration.
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-bell"></i> Alerts</h5>
+                <p class="card-text text-muted">Choose which conditions generate a notification. In-app notifications always appear in the bell menu; email is optional on top.</p>
+
+                <form asp-action="SaveNotifications" method="post" id="notificationForm">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                    <h6 class="mt-3">Alert types</h6>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" asp-for="BudgetOverageEnabled" />
+                        <label class="form-check-label" asp-for="BudgetOverageEnabled"></label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" asp-for="BillDueEnabled" />
+                        <label class="form-check-label" asp-for="BillDueEnabled"></label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" asp-for="LowForecastBalanceEnabled" />
+                        <label class="form-check-label" asp-for="LowForecastBalanceEnabled"></label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" asp-for="LargeTransactionEnabled" />
+                        <label class="form-check-label" asp-for="LargeTransactionEnabled"></label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" asp-for="StaleAccountEnabled" />
+                        <label class="form-check-label" asp-for="StaleAccountEnabled"></label>
+                    </div>
+
+                    <hr />
+
+                    <h6>Email delivery</h6>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" asp-for="EmailEnabled" id="emailEnabledSwitch" />
+                        <label class="form-check-label" asp-for="EmailEnabled"></label>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label"></label>
+                        <input asp-for="Email" class="form-control" placeholder="you@example.com" />
+                        <span asp-validation-for="Email" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="DigestMode" class="form-label"></label>
+                        <select asp-for="DigestMode" class="form-select">
+                            <option value="@((int)NotificationDigestMode.Immediate)">Immediate — email as soon as an alert fires</option>
+                            <option value="@((int)NotificationDigestMode.DailyDigest)">Daily digest — one email bundling the day's alerts</option>
+                        </select>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
+                        <button type="submit" formaction="@Url.Action("SendTestEmail")" class="btn btn-outline-primary">
+                            <i class="bi bi-envelope-check"></i> Send test email
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-info-circle"></i> How alerts work</h5>
+                <ul class="mb-0 ps-3 text-muted">
+                    <li>Checks run once a day. Import-time large-transaction checks run right after a file finishes importing.</li>
+                    <li>Each condition only notifies once while it stays true — a budget that's still over 100% won't re-alert every day.</li>
+                    <li>Save your email above, then use <strong>Send test email</strong> to confirm SMTP is working before relying on it.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

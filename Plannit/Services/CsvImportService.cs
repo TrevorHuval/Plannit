@@ -244,6 +244,7 @@ public class CsvImportService
         }
 
         result.ImportedCount = transactions.Count;
+        result.ImportBatchId = transactions.Count > 0 ? batch.Id : null;
         return result;
     }
 

@@ -53,6 +53,8 @@ builder.Services.AddScoped<BillService>();
 builder.Services.AddScoped<ForecastService>();
 builder.Services.AddScoped<SavingsGoalService>();
 builder.Services.AddScoped<LoanService>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<NotificationService>();
 builder.Services.AddHostedService<MaintenanceBackgroundService>();
 builder.Services.AddSingleton<ClaudeCliStatus>();
 builder.Services.AddScoped<AiSettingsService>();
