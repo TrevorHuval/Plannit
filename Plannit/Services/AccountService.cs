@@ -32,14 +32,18 @@ public class AccountService
             .FirstOrDefaultAsync(a => a.Id == id);
     }
 
-    public async Task<Account> CreateAsync(string userId, string name, AccountType type, string? institution)
+    public async Task<Account> CreateAsync(string userId, string name, AccountType type, string? institution,
+        decimal? interestRate = null, decimal? minimumPayment = null, decimal? originalPrincipal = null)
     {
         var account = new Account
         {
             UserId = userId,
             Name = name,
             Type = type,
-            Institution = institution
+            Institution = institution,
+            InterestRate = interestRate,
+            MinimumPayment = minimumPayment,
+            OriginalPrincipal = originalPrincipal
         };
         _db.Accounts.Add(account);
         await _db.SaveChangesAsync();
@@ -51,7 +55,8 @@ public class AccountService
     /// it is enforced as the optimistic-concurrency token — a stale value throws
     /// <see cref="DbUpdateConcurrencyException"/> for the caller to surface a friendly conflict message.
     /// </summary>
-    public async Task<bool> UpdateAsync(int id, string name, AccountType type, string? institution, Guid? rowVersion = null)
+    public async Task<bool> UpdateAsync(int id, string name, AccountType type, string? institution, Guid? rowVersion = null,
+        decimal? interestRate = null, decimal? minimumPayment = null, decimal? originalPrincipal = null)
     {
         var account = await _db.Accounts.FirstOrDefaultAsync(a => a.Id == id);
         if (account is null) return false;
@@ -62,6 +67,9 @@ public class AccountService
         account.Name = name;
         account.Type = type;
         account.Institution = institution;
+        account.InterestRate = interestRate;
+        account.MinimumPayment = minimumPayment;
+        account.OriginalPrincipal = originalPrincipal;
         await _db.SaveChangesAsync();
         return true;
     }

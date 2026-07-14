@@ -16,6 +16,7 @@ public class HomeController : Controller
     private readonly ReportsService _reportsService;
     private readonly TransactionService _transactionService;
     private readonly CategorizationService _categorizationService;
+    private readonly SavingsGoalService _savingsGoalService;
 
     public HomeController(
         NetWorthService netWorthService,
@@ -23,7 +24,8 @@ public class HomeController : Controller
         BillService billService,
         ReportsService reportsService,
         TransactionService transactionService,
-        CategorizationService categorizationService)
+        CategorizationService categorizationService,
+        SavingsGoalService savingsGoalService)
     {
         _netWorthService = netWorthService;
         _budgetService = budgetService;
@@ -31,6 +33,7 @@ public class HomeController : Controller
         _reportsService = reportsService;
         _transactionService = transactionService;
         _categorizationService = categorizationService;
+        _savingsGoalService = savingsGoalService;
     }
 
     public async Task<IActionResult> Index()
@@ -64,6 +67,26 @@ public class HomeController : Controller
         var categories = await _categorizationService.GetAllCategoriesAsync();
 
         var staleAccounts = await _netWorthService.GetStaleAccountsAsync(30);
+
+        var goals = await _savingsGoalService.GetAllAsync();
+        var topGoals = goals
+            .Select(g => SavingsGoalService.ComputeProgress(g, today))
+            .OrderBy(p => p.IsComplete)
+            .ThenBy(p => p.Goal.TargetDate ?? DateOnly.MaxValue)
+            .Take(3)
+            .Select(p => new SavingsGoalCardViewModel
+            {
+                Id = p.Goal.Id,
+                Name = p.Goal.Name,
+                TargetAmount = p.Goal.TargetAmount,
+                TargetDate = p.Goal.TargetDate,
+                LinkedAccountName = p.Goal.LinkedAccount?.Name,
+                CurrentAmount = p.CurrentAmount,
+                Percentage = p.Percentage,
+                IsComplete = p.IsComplete,
+                AmountRemaining = p.AmountRemaining,
+                ProjectedCompletionDate = p.ProjectedCompletionDate
+            }).ToList();
 
         var vm = new DashboardViewModel
         {
@@ -111,7 +134,8 @@ public class HomeController : Controller
                 AccountId = s.AccountId,
                 AccountName = s.AccountName,
                 DaysSinceUpdate = s.DaysSinceUpdate
-            }).ToList()
+            }).ToList(),
+            TopGoals = topGoals
         };
 
         return View(vm);

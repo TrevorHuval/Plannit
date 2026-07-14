@@ -1,0 +1,77 @@
+@model Plannit.Models.ViewModels.SavingsGoalFormViewModel
+@{
+    ViewData["Title"] = Model.Id.HasValue ? "Edit Goal" : "Add Goal";
+}
+
+<div class="page-header">
+    <h1>@ViewData["Title"]</h1>
+</div>
+
+<div class="card" style="max-width: 560px;">
+    <div class="card-body">
+        <form asp-controller="Goals" asp-action="Save" method="post">
+            <input type="hidden" asp-for="Id" />
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label">Name</label>
+                <input asp-for="Name" class="form-control" placeholder="e.g. Emergency Fund, House Down Payment" required />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-sm-6">
+                    <label asp-for="TargetAmount" class="form-label">Target Amount</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input asp-for="TargetAmount" type="number" step="0.01" min="0.01" class="form-control" required />
+                    </div>
+                    <span asp-validation-for="TargetAmount" class="text-danger"></span>
+                </div>
+                <div class="col-sm-6">
+                    <label asp-for="TargetDate" class="form-label">Target Date (optional)</label>
+                    <input asp-for="TargetDate" type="date" class="form-control" />
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="LinkedAccountId" class="form-label">Linked Account (optional)</label>
+                <select asp-for="LinkedAccountId" class="form-select" id="linkedAccountSelect">
+                    <option value="">— Track progress manually —</option>
+                    @foreach (var account in Model.LinkableAccounts)
+                    {
+                        <option value="@account.Id" selected="@(Model.LinkedAccountId == account.Id)">@account.Name</option>
+                    }
+                </select>
+                <div class="form-text">When linked, progress follows the account's balance history automatically.</div>
+            </div>
+
+            <div class="mb-3" id="manualProgressField">
+                <label asp-for="ManualProgress" class="form-label">Current Progress</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input asp-for="ManualProgress" type="number" step="0.01" min="0" class="form-control" />
+                </div>
+                <span asp-validation-for="ManualProgress" class="text-danger"></span>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            var select = document.getElementById('linkedAccountSelect');
+            var manualField = document.getElementById('manualProgressField');
+            function sync() { manualField.classList.toggle('d-none', select.value !== ''); }
+            select.addEventListener('change', sync);
+            sync();
+        })();
+    </script>
+}

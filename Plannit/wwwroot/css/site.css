@@ -1083,6 +1083,114 @@ p { text-wrap: pretty; }
 .progress-bar.bg-warning { background-color: var(--pl-warning) !important; }
 .progress-bar.bg-danger { background-color: var(--pl-negative) !important; }
 
+/* ===== Savings goal cards ===== */
+
+.pl-goal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.25rem;
+}
+
+.pl-goal-card {
+    padding: 1.5rem 1.35rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.pl-goal-ring {
+    position: relative;
+    width: 128px;
+    height: 128px;
+    margin-bottom: 0.9rem;
+}
+
+.pl-goal-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+
+.pl-goal-ring circle {
+    fill: none;
+    stroke-width: 7;
+}
+
+.pl-goal-ring .ring-track { stroke: var(--pl-border-strong); }
+
+.pl-goal-ring .ring-progress {
+    stroke: var(--pl-primary);
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.4s var(--pl-ease);
+}
+
+.pl-goal-ring.complete .ring-progress { stroke: var(--pl-positive); }
+
+.pl-goal-ring .ring-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--pl-font-serif);
+    font-weight: 600;
+    color: var(--pl-text);
+}
+
+.pl-goal-ring .ring-pct { font-size: 1.5rem; letter-spacing: -0.02em; }
+.pl-goal-ring .ring-pct-sign { font-size: 0.95rem; color: var(--pl-text-muted); }
+.pl-goal-ring.complete .ring-label { color: var(--pl-positive); font-size: 1.8rem; }
+
+.pl-goal-ring.mini { width: 56px; height: 56px; margin-bottom: 0; flex-shrink: 0; }
+.pl-goal-ring.mini circle { stroke-width: 8; }
+.pl-goal-ring.mini .ring-pct { font-size: 0.92rem; }
+.pl-goal-ring.mini .ring-pct-sign { font-size: 0.62rem; }
+.pl-goal-ring.mini.complete .ring-label { font-size: 1.1rem; }
+
+.pl-goal-row {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.6rem 0;
+}
+.pl-goal-row + .pl-goal-row { border-top: 1px solid var(--pl-border); }
+
+.pl-goal-name { margin: 0; font-size: 1.05rem; }
+
+.pl-goal-amounts { margin-top: 0.3rem; }
+.pl-goal-amounts .pl-figure { font-size: 1.15rem; }
+
+.pl-goal-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--pl-border);
+    width: 100%;
+    justify-content: center;
+}
+
+/* ===== Debt payoff ===== */
+
+.pl-payoff-slider {
+    width: 100%;
+    accent-color: var(--pl-primary);
+}
+
+.pl-strategy-card {
+    border: 1px solid var(--pl-border);
+    border-radius: var(--pl-radius);
+    padding: 1.1rem 1.25rem;
+}
+
+.pl-strategy-card.winner { border-color: var(--pl-primary); background: var(--pl-primary-subtle); }
+
+.pl-strategy-card .strategy-title {
+    font-family: var(--pl-font-serif);
+    font-weight: 600;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
 /* ===== Misc ===== */
 
 a { color: var(--pl-primary); text-decoration-color: rgba(126, 94, 56, 0.35); }

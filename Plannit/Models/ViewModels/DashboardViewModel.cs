@@ -20,6 +20,7 @@ public class DashboardViewModel
     public List<RecentTransactionViewModel> RecentTransactions { get; set; } = new();
     public List<CategoryOption> Categories { get; set; } = new();
     public List<StaleAccountViewModel> StaleAccounts { get; set; } = new();
+    public List<SavingsGoalCardViewModel> TopGoals { get; set; } = new();
 
     public decimal NetWorth1MonthDelta => NetWorth1MonthAgo != 0
         ? (NetWorth - NetWorth1MonthAgo) / Math.Abs(NetWorth1MonthAgo)

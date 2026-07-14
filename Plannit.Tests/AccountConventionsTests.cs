@@ -9,6 +9,8 @@ public class AccountConventionsTests
     [InlineData(AccountType.CreditCard, -110.46, 110.46)]
     [InlineData(AccountType.CreditCard, 110.46, 110.46)]
     [InlineData(AccountType.CreditCard, 0, 0)]
+    [InlineData(AccountType.Loan, -15000, 15000)]
+    [InlineData(AccountType.Mortgage, -240000, 240000)]
     public void NormalizeSnapshotBalance_LiabilityAlwaysPositive(AccountType type, decimal input, decimal expected)
     {
         Assert.Equal(expected, AccountConventions.NormalizeSnapshotBalance(type, input));
@@ -27,6 +29,12 @@ public class AccountConventionsTests
     public void SignedBalance_LiabilityIsNegated()
     {
         Assert.Equal(-1800m, AccountConventions.SignedBalance(AccountType.CreditCard, 1800m));
+    }
+
+    [Fact]
+    public void SignedBalance_LoanIsNegated()
+    {
+        Assert.Equal(-15000m, AccountConventions.SignedBalance(AccountType.Loan, 15000m));
     }
 
     [Fact]

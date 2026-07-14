@@ -7,7 +7,7 @@ namespace Plannit.Services;
 
 public class NetWorthService
 {
-    internal static readonly HashSet<AccountType> LiabilityTypes = [AccountType.CreditCard];
+    internal static readonly HashSet<AccountType> LiabilityTypes = [AccountType.CreditCard, AccountType.Loan, AccountType.Mortgage];
 
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
@@ -185,6 +185,8 @@ public class NetWorthService
         AccountType.RothIra => "Roth IRA",
         AccountType.TraditionalIra => "Traditional IRA",
         AccountType.Brokerage => "Brokerage",
+        AccountType.Loan => "Loan",
+        AccountType.Mortgage => "Mortgage",
         AccountType.Other => "Other",
         _ => type.ToString()
     };

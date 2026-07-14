@@ -18,6 +18,19 @@ public class AccountFormViewModel
     [StringLength(100)]
     public string? Institution { get; set; }
 
+    // Loan/Mortgage only — entered as a whole percent (e.g. 6.5) and converted to a fraction on save.
+    [Display(Name = "Interest Rate (APR %)")]
+    [Range(0, 100)]
+    public decimal? InterestRatePercent { get; set; }
+
+    [Display(Name = "Minimum Payment")]
+    [Range(0, double.MaxValue)]
+    public decimal? MinimumPayment { get; set; }
+
+    [Display(Name = "Original Principal")]
+    [Range(0, double.MaxValue)]
+    public decimal? OriginalPrincipal { get; set; }
+
     // Optimistic-concurrency token round-tripped through the edit form.
     public Guid RowVersion { get; set; }
 }

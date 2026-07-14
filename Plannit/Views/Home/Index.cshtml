@@ -301,6 +301,59 @@ else
         }
     </div>
 
+    @if (Model.TopGoals.Any())
+    {
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-flag me-1"></i> Savings Goals</h5>
+                <a asp-controller="Goals" asp-action="Index" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+            <div class="card-body">
+                @foreach (var goal in Model.TopGoals)
+                {
+                    var circumference = 263.89;
+                    var offset = circumference * (1 - (double)goal.Percentage);
+                    var ringClass = goal.IsComplete ? "complete" : "";
+
+                    <div class="pl-goal-row">
+                        <div class="pl-goal-ring mini @ringClass">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="ring-track" cx="50" cy="50" r="42"></circle>
+                                <circle class="ring-progress" cx="50" cy="50" r="42"
+                                        stroke-dasharray="@circumference.ToString("F2")"
+                                        stroke-dashoffset="@offset.ToString("F2")"></circle>
+                            </svg>
+                            <div class="ring-label">
+                                @if (goal.IsComplete)
+                                {
+                                    <i class="bi bi-check-lg"></i>
+                                }
+                                else
+                                {
+                                    <span class="ring-pct">@Math.Round(goal.Percentage * 100, 0)<span class="ring-pct-sign">%</span></span>
+                                }
+                            </div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-medium">@goal.Name</span>
+                                <span class="pl-num small">@goal.CurrentAmount.ToString("C0") <span class="text-muted">/ @goal.TargetAmount.ToString("C0")</span></span>
+                            </div>
+                            @if (!goal.IsComplete && goal.ProjectedCompletionDate.HasValue)
+                            {
+                                <div class="small text-muted">On pace for @goal.ProjectedCompletionDate.Value.ToString("MMM yyyy")</div>
+                            }
+                            else if (goal.TargetDate.HasValue)
+                            {
+                                <div class="small text-muted">Target: @goal.TargetDate.Value.ToString("MMM d, yyyy")</div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
     <!-- Upcoming Bills + Stale Accounts row -->
     <div class="row g-3 mb-4">
         @if (Model.UpcomingBills.Any())

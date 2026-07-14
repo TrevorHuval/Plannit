@@ -1,0 +1,137 @@
+@model Plannit.Models.ViewModels.DebtCompareViewModel
+@{
+    ViewData["Title"] = "Payoff Strategy";
+}
+
+<div class="page-header">
+    <h1>Payoff Strategy</h1>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to Debt</a>
+    </div>
+</div>
+
+@if (Model.ExcludedAccounts.Any())
+{
+    <div class="alert alert-warning">
+        Excluded from this comparison (missing interest rate or minimum payment):
+        @string.Join(", ", Model.ExcludedAccounts.Select(a => a.Name))
+    </div>
+}
+
+@if (!Model.IncludedAccounts.Any())
+{
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-signpost-split"></i></div>
+            <h4>Not enough data to compare</h4>
+            <p>Add an interest rate and minimum payment to your Loan/Mortgage accounts to run a payoff comparison.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <form asp-action="Compare" method="get" id="extraPaymentForm">
+                <label class="form-label d-flex justify-content-between">
+                    <span>Extra Monthly Payment</span>
+                    <span class="pl-figure accent" id="extraPaymentReadout">@Model.ExtraPayment.ToString("C0")</span>
+                </label>
+                <input type="range" class="pl-payoff-slider" name="extraPayment" id="extraPaymentSlider"
+                       min="0" max="2000" step="25" value="@Model.ExtraPayment"
+                       oninput="document.getElementById('extraPaymentReadout').textContent = '$' + Number(this.value).toLocaleString()"
+                       onchange="document.getElementById('extraPaymentForm').submit()" />
+                <div class="d-flex justify-content-between text-muted small mt-1">
+                    <span>$0</span>
+                    <span>$2,000/mo</span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (Model.Comparison is not null)
+    {
+        var comparison = Model.Comparison;
+        var avalancheWins = comparison.InterestSaved > 0 || comparison.MonthsSaved > 0;
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="pl-strategy-card @(avalancheWins ? "winner" : "")">
+                    <div class="strategy-title">
+                        <i class="bi bi-fire"></i> Avalanche
+                        @if (avalancheWins)
+                        {
+                            <span class="badge bg-primary ms-1">Lower Interest</span>
+                        }
+                    </div>
+                    <p class="text-muted small mb-3">Highest interest rate paid off first.</p>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Debt-free by</span>
+                        <span class="pl-num fw-semibold">@comparison.Avalanche.PayoffDate.ToString("MMM yyyy")</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="text-muted">Total interest paid</span>
+                        <span class="pl-num fw-semibold text-negative">@comparison.Avalanche.TotalInterestPaid.ToString("C0")</span>
+                    </div>
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Order</th><th class="text-end">Paid Off</th></tr></thead>
+                        <tbody>
+                            @foreach (var acct in comparison.Avalanche.Accounts)
+                            {
+                                <tr>
+                                    <td>@acct.Name</td>
+                                    <td class="text-end">@acct.PayoffDate.ToString("MMM yyyy")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="pl-strategy-card @(!avalancheWins ? "winner" : "")">
+                    <div class="strategy-title">
+                        <i class="bi bi-snow2"></i> Snowball
+                    </div>
+                    <p class="text-muted small mb-3">Smallest balance paid off first.</p>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Debt-free by</span>
+                        <span class="pl-num fw-semibold">@comparison.Snowball.PayoffDate.ToString("MMM yyyy")</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="text-muted">Total interest paid</span>
+                        <span class="pl-num fw-semibold text-negative">@comparison.Snowball.TotalInterestPaid.ToString("C0")</span>
+                    </div>
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Order</th><th class="text-end">Paid Off</th></tr></thead>
+                        <tbody>
+                            @foreach (var acct in comparison.Snowball.Accounts)
+                            {
+                                <tr>
+                                    <td>@acct.Name</td>
+                                    <td class="text-end">@acct.PayoffDate.ToString("MMM yyyy")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        @if (comparison.InterestSaved > 0 || comparison.MonthsSaved > 0)
+        {
+            <div class="alert alert-success">
+                <i class="bi bi-lightbulb me-1"></i>
+                Avalanche saves <strong>@comparison.InterestSaved.ToString("C0")</strong> in interest
+                @if (comparison.MonthsSaved > 0)
+                {
+                    <text> and pays off debt <strong>@comparison.MonthsSaved month@(comparison.MonthsSaved == 1 ? "" : "s")</strong> sooner</text>
+                }
+                compared to snowball.
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info">Both strategies reach the same payoff date and total interest for this debt mix.</div>
+        }
+    }
+}

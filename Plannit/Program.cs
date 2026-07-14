@@ -51,6 +51,8 @@ builder.Services.AddScoped<ImportWorkflowService>();
 builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<BillService>();
 builder.Services.AddScoped<ForecastService>();
+builder.Services.AddScoped<SavingsGoalService>();
+builder.Services.AddScoped<LoanService>();
 builder.Services.AddHostedService<MaintenanceBackgroundService>();
 builder.Services.AddSingleton<ClaudeCliStatus>();
 builder.Services.AddScoped<AiSettingsService>();
@@ -319,6 +321,43 @@ static async Task SeedDevDataAsync(IServiceProvider services)
         await db.SaveChangesAsync();
 
         await categorizationService.ApplyRulesToUncategorizedAsync();
+    }
+
+    if (!await db.Accounts.AnyAsync(a => a.Type == AccountType.Mortgage))
+    {
+        var mortgage = new Account
+        {
+            UserId = devUser.Id, Name = "Home Mortgage", Type = AccountType.Mortgage, Institution = "Wells Fargo",
+            InterestRate = 0.0625m, MinimumPayment = 1850m, OriginalPrincipal = 320000m
+        };
+        var carLoan = new Account
+        {
+            UserId = devUser.Id, Name = "Car Loan", Type = AccountType.Loan, Institution = "Toyota Financial",
+            InterestRate = 0.069m, MinimumPayment = 320m, OriginalPrincipal = 18000m
+        };
+        db.Accounts.AddRange(mortgage, carLoan);
+        await db.SaveChangesAsync();
+
+        var debtSnapshots = new List<BalanceSnapshot>();
+        for (int i = 12; i >= 0; i--)
+        {
+            var date = today.AddMonths(-i);
+            var month = 12 - i;
+            debtSnapshots.Add(new BalanceSnapshot { AccountId = mortgage.Id, Date = date, Balance = 320000m - month * 900m });
+            debtSnapshots.Add(new BalanceSnapshot { AccountId = carLoan.Id, Date = date, Balance = 18000m - month * 683m });
+        }
+        db.BalanceSnapshots.AddRange(debtSnapshots);
+        await db.SaveChangesAsync();
+    }
+
+    if (!await db.SavingsGoals.AnyAsync())
+    {
+        var savingsAccount = await db.Accounts.FirstOrDefaultAsync(a => a.Type == AccountType.Savings);
+        db.SavingsGoals.AddRange(
+            new SavingsGoal { UserId = devUser.Id, Name = "House Down Payment", TargetAmount = 25000m, TargetDate = today.AddMonths(18), LinkedAccountId = savingsAccount?.Id },
+            new SavingsGoal { UserId = devUser.Id, Name = "Vacation Fund", TargetAmount = 3000m, TargetDate = today.AddMonths(6), ManualProgress = 1200m }
+        );
+        await db.SaveChangesAsync();
     }
 }
 

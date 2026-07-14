@@ -1,0 +1,77 @@
+@model Plannit.Models.ViewModels.AmortizationViewModel
+@{
+    ViewData["Title"] = Model.AccountName + " — Amortization";
+}
+
+<div class="page-header">
+    <h1>@Model.AccountName</h1>
+    <div class="page-actions">
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to Debt</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card">
+            <div class="pl-stat-card">
+                <div class="stat-label">Principal</div>
+                <div class="stat-value">@Model.Principal.ToString("C0")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card">
+            <div class="pl-stat-card">
+                <div class="stat-label">APR</div>
+                <div class="stat-value">@((Model.AnnualRate * 100).ToString("F2"))%</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card">
+            <div class="pl-stat-card">
+                <div class="stat-label">Total Interest</div>
+                <div class="stat-value negative">@Model.TotalInterest.ToString("C0")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card">
+            <div class="pl-stat-card">
+                <div class="stat-label">Payoff Date</div>
+                <div class="stat-value accent">@Model.PayoffDate.ToString("MMM yyyy")</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Payment Schedule</h5>
+    </div>
+    <div class="table-responsive" style="max-height: 560px; overflow-y: auto;">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th class="text-end">Payment</th>
+                    <th class="text-end">Principal</th>
+                    <th class="text-end">Interest</th>
+                    <th class="text-end">Remaining Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Schedule)
+                {
+                    <tr>
+                        <td>@Model.StartDate.AddMonths(row.Month - 1).ToString("MMM yyyy")</td>
+                        <td class="text-end pl-num">@row.Payment.ToString("C")</td>
+                        <td class="text-end pl-num text-positive">@row.Principal.ToString("C")</td>
+                        <td class="text-end pl-num text-negative">@row.Interest.ToString("C")</td>
+                        <td class="text-end pl-num">@row.RemainingBalance.ToString("C")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

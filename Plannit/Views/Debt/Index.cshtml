@@ -1,0 +1,95 @@
+@model Plannit.Models.ViewModels.DebtIndexViewModel
+@{
+    ViewData["Title"] = "Debt";
+}
+
+<div class="page-header">
+    <h1>Debt</h1>
+    <div class="page-actions">
+        @if (Model.Accounts.Any(a => a.HasPayoffData))
+        {
+            <a asp-controller="Debt" asp-action="Compare" class="btn btn-sm btn-primary">
+                <i class="bi bi-signpost-split me-1"></i>Payoff Strategy
+            </a>
+        }
+    </div>
+</div>
+
+@if (TempData["Error"] is not null)
+{
+    <div class="alert alert-warning">@TempData["Error"]</div>
+}
+
+@if (!Model.Accounts.Any())
+{
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-graph-down"></i></div>
+            <h4>No debt accounts yet</h4>
+            <p>Add a Loan or Mortgage account (with a balance snapshot) to track its amortization schedule and compare payoff strategies.</p>
+            <a asp-controller="Accounts" asp-action="Create" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Add Account
+            </a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="pl-stat-card">
+                    <div class="stat-label">Total Debt</div>
+                    <div class="stat-value negative">@Model.TotalDebt.ToString("C0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="pl-stat-card">
+                    <div class="stat-label">Monthly Minimums</div>
+                    <div class="stat-value">@Model.TotalMinimumPayment.ToString("C0")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Account</th>
+                        <th>Type</th>
+                        <th class="text-end">Balance</th>
+                        <th class="text-end">APR</th>
+                        <th class="text-end">Min. Payment</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var account in Model.Accounts)
+                    {
+                        <tr>
+                            <td><a asp-controller="Accounts" asp-action="Details" asp-route-id="@account.Id">@account.Name</a></td>
+                            <td><span class="badge bg-secondary">@account.TypeDisplayName</span></td>
+                            <td class="text-end pl-num text-negative">@account.Balance.ToString("C")</td>
+                            <td class="text-end pl-num">@(account.InterestRate.HasValue ? (account.InterestRate.Value * 100).ToString("F2") + "%" : "—")</td>
+                            <td class="text-end pl-num">@(account.MinimumPayment.HasValue ? account.MinimumPayment.Value.ToString("C") : "—")</td>
+                            <td class="text-end">
+                                @if (account.HasPayoffData)
+                                {
+                                    <a asp-action="Amortization" asp-route-id="@account.Id" class="btn btn-sm btn-outline-secondary">Schedule</a>
+                                }
+                                else
+                                {
+                                    <a asp-controller="Accounts" asp-action="Edit" asp-route-id="@account.Id" class="btn btn-sm btn-outline-secondary">Add Rate/Payment</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

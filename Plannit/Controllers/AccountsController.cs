@@ -61,7 +61,9 @@ public class AccountsController : Controller
         if (!ModelState.IsValid) return View(model);
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        await _accountService.CreateAsync(userId, model.Name, model.Type, model.Institution);
+        await _accountService.CreateAsync(userId, model.Name, model.Type, model.Institution,
+            model.InterestRatePercent.HasValue ? model.InterestRatePercent / 100m : null,
+            model.MinimumPayment, model.OriginalPrincipal);
         return RedirectToAction(nameof(Index));
     }
 
@@ -76,6 +78,9 @@ public class AccountsController : Controller
             Name = account.Name,
             Type = account.Type,
             Institution = account.Institution,
+            InterestRatePercent = account.InterestRate.HasValue ? account.InterestRate * 100m : null,
+            MinimumPayment = account.MinimumPayment,
+            OriginalPrincipal = account.OriginalPrincipal,
             RowVersion = account.RowVersion
         });
     }
@@ -88,7 +93,9 @@ public class AccountsController : Controller
 
         try
         {
-            var success = await _accountService.UpdateAsync(id, model.Name, model.Type, model.Institution, model.RowVersion);
+            var success = await _accountService.UpdateAsync(id, model.Name, model.Type, model.Institution, model.RowVersion,
+                model.InterestRatePercent.HasValue ? model.InterestRatePercent / 100m : null,
+                model.MinimumPayment, model.OriginalPrincipal);
             if (!success) return NotFound();
         }
         catch (DbUpdateConcurrencyException)

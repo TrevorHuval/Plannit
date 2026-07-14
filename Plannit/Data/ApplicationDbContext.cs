@@ -29,6 +29,7 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<AiSettings> AiSettings => Set<AiSettings>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<Bill> Bills => Set<Bill>();
+    public DbSet<SavingsGoal> SavingsGoals => Set<SavingsGoal>();
 
     private string? _currentUserId;
 
@@ -103,6 +104,9 @@ public class ApplicationDbContext : IdentityDbContext
             e.HasIndex(a => a.UserId);
             e.HasOne(a => a.User).WithMany().HasForeignKey(a => a.UserId).OnDelete(DeleteBehavior.Cascade);
             e.Property(a => a.RowVersion).IsConcurrencyToken();
+            e.Property(a => a.InterestRate).HasColumnType("decimal(6,4)");
+            e.Property(a => a.MinimumPayment).HasColumnType("decimal(18,2)");
+            e.Property(a => a.OriginalPrincipal).HasColumnType("decimal(18,2)");
             e.HasQueryFilter(a => _currentUserId != null && a.UserId == _currentUserId);
         });
 
@@ -218,6 +222,16 @@ public class ApplicationDbContext : IdentityDbContext
             e.HasOne(b => b.User).WithMany().HasForeignKey(b => b.UserId).OnDelete(DeleteBehavior.Cascade);
             e.Property(b => b.ExpectedAmount).HasColumnType("decimal(18,2)");
             e.HasQueryFilter(b => _currentUserId != null && b.UserId == _currentUserId);
+        });
+
+        builder.Entity<SavingsGoal>(e =>
+        {
+            e.HasIndex(g => g.UserId);
+            e.HasOne(g => g.User).WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(g => g.LinkedAccount).WithMany().HasForeignKey(g => g.LinkedAccountId).OnDelete(DeleteBehavior.SetNull);
+            e.Property(g => g.TargetAmount).HasColumnType("decimal(18,2)");
+            e.Property(g => g.ManualProgress).HasColumnType("decimal(18,2)");
+            e.HasQueryFilter(g => _currentUserId != null && g.UserId == _currentUserId);
         });
     }
 }

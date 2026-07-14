@@ -15,6 +15,11 @@ public class Account
     // Optimistic-concurrency token; re-stamped on every tracked save (see ApplicationDbContext).
     public Guid RowVersion { get; set; }
 
+    // Loan/Mortgage-only fields (null for every other account type).
+    public decimal? InterestRate { get; set; }
+    public decimal? MinimumPayment { get; set; }
+    public decimal? OriginalPrincipal { get; set; }
+
     public IdentityUser User { get; set; } = null!;
     public ICollection<BalanceSnapshot> Snapshots { get; set; } = new List<BalanceSnapshot>();
 }

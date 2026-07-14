@@ -9,5 +9,7 @@ public enum AccountType
     RothIra,
     TraditionalIra,
     Brokerage,
+    Loan,
+    Mortgage,
     Other
 }

@@ -21,6 +21,12 @@
         </div>
     </div>
     <div class="page-actions">
+        @if (Model.Type == Plannit.Models.Entities.AccountType.Loan || Model.Type == Plannit.Models.Entities.AccountType.Mortgage)
+        {
+            <a asp-controller="Debt" asp-action="Amortization" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
+                <i class="bi bi-table"></i> Amortization Schedule
+            </a>
+        }
         <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Edit</a>
         <form asp-action="Delete" asp-route-id="@Model.Id" method="post" class="d-inline"
               onsubmit="return confirm('Deactivate this account? It will be hidden from lists and net worth calculations.');">

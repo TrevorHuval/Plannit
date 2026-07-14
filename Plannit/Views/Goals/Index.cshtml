@@ -1,0 +1,105 @@
+@model List<Plannit.Models.ViewModels.SavingsGoalCardViewModel>
+@{
+    ViewData["Title"] = "Goals";
+}
+
+<div class="page-header">
+    <h1>Savings Goals</h1>
+    <div class="page-actions">
+        <a asp-controller="Goals" asp-action="Create" class="btn btn-sm btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Add Goal
+        </a>
+    </div>
+</div>
+
+@if (TempData["Success"] is not null)
+{
+    <div class="alert alert-success">@TempData["Success"]</div>
+}
+
+@if (!Model.Any())
+{
+    <div class="card">
+        <div class="pl-empty-state">
+            <div class="empty-icon"><i class="bi bi-flag"></i></div>
+            <h4>No goals yet</h4>
+            <p>Set a target — an emergency fund, a down payment, a trip — and track progress toward it, linked to an account or updated by hand.</p>
+            <a asp-controller="Goals" asp-action="Create" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Add Goal
+            </a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="pl-goal-grid">
+        @foreach (var goal in Model)
+        {
+            var pct = Math.Round(goal.Percentage * 100, 0);
+            var circumference = 263.89;
+            var offset = circumference * (1 - (double)goal.Percentage);
+            var ringClass = goal.IsComplete ? "complete" : "";
+
+            <div class="card pl-goal-card">
+                <div class="pl-goal-ring @ringClass">
+                    <svg viewBox="0 0 100 100">
+                        <circle class="ring-track" cx="50" cy="50" r="42"></circle>
+                        <circle class="ring-progress" cx="50" cy="50" r="42"
+                                stroke-dasharray="@circumference.ToString("F2")"
+                                stroke-dashoffset="@offset.ToString("F2")"></circle>
+                    </svg>
+                    <div class="ring-label">
+                        @if (goal.IsComplete)
+                        {
+                            <i class="bi bi-check-lg"></i>
+                        }
+                        else
+                        {
+                            <span class="ring-pct">@pct<span class="ring-pct-sign">%</span></span>
+                        }
+                    </div>
+                </div>
+
+                <h5 class="pl-goal-name">@goal.Name</h5>
+
+                <div class="pl-goal-amounts">
+                    <span class="pl-figure">@goal.CurrentAmount.ToString("C0")</span>
+                    <span class="text-muted"> of @goal.TargetAmount.ToString("C0")</span>
+                </div>
+
+                @if (!string.IsNullOrEmpty(goal.LinkedAccountName))
+                {
+                    <div class="pl-dateline mt-2">Linked · @goal.LinkedAccountName</div>
+                }
+                else
+                {
+                    <div class="pl-dateline mt-2">Manual Progress</div>
+                }
+
+                @if (goal.TargetDate.HasValue)
+                {
+                    <div class="text-muted small mt-1">Target: @goal.TargetDate.Value.ToString("MMM d, yyyy")</div>
+                }
+
+                @if (!goal.IsComplete && goal.ProjectedCompletionDate.HasValue)
+                {
+                    <div class="small mt-1 text-positive">
+                        <i class="bi bi-graph-up-arrow"></i> On pace for @goal.ProjectedCompletionDate.Value.ToString("MMM yyyy")
+                    </div>
+                }
+                else if (goal.IsComplete)
+                {
+                    <div class="small mt-1 text-positive"><i class="bi bi-check-circle"></i> Goal reached</div>
+                }
+
+                <div class="pl-goal-actions">
+                    <a asp-action="Edit" asp-route-id="@goal.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                    <form asp-action="Delete" asp-route-id="@goal.Id" method="post" class="d-inline"
+                          onsubmit="return confirm('Delete this goal?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+}
