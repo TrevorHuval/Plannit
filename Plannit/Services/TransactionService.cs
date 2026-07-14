@@ -100,13 +100,21 @@ public class TransactionService
         return transaction;
     }
 
-    public async Task<bool> UpdateAsync(int id, int accountId, DateOnly date, decimal amount, string description)
+    /// <summary>
+    /// Updates a transaction. When <paramref name="rowVersion"/> is supplied (from an edit form),
+    /// it is enforced as the optimistic-concurrency token — a stale value throws
+    /// <see cref="DbUpdateConcurrencyException"/> for the caller to surface a friendly conflict message.
+    /// </summary>
+    public async Task<bool> UpdateAsync(int id, int accountId, DateOnly date, decimal amount, string description, Guid? rowVersion = null)
     {
         var transaction = await _db.Transactions.FirstOrDefaultAsync(t => t.Id == id);
         if (transaction is null) return false;
 
         if (transaction.AccountId != accountId &&
             !await _db.Accounts.AnyAsync(a => a.Id == accountId)) return false;
+
+        if (rowVersion.HasValue)
+            _db.Entry(transaction).Property(t => t.RowVersion).OriginalValue = rowVersion.Value;
 
         transaction.AccountId = accountId;
         transaction.Date = date;

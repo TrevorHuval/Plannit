@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Plannit.Models.ViewModels;
 using Plannit.Services;
 using Plannit.Services.Ai;
@@ -137,6 +138,7 @@ public class TransactionsController : Controller
             Amount = transaction.Amount,
             Description = transaction.Description,
             Accounts = accounts.Select(a => new AccountOption { Id = a.Id, Name = a.Name }).ToList(),
+            RowVersion = transaction.RowVersion,
             ReturnUrl = returnUrl
         });
     }
@@ -152,10 +154,34 @@ public class TransactionsController : Controller
             return View(model);
         }
 
-        var success = await _transactionService.UpdateAsync(id, model.AccountId, model.Date, model.Amount, model.Description);
-        if (!success) return NotFound();
+        try
+        {
+            var success = await _transactionService.UpdateAsync(id, model.AccountId, model.Date, model.Amount, model.Description, model.RowVersion);
+            if (!success) return NotFound();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return await ConcurrencyConflictAsync(id, model);
+        }
 
         return RedirectToReturnUrlOrIndex(model.ReturnUrl);
+    }
+
+    // Someone else changed this transaction between load and save. Re-render the edit
+    // form with a friendly message and the current row version so a resubmit succeeds.
+    private async Task<IActionResult> ConcurrencyConflictAsync(int id, TransactionFormViewModel model)
+    {
+        ModelState.AddModelError(string.Empty,
+            "This transaction was changed by another update since you opened it. Review your values and save again to overwrite.");
+
+        var accounts = await _accountService.GetAllAsync();
+        model.Accounts = accounts.Select(a => new AccountOption { Id = a.Id, Name = a.Name }).ToList();
+
+        var current = await _transactionService.GetByIdAsync(id);
+        if (current is null) return NotFound();
+        model.RowVersion = current.RowVersion;
+
+        return View(model);
     }
 
     [HttpPost]

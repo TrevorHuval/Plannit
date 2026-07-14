@@ -13,6 +13,7 @@
             <div class="card-body">
                 <form asp-action="Edit" asp-route-id="@Model.Id" method="post">
                     <input type="hidden" asp-for="ReturnUrl" />
+                    <input type="hidden" asp-for="RowVersion" />
                     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
                     <div class="mb-3">

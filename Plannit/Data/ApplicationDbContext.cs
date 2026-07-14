@@ -47,14 +47,34 @@ public class ApplicationDbContext : IdentityDbContext
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        StampRowVersions();
         BumpCacheVersionIfNeeded();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        StampRowVersions();
         BumpCacheVersionIfNeeded();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    // Re-stamp the optimistic-concurrency token on every added/modified Account and
+    // Transaction. This only sets the new (current) value; the Edit paths inject the
+    // client's original token into OriginalValues so a stale save trips a
+    // DbUpdateConcurrencyException. ExecuteUpdate/ExecuteDelete bypass this by design.
+    private void StampRowVersions()
+    {
+        foreach (var entry in ChangeTracker.Entries<Account>())
+        {
+            if (entry.State is EntityState.Added or EntityState.Modified)
+                entry.Entity.RowVersion = Guid.NewGuid();
+        }
+        foreach (var entry in ChangeTracker.Entries<Transaction>())
+        {
+            if (entry.State is EntityState.Added or EntityState.Modified)
+                entry.Entity.RowVersion = Guid.NewGuid();
+        }
     }
 
     // Transactions and balance snapshots feed the cached net-worth/recurring-detection
@@ -81,6 +101,7 @@ public class ApplicationDbContext : IdentityDbContext
         {
             e.HasIndex(a => a.UserId);
             e.HasOne(a => a.User).WithMany().HasForeignKey(a => a.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(a => a.RowVersion).IsConcurrencyToken();
             e.HasQueryFilter(a => _currentUserId != null && a.UserId == _currentUserId);
         });
 
@@ -102,6 +123,7 @@ public class ApplicationDbContext : IdentityDbContext
             e.HasOne(t => t.Account).WithMany().HasForeignKey(t => t.AccountId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(t => t.Category).WithMany(c => c.Transactions).HasForeignKey(t => t.CategoryId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(t => t.ImportBatch).WithMany(b => b.Transactions).HasForeignKey(t => t.ImportBatchId).OnDelete(DeleteBehavior.SetNull);
+            e.Property(t => t.RowVersion).IsConcurrencyToken();
             e.HasQueryFilter(t => _currentUserId != null && t.Account.UserId == _currentUserId);
         });
 

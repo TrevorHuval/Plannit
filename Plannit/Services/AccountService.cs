@@ -46,10 +46,18 @@ public class AccountService
         return account;
     }
 
-    public async Task<bool> UpdateAsync(int id, string name, AccountType type, string? institution)
+    /// <summary>
+    /// Updates an account. When <paramref name="rowVersion"/> is supplied (from an edit form),
+    /// it is enforced as the optimistic-concurrency token — a stale value throws
+    /// <see cref="DbUpdateConcurrencyException"/> for the caller to surface a friendly conflict message.
+    /// </summary>
+    public async Task<bool> UpdateAsync(int id, string name, AccountType type, string? institution, Guid? rowVersion = null)
     {
         var account = await _db.Accounts.FirstOrDefaultAsync(a => a.Id == id);
         if (account is null) return false;
+
+        if (rowVersion.HasValue)
+            _db.Entry(account).Property(a => a.RowVersion).OriginalValue = rowVersion.Value;
 
         account.Name = name;
         account.Type = type;

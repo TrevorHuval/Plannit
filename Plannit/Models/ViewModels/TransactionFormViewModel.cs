@@ -22,5 +22,8 @@ public class TransactionFormViewModel
 
     public List<AccountOption> Accounts { get; set; } = new();
 
+    // Optimistic-concurrency token round-tripped through the edit form.
+    public Guid RowVersion { get; set; }
+
     public string? ReturnUrl { get; set; }
 }

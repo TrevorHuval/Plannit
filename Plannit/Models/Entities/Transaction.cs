@@ -15,6 +15,9 @@ public class Transaction
     public string? Notes { get; set; }
     public Guid? SplitGroupId { get; set; }
 
+    // Optimistic-concurrency token; re-stamped on every tracked save (see ApplicationDbContext).
+    public Guid RowVersion { get; set; }
+
     public Account Account { get; set; } = null!;
     public Category? Category { get; set; }
     public ImportBatch? ImportBatch { get; set; }

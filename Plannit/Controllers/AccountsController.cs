@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Plannit.Models.Entities;
 using Plannit.Models.ViewModels;
 using Plannit.Services;
@@ -74,7 +75,8 @@ public class AccountsController : Controller
             Id = account.Id,
             Name = account.Name,
             Type = account.Type,
-            Institution = account.Institution
+            Institution = account.Institution,
+            RowVersion = account.RowVersion
         });
     }
 
@@ -84,8 +86,21 @@ public class AccountsController : Controller
     {
         if (!ModelState.IsValid) return View(model);
 
-        var success = await _accountService.UpdateAsync(id, model.Name, model.Type, model.Institution);
-        if (!success) return NotFound();
+        try
+        {
+            var success = await _accountService.UpdateAsync(id, model.Name, model.Type, model.Institution, model.RowVersion);
+            if (!success) return NotFound();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            ModelState.AddModelError(string.Empty,
+                "This account was changed by another update since you opened it. Review your values and save again to overwrite.");
+
+            var current = await _accountService.GetByIdAsync(id);
+            if (current is null) return NotFound();
+            model.RowVersion = current.RowVersion;
+            return View(model);
+        }
 
         return RedirectToAction(nameof(Details), new { id });
     }

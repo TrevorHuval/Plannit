@@ -17,4 +17,7 @@ public class AccountFormViewModel
 
     [StringLength(100)]
     public string? Institution { get; set; }
+
+    // Optimistic-concurrency token round-tripped through the edit form.
+    public Guid RowVersion { get; set; }
 }
