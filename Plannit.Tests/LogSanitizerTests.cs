@@ -36,24 +36,4 @@ public class LogSanitizerTests
     {
         Assert.Equal("", LogSanitizer.Clean(input));
     }
-
-    [Theory]
-    [InlineData("trevor@gmail.com", "t***@g***.com")]
-    [InlineData("a@b.co", "a***@b***.co")]
-    [InlineData("user@localhost", "u***@l***")]
-    public void MaskEmail_MasksLocalAndDomain(string input, string expected)
-    {
-        Assert.Equal(expected, LogSanitizer.MaskEmail(input));
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("not-an-email")]
-    [InlineData("@nolocal.com")]
-    [InlineData("nodomain@")]
-    public void MaskEmail_InvalidInput_ReturnsRedacted(string? input)
-    {
-        Assert.Equal("***", LogSanitizer.MaskEmail(input));
-    }
 }

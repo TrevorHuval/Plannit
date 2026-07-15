@@ -325,7 +325,7 @@ public class NotificationService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to send notification email to {Email}", LogSanitizer.MaskEmail(prefs.Email));
+                _logger.LogWarning(ex, "Failed to send notification email for user {UserId}", prefs.UserId);
             }
         }
 
@@ -350,7 +350,7 @@ public class NotificationService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to send digest email to {Email}", LogSanitizer.MaskEmail(prefs.Email));
+            _logger.LogWarning(ex, "Failed to send digest email for user {UserId}", prefs.UserId);
         }
     }
 }

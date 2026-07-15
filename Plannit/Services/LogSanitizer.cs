@@ -3,8 +3,10 @@ using System.Text;
 namespace Plannit.Services;
 
 /// <summary>
-/// Helpers for keeping user-derived data safe to write to logs: strip control
-/// characters (log-forging / CRLF injection defence) and mask email addresses (PII).
+/// Keeps user-derived data safe to write to logs: strips control characters
+/// (log-forging / CRLF injection defence), collapses to a single line, caps length.
+/// Email addresses and other PII are never logged (not even masked — CodeQL, correctly,
+/// treats any value derived from an email as sensitive), so there is no masking helper here.
 /// </summary>
 public static class LogSanitizer
 {
@@ -26,30 +28,5 @@ public static class LogSanitizer
 
         var cleaned = sb.ToString().Trim();
         return cleaned.Length > MaxLength ? cleaned[..MaxLength] : cleaned;
-    }
-
-    /// <summary>
-    /// Mask an email address for logs, e.g. "trevor@gmail.com" -> "t***@g***.com".
-    /// Keeps the first character of the local and domain parts plus the TLD so
-    /// multi-user debugging stays possible without logging the full address.
-    /// </summary>
-    public static string MaskEmail(string? email)
-    {
-        if (string.IsNullOrWhiteSpace(email)) return "***";
-
-        var at = email.IndexOf('@');
-        if (at <= 0 || at == email.Length - 1) return "***";
-
-        var local = email[..at];
-        var domain = email[(at + 1)..];
-
-        var maskedLocal = local[0] + "***";
-
-        var lastDot = domain.LastIndexOf('.');
-        string maskedDomain = lastDot > 0
-            ? domain[0] + "***" + domain[lastDot..]
-            : domain[0] + "***";
-
-        return $"{maskedLocal}@{maskedDomain}";
     }
 }

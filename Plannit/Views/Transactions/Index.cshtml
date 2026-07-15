@@ -31,12 +31,10 @@
                 </button>
             </form>
         }
-        <a asp-action="ExportCsv"
-           asp-route-accountId="@Model.AccountId"
-           asp-route-startDate="@(Model.StartDate?.ToString("yyyy-MM-dd"))"
-           asp-route-endDate="@(Model.EndDate?.ToString("yyyy-MM-dd"))"
-           asp-route-searchText="@Model.SearchText"
-           asp-route-categoryId="@Model.CategoryId"
+        @* Build the export URL via Url.Action (rendered through Razor's encoding Write, not the
+           asp-route-* tag helper) so the user-supplied searchText is URL-encoded into the query
+           string by a recognized sanitizer rather than emitted raw via WriteLiteral. *@
+        <a href="@Url.Action("ExportCsv", new { accountId = Model.AccountId, startDate = Model.StartDate?.ToString("yyyy-MM-dd"), endDate = Model.EndDate?.ToString("yyyy-MM-dd"), searchText = Model.SearchText, categoryId = Model.CategoryId })"
            class="btn btn-outline-secondary" title="Export filtered transactions to CSV">
             <i class="bi bi-download"></i> Export CSV
         </a>

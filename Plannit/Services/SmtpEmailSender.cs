@@ -51,7 +51,8 @@ public class SmtpEmailSender : IEmailSender
         }
         catch (SmtpException ex)
         {
-            _logger.LogWarning(ex, "SMTP send to {Email} failed.", LogSanitizer.MaskEmail(toEmail));
+            // Deliberately do not log the recipient address (PII); the exception carries enough context.
+            _logger.LogWarning(ex, "SMTP send failed.");
             throw;
         }
     }
