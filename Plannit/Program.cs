@@ -115,6 +115,15 @@ builder.Services.AddRateLimiter(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+// Optional path prefix when hosted behind a reverse proxy at a sub-path
+// (e.g. PathBase=/plannit for https://example.com/plannit). Must run before
+// routing so generated URLs and static file paths carry the prefix.
+var pathBase = app.Configuration["PathBase"];
+if (!string.IsNullOrWhiteSpace(pathBase))
+{
+    app.UsePathBase("/" + pathBase.Trim().Trim('/'));
+}
+
 if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
 {
     app.UseForwardedHeaders();
@@ -154,6 +163,9 @@ app.UseRouting();
 
 app.UseRateLimiter();
 
+// Explicit so it runs after UsePathBase; the implicit auto-inserted authentication
+// middleware would run first and build login redirects without the path prefix.
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.Use(async (context, next) =>

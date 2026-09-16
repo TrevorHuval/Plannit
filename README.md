@@ -71,3 +71,5 @@ docker run -d -p 8080:8080 -v plannit-data:/data plannit
 ```
 
 Data (SQLite database + data-protection keys) lives in `/data` — always mount a volume. Registration can be disabled in production config for private instances.
+
+To host under a sub-path behind a reverse proxy (e.g. `https://example.com/plannit`), set `PathBase=/plannit` and forward the full path unchanged; set `ForwardedHeaders__TrustProxyNetwork=true` (or list the proxy in `ForwardedHeaders__KnownProxies__0`) so HTTPS redirects and client IPs are read from the proxy's `X-Forwarded-*` headers.
