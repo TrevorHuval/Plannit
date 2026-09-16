@@ -1,11 +1,12 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG TARGETARCH
 WORKDIR /src
 
 COPY Plannit/Plannit.csproj Plannit/
-RUN dotnet restore Plannit/Plannit.csproj
+RUN dotnet restore Plannit/Plannit.csproj -a $TARGETARCH
 
 COPY Plannit/ Plannit/
-RUN dotnet publish Plannit/Plannit.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish Plannit/Plannit.csproj -c Release -a $TARGETARCH -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
