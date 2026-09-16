@@ -13,6 +13,12 @@ using Plannit.Services;
 using Plannit.Services.Ai;
 using Plannit.Services.Sync;
 
+// Money is formatted with the current culture (93 "C" format sites). In a container there is
+// no LANG, so .NET falls back to the invariant culture and prints "¤" instead of "$".
+var defaultCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = defaultCulture;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = defaultCulture;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
