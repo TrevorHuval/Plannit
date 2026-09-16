@@ -2,6 +2,10 @@
 
 [![CI](https://github.com/TrevorHuval/Plannit/actions/workflows/ci.yml/badge.svg)](https://github.com/TrevorHuval/Plannit/actions/workflows/ci.yml) [![CodeQL](https://github.com/TrevorHuval/Plannit/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/TrevorHuval/Plannit/security/code-scanning)
 
+**Live demo: [trevorhuval.com/plannit](https://trevorhuval.com/plannit)** — registration is open; create an account, add a few balances, and explore. Deployed on AWS EC2 via GitHub Actions and multi-arch Docker images.
+
+![Dashboard: net worth, allocation, and history](.github/images/dashboard.png)
+
 A self-hosted personal financial planning web app: track net worth across every account, import real bank and brokerage statements, analyze spending, and model retirement with deterministic and Monte Carlo projections.
 
 Built with **.NET 10 / ASP.NET Core MVC**, EF Core + SQLite, ASP.NET Core Identity, Bootstrap 5, and Chart.js — no SPA framework, no CDN dependencies, deployable as a single Docker container.
