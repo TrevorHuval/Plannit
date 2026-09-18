@@ -1,0 +1,53 @@
+@page
+@model ExternalLoginModel
+@{
+    ViewData["Title"] = "Finish signing up";
+}
+
+<div class="pl-auth">
+    <div class="pl-auth-card">
+        <a asp-area="" asp-controller="Home" asp-action="Index" class="pl-auth-brand">
+            <span class="brand-icon"><i class="bi bi-graph-up-arrow"></i></span>
+            <span>Plannit</span>
+        </a>
+        <h1 class="pl-auth-title">Almost there</h1>
+        <p class="pl-auth-sub">
+            You've signed in with <strong>@Model.ProviderDisplayName</strong>. Confirm the email address
+            for your new Plannit account.
+        </p>
+
+        <form asp-page-handler="Confirmation" asp-route-returnUrl="@Model.ReturnUrl" method="post">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2" role="alert"></div>
+            @if (Model.EmailIsVerified)
+            {
+                <div class="pl-auth-verified">
+                    <i class="bi bi-patch-check-fill"></i>
+                    <div>
+                        <div class="pl-auth-verified-email">@Model.Input.Email</div>
+                        <div class="pl-auth-verified-note">Verified by @Model.ProviderDisplayName — no confirmation email needed.</div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="form-floating mb-3">
+                    <input asp-for="Input.Email" class="form-control" autocomplete="email" placeholder="name@example.com" />
+                    <label asp-for="Input.Email" class="form-label">Email</label>
+                    <span asp-validation-for="Input.Email" class="text-danger small"></span>
+                </div>
+                <p class="pl-auth-hint">
+                    @Model.ProviderDisplayName didn't share a verified address, so we'll send a confirmation link to this email.
+                </p>
+            }
+            <button type="submit" class="w-100 btn btn-lg btn-primary">Create account</button>
+        </form>
+
+        <p class="pl-auth-footer">
+            <a asp-page="./Login" asp-route-returnUrl="@Model.ReturnUrl">Use a different account</a>
+        </p>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

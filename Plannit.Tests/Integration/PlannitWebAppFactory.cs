@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -39,6 +39,9 @@ public class PlannitWebAppFactory : WebApplicationFactory<Program>
     /// <summary>Every email the app tried to send through this factory.</summary>
     public CapturingEmailSender Emails { get; } = new();
 
+    /// <summary>Extra test-service registrations (e.g. a fake external login provider).</summary>
+    public Action<IServiceCollection>? ConfigureTestServices { get; init; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -68,6 +71,8 @@ public class PlannitWebAppFactory : WebApplicationFactory<Program>
             Emails.IsConfigured = EmailConfigured;
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<IEmailSender>(Emails);
+
+            ConfigureTestServices?.Invoke(services);
         });
     }
 

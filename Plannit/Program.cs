@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -40,6 +40,8 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options =>
         options.Password.RequiredLength = 12;
     })
     .AddEntityFrameworkStores<ApplicationDbContext>();
+// "Sign in with Google / Apple" — each provider is registered only when its settings are present.
+builder.Services.AddPlannitExternalLogins(builder.Configuration);
 // Config-driven Identity policy (see RegistrationPolicy for the defaults and their rationale).
 builder.Services.AddOptions<IdentityOptions>().Configure<IConfiguration>((options, config) =>
 {
@@ -170,6 +172,8 @@ if (!app.Environment.IsDevelopment())
 // Clickjacking/MIME-sniffing/CSP defense-in-depth. script-src/style-src need
 // 'unsafe-inline' because views use inline Chart.js blocks and the dark-mode
 // FOUC-prevention script; all other sources are locked to self (assets are vendored).
+// form-action also lists the external login providers: browsers apply it to the
+// redirect that follows the "Continue with Google/Apple" form post.
 app.Use(async (context, next) =>
 {
     var headers = context.Response.Headers;
@@ -178,7 +182,8 @@ app.Use(async (context, next) =>
     headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     headers["Content-Security-Policy"] =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'";
+        "img-src 'self' data:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; " +
+        $"form-action 'self' {ExternalLoginProviders.FormActionSources}";
     await next();
 });
 
