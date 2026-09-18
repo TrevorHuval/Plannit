@@ -33,12 +33,12 @@ public class SmtpEmailSender : IEmailSender
 
     public bool IsConfigured => _enabled && !string.IsNullOrWhiteSpace(_host) && !string.IsNullOrWhiteSpace(_from);
 
-    public async Task SendAsync(string toEmail, string subject, string body, CancellationToken ct = default)
+    public async Task SendAsync(string toEmail, string subject, string body, bool isHtml = false, CancellationToken ct = default)
     {
         if (!IsConfigured)
             throw new InvalidOperationException("SMTP is not configured on this server.");
 
-        using var message = new MailMessage(_from, toEmail, subject, body);
+        using var message = new MailMessage(_from, toEmail, subject, body) { IsBodyHtml = isHtml };
         using var client = new SmtpClient(_host, _port) { EnableSsl = _enableSsl };
         if (!string.IsNullOrEmpty(_user))
         {

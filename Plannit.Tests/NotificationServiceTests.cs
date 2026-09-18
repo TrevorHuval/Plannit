@@ -54,7 +54,7 @@ public class NotificationServiceTests : IDisposable
     private class NoOpEmailSender : IEmailSender
     {
         public bool IsConfigured => false;
-        public Task SendAsync(string toEmail, string subject, string body, CancellationToken ct = default) => Task.CompletedTask;
+        public Task SendAsync(string toEmail, string subject, string body, bool isHtml = false, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     // ===== Budget overage =====

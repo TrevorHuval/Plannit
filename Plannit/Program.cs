@@ -22,19 +22,35 @@ System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = defaultCulture;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddSingleton<ICacheVersionProvider, CacheVersionProvider>();
 builder.Services.AddMemoryCache();
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(connectionString));
+// The connection string is read from the container's IConfiguration when the context is first
+// built, not captured here: configuration added later in the host build (e.g. by the
+// integration-test factory) must win over appsettings.json.
+builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
+{
+    var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+    options.UseSqlite(connectionString);
+});
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
     {
-        options.SignIn.RequireConfirmedAccount = false;
         options.Password.RequiredLength = 12;
     })
     .AddEntityFrameworkStores<ApplicationDbContext>();
+// Config-driven Identity policy (see RegistrationPolicy for the defaults and their rationale).
+builder.Services.AddOptions<IdentityOptions>().Configure<IConfiguration>((options, config) =>
+{
+    options.SignIn.RequireConfirmedAccount = RegistrationPolicy.IsConfirmedAccountRequired(config);
+    options.Lockout.AllowedForNewUsers = true;
+    options.Lockout.MaxFailedAccessAttempts = RegistrationPolicy.MaxFailedAccessAttempts(config);
+    options.Lockout.DefaultLockoutTimeSpan = RegistrationPolicy.LockoutDuration(config);
+});
+// Identity's default UI sends confirmation/reset mail through its own IEmailSender abstraction;
+// without this registration it silently resolves NoOpEmailSender and no mail is ever sent.
+builder.Services.AddScoped<Microsoft.AspNetCore.Identity.UI.Services.IEmailSender, IdentityEmailSender>();
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddHealthChecks()
@@ -79,29 +95,30 @@ if (!string.IsNullOrEmpty(dataProtectionKeyPath))
         .SetApplicationName("Plannit");
 }
 
-if (builder.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
+// Read lazily from the container's IConfiguration (same reason as the DbContext above).
+builder.Services.AddOptions<ForwardedHeadersOptions>().Configure<IConfiguration>((options, config) =>
 {
-    builder.Services.Configure<ForwardedHeadersOptions>(options =>
-    {
-        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    if (!config.GetValue<bool>("ForwardedHeaders:Enabled"))
+        return;
 
-        if (builder.Configuration.GetValue<bool>("ForwardedHeaders:TrustProxyNetwork"))
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+    if (config.GetValue<bool>("ForwardedHeaders:TrustProxyNetwork"))
+    {
+        // Opt-in only: trusts forwarded headers from any network. Use when the
+        // proxy's IP can't be pinned ahead of time (e.g. some managed load balancers).
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+    }
+    else
+    {
+        foreach (var proxy in config.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
         {
-            // Opt-in only: trusts forwarded headers from any network. Use when the
-            // proxy's IP can't be pinned ahead of time (e.g. some managed load balancers).
-            options.KnownIPNetworks.Clear();
-            options.KnownProxies.Clear();
+            if (IPAddress.TryParse(proxy, out var ip))
+                options.KnownProxies.Add(ip);
         }
-        else
-        {
-            foreach (var proxy in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
-            {
-                if (IPAddress.TryParse(proxy, out var ip))
-                    options.KnownProxies.Add(ip);
-            }
-        }
-    });
-}
+    }
+});
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -176,14 +193,16 @@ app.UseAuthorization();
 
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments("/Identity/Account/Register"))
+    // Path is already PathBase-stripped here, so this gate holds under a /plannit prefix too.
+    // Covers Register and RegisterConfirmation.
+    if (RegistrationPolicy.IsRegistrationPath(context.Request.Path))
     {
         var config = context.RequestServices.GetRequiredService<IConfiguration>();
-        var allowRegistration = config.GetValue("AllowRegistration", true);
-        if (!allowRegistration)
+        var mail = context.RequestServices.GetRequiredService<IEmailSender>();
+        if (!RegistrationPolicy.CanRegister(config, mail, out var reason))
         {
-            context.Response.StatusCode = 403;
-            await context.Response.WriteAsync("Registration is disabled.");
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsync(reason);
             return;
         }
     }

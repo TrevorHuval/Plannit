@@ -319,7 +319,7 @@ public class NotificationService
         {
             try
             {
-                await _emailSender.SendAsync(prefs.Email!, n.Title, n.Message, ct);
+                await _emailSender.SendAsync(prefs.Email!, n.Title, n.Message, ct: ct);
                 n.EmailSent = true;
                 anySent = true;
             }
@@ -344,7 +344,7 @@ public class NotificationService
         var body = string.Join("\n\n", pending.Select(n => $"{n.Title}\n{n.Message}"));
         try
         {
-            await _emailSender.SendAsync(prefs.Email!, $"Plannit: {pending.Count} new alert(s)", body, ct);
+            await _emailSender.SendAsync(prefs.Email!, $"Plannit: {pending.Count} new alert(s)", body, ct: ct);
             foreach (var n in pending) n.EmailSent = true;
             await _db.SaveChangesAsync(ct);
         }

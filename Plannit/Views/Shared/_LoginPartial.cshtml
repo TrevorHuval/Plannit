@@ -1,6 +1,9 @@
 @using Microsoft.AspNetCore.Identity
+@using Plannit.Services
 @inject SignInManager<IdentityUser> SignInManager
 @inject UserManager<IdentityUser> UserManager
+@inject IConfiguration Configuration
+@inject IEmailSender EmailSender
 
 @if (SignInManager.IsSignedIn(User))
 {
@@ -24,9 +27,12 @@
 else
 {
     <div class="pl-footer-links">
-        <a asp-area="Identity" asp-page="/Account/Register" class="pl-footer-link">
-            <i class="bi bi-person-plus"></i> Register
-        </a>
+        @if (RegistrationPolicy.ShowRegistrationLinks(Configuration, EmailSender))
+        {
+            <a asp-area="Identity" asp-page="/Account/Register" class="pl-footer-link">
+                <i class="bi bi-person-plus"></i> Register
+            </a>
+        }
         <a asp-area="Identity" asp-page="/Account/Login" class="pl-footer-link">
             <i class="bi bi-box-arrow-in-right"></i> Login
         </a>

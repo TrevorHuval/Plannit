@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/TrevorHuval/Plannit/actions/workflows/ci.yml/badge.svg)](https://github.com/TrevorHuval/Plannit/actions/workflows/ci.yml) [![CodeQL](https://github.com/TrevorHuval/Plannit/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/TrevorHuval/Plannit/security/code-scanning)
 
-**Live demo: [trevorhuval.com/plannit](https://trevorhuval.com/plannit)** — registration is open; create an account, add a few balances, and explore. Deployed on AWS EC2 via GitHub Actions and multi-arch Docker images.
+**Live demo: [trevorhuval.com/plannit](https://trevorhuval.com/plannit)** — create an account (email verification may be required), add a few balances, and explore. Deployed on AWS EC2 via GitHub Actions and multi-arch Docker images.
 
 ![Dashboard: net worth, allocation, and history](.github/images/dashboard.png)
 
@@ -74,6 +74,6 @@ docker build -t plannit .
 docker run -d -p 8080:8080 -v plannit-data:/data plannit
 ```
 
-Data (SQLite database + data-protection keys) lives in `/data` — always mount a volume. Registration can be disabled in production config for private instances.
+Data (SQLite database + data-protection keys) lives in `/data` — always mount a volume. Registration is off unless `AllowRegistration=true` is set, and open registration requires working SMTP for email verification (see `DEPLOY.md`).
 
 To host under a sub-path behind a reverse proxy (e.g. `https://example.com/plannit`), set `PathBase=/plannit` and forward the full path unchanged; set `ForwardedHeaders__TrustProxyNetwork=true` (or list the proxy in `ForwardedHeaders__KnownProxies__0`) so HTTPS redirects and client IPs are read from the proxy's `X-Forwarded-*` headers.

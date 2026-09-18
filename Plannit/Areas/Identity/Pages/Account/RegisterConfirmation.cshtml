@@ -1,0 +1,15 @@
+@page
+@model RegisterConfirmationModel
+@{
+    ViewData["Title"] = "Register confirmation";
+}
+
+<h1>@ViewData["Title"]</h1>
+<p>
+    Thanks for registering. A verification message has been sent to <strong>@Model.Email</strong>.
+    Open the link in that message to activate your account, then log in.
+</p>
+<p>
+    Didn't get it? Check your spam folder or
+    <a id="resend-confirmation" asp-page="./ResendEmailConfirmation">request a new confirmation email</a>.
+</p>
