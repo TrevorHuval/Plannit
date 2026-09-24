@@ -1,3 +1,5 @@
+using Plannit.Services.Net;
+
 namespace Plannit.Services.Ai;
 
 /// <summary>
@@ -30,7 +32,7 @@ public abstract class PromptBasedCategorizer : ISmartCategorizer
         }
         catch (Exception ex)
         {
-            return SmartCategorizationResult.Failure($"{Name} request failed: {ex.Message}");
+            return SmartCategorizationResult.Failure(OutboundHttp.SafeMessage(ex, Name));
         }
 
         var proposals = SmartCategorizationResponseParser.Parse(raw, request);
@@ -59,7 +61,7 @@ public abstract class PromptBasedCategorizer : ISmartCategorizer
         }
         catch (Exception ex)
         {
-            return (false, $"{Name} connection failed: {ex.Message}");
+            return (false, OutboundHttp.SafeMessage(ex, Name));
         }
     }
 }

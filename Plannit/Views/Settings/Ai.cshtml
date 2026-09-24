@@ -63,7 +63,7 @@
 
                     <div class="mb-3 provider-field" data-providers="@((int)AiProvider.OpenAiCompatible)">
                         <label asp-for="Endpoint" class="form-label"></label>
-                        <input asp-for="Endpoint" class="form-control" placeholder="http://localhost:11434/v1" />
+                        <input asp-for="Endpoint" class="form-control" placeholder="https://api.openai.com/v1" />
                         <span asp-validation-for="Endpoint" class="text-danger"></span>
                         <div class="form-text">The chat-completions base URL (with or without a trailing <code>/v1</code>).</div>
                     </div>

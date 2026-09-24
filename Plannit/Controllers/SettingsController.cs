@@ -93,6 +93,8 @@ public class SettingsController : Controller
             ModelState.AddModelError(nameof(vm.Provider), "The Claude CLI is not available on this machine.");
         if (vm.Provider == AiProvider.OpenAiCompatible && string.IsNullOrWhiteSpace(vm.Endpoint))
             ModelState.AddModelError(nameof(vm.Endpoint), "A base URL is required for an OpenAI-compatible provider.");
+        else if (vm.Provider == AiProvider.OpenAiCompatible && !_aiSettings.TryValidateEndpoint(vm.Endpoint, out var endpointError))
+            ModelState.AddModelError(nameof(vm.Endpoint), endpointError);
         if (vm.Provider is AiProvider.AnthropicApi or AiProvider.OpenAiCompatible
             && string.IsNullOrWhiteSpace(vm.Model))
             ModelState.AddModelError(nameof(vm.Model), "A model name is required.");
@@ -127,7 +129,7 @@ public class SettingsController : Controller
             return View("Ai", vm);
         }
 
-        var (ok, message) = await categorizer.TestConnectionAsync();
+        var (ok, message) = await categorizer.TestConnectionAsync(HttpContext.RequestAborted);
         vm.TestSucceeded = ok;
         vm.TestResult = message;
         return View("Ai", vm);

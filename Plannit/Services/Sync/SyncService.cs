@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Plannit.Data;
 using Plannit.Models.Entities;
+using Plannit.Services.Net;
 
 namespace Plannit.Services.Sync;
 
@@ -75,12 +76,12 @@ public class SyncService
     /// Redeems a setup token, stores the encrypted access URL as a new connection, then
     /// discovers the provider's accounts to seed mapping rows. Returns the new connection id.
     /// </summary>
-    public async Task<(bool Ok, string Message, int? ConnectionId)> ConnectAsync(string userId, string setupToken)
+    public async Task<(bool Ok, string Message, int? ConnectionId)> ConnectAsync(string userId, string setupToken, CancellationToken ct = default)
     {
         string accessUrl;
         try
         {
-            accessUrl = await _client.ClaimAccessUrlAsync(setupToken);
+            accessUrl = await _client.ClaimAccessUrlAsync(setupToken, ct);
         }
         catch (ArgumentException ex)
         {
@@ -93,7 +94,7 @@ public class SyncService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "SimpleFIN claim failed for user {UserId}", userId);
-            return (false, $"Could not claim the setup token: {ex.Message}", null);
+            return (false, $"Could not claim the setup token. {OutboundHttp.SafeMessage(ex, "SimpleFIN")}", null);
         }
 
         var connection = new SyncConnection
@@ -280,7 +281,7 @@ public class SyncService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Sync fetch failed for connection {ConnectionId}", connection.Id);
-            result.Message = $"Could not reach SimpleFIN: {ex.Message}";
+            result.Message = OutboundHttp.SafeMessage(ex, "SimpleFIN");
             await FinalizeAsync(connection, result, SyncStatus.Failed);
             return result;
         }

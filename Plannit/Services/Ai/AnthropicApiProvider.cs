@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Plannit.Services.Net;
 
 namespace Plannit.Services.Ai;
 
@@ -47,7 +48,7 @@ public class AnthropicApiProvider : PromptBasedCategorizer
         using var resp = await _http.SendAsync(req, ct);
         var content = await resp.Content.ReadAsStringAsync(ct);
         if (!resp.IsSuccessStatusCode)
-            throw new InvalidOperationException($"HTTP {(int)resp.StatusCode}: {Truncate(content)}");
+            throw new UpstreamResponseException(Name, resp.StatusCode);
 
         using var doc = JsonDocument.Parse(content);
         if (doc.RootElement.TryGetProperty("content", out var contentArr) &&
@@ -66,6 +67,4 @@ public class AnthropicApiProvider : PromptBasedCategorizer
         }
         return content;
     }
-
-    private static string Truncate(string s) => s.Length > 300 ? s[..300] : s;
 }

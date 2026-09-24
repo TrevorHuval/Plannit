@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Plannit.Services.Net;
 
 namespace Plannit.Services.Ai;
 
@@ -31,7 +32,7 @@ public class OpenAiCompatibleProvider : PromptBasedCategorizer
     public override string Name => "OpenAI-compatible";
 
     // Accepts either a bare base URL (…/v1) or a full …/chat/completions URL.
-    private static string BuildCompletionsUrl(string baseUrl)
+    internal static string BuildCompletionsUrl(string baseUrl)
     {
         var trimmed = baseUrl.TrimEnd('/');
         if (trimmed.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
@@ -63,7 +64,7 @@ public class OpenAiCompatibleProvider : PromptBasedCategorizer
         using var resp = await _http.SendAsync(req, ct);
         var content = await resp.Content.ReadAsStringAsync(ct);
         if (!resp.IsSuccessStatusCode)
-            throw new InvalidOperationException($"HTTP {(int)resp.StatusCode}: {Truncate(content)}");
+            throw new UpstreamResponseException(Name, resp.StatusCode);
 
         using var doc = JsonDocument.Parse(content);
         if (doc.RootElement.TryGetProperty("choices", out var choices) &&
@@ -79,6 +80,4 @@ public class OpenAiCompatibleProvider : PromptBasedCategorizer
         }
         return content;
     }
-
-    private static string Truncate(string s) => s.Length > 300 ? s[..300] : s;
 }

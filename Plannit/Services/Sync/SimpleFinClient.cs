@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
+using Plannit.Services.Net;
 
 namespace Plannit.Services.Sync;
 
@@ -16,11 +18,13 @@ public class SimpleFinClient
 {
     private readonly HttpClient _http;
     private readonly ILogger<SimpleFinClient> _logger;
+    private readonly OutboundPolicy _policy;
 
-    public SimpleFinClient(HttpClient http, ILogger<SimpleFinClient> logger)
+    public SimpleFinClient(HttpClient http, ILogger<SimpleFinClient> logger, IOptions<OutboundOptions>? outbound = null)
     {
         _http = http;
         _logger = logger;
+        _policy = OutboundPolicy.ForSimpleFin(outbound?.Value ?? new OutboundOptions());
     }
 
     /// <summary>
@@ -56,6 +60,7 @@ public class SimpleFinClient
     public virtual async Task<string> ClaimAccessUrlAsync(string setupToken, CancellationToken ct = default)
     {
         var claimUrl = DecodeSetupToken(setupToken);
+        _policy.EnsureAllowed(new Uri(claimUrl));
 
         using var req = new HttpRequestMessage(HttpMethod.Post, claimUrl)
         {
@@ -70,10 +75,15 @@ public class SimpleFinClient
             throw new SimpleFinAuthException("The setup token was rejected. It may have already been claimed or expired.");
 
         if (!resp.IsSuccessStatusCode)
-            throw new InvalidOperationException($"Claiming the setup token failed (HTTP {(int)resp.StatusCode}): {Truncate(body)}");
+            throw new UpstreamResponseException("SimpleFIN", resp.StatusCode);
 
         if (!Uri.TryCreate(body, UriKind.Absolute, out var accessUri) || string.IsNullOrEmpty(accessUri.UserInfo))
             throw new InvalidOperationException("The claim response was not a valid access URL.");
+
+        // The access URL comes from the remote side and is dialled on every future sync, so it gets
+        // the same destination policy as a user-supplied URL. Never echo it back: it holds credentials.
+        if (!_policy.TryValidate(accessUri, out var reason))
+            throw new OutboundPolicyException($"SimpleFIN returned an access URL this server will not connect to: {reason}");
 
         return body;
     }
@@ -85,6 +95,7 @@ public class SimpleFinClient
     public virtual async Task<SimpleFinAccountSet> FetchAccountsAsync(string accessUrl, DateOnly? startDate = null, CancellationToken ct = default)
     {
         var (requestUri, authHeader) = BuildAccountsRequest(accessUrl, startDate);
+        _policy.EnsureAllowed(requestUri);
 
         using var req = new HttpRequestMessage(HttpMethod.Get, requestUri);
         req.Headers.Authorization = authHeader;
@@ -97,7 +108,7 @@ public class SimpleFinClient
             throw new SimpleFinAuthException("The bank connection was rejected by SimpleFIN. Re-link the connection with a new setup token.");
 
         if (!resp.IsSuccessStatusCode)
-            throw new InvalidOperationException($"Fetching accounts failed (HTTP {(int)resp.StatusCode}): {Truncate(body)}");
+            throw new UpstreamResponseException("SimpleFIN", resp.StatusCode);
 
         return ParseAccountsJson(body);
     }
@@ -228,5 +239,4 @@ public class SimpleFinClient
         return seconds is null ? null : DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeSeconds(seconds.Value).UtcDateTime);
     }
 
-    private static string Truncate(string s) => s.Length > 300 ? s[..300] : s;
 }

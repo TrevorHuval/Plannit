@@ -1,8 +1,10 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Plannit.Data;
 using Plannit.Models.Entities;
+using Plannit.Services.Net;
 
 namespace Plannit.Services.Ai;
 
@@ -21,6 +23,7 @@ public class AiSettingsService
     private readonly ClaudeCliStatus _cliStatus;
     private readonly ILogger<AiSettingsService> _logger;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly OutboundPolicy _outbound;
 
     public AiSettingsService(
         ApplicationDbContext db,
@@ -28,7 +31,8 @@ public class AiSettingsService
         IHttpClientFactory httpClientFactory,
         ClaudeCliStatus cliStatus,
         ILogger<AiSettingsService> logger,
-        ILoggerFactory loggerFactory)
+        ILoggerFactory loggerFactory,
+        IOptions<OutboundOptions> outbound)
     {
         _db = db;
         _protector = dataProtection.CreateProtector(ProtectorPurpose);
@@ -36,6 +40,29 @@ public class AiSettingsService
         _cliStatus = cliStatus;
         _logger = logger;
         _loggerFactory = loggerFactory;
+        _outbound = OutboundPolicy.ForAi(outbound.Value);
+    }
+
+    /// <summary>
+    /// Checks an OpenAI-compatible base URL against the outbound policy before it is saved, so the
+    /// user gets a clear error up front. The request-time checks still apply regardless.
+    /// </summary>
+    public bool TryValidateEndpoint(string? endpoint, out string error)
+    {
+        if (string.IsNullOrWhiteSpace(endpoint) || !Uri.TryCreate(endpoint.Trim(), UriKind.Absolute, out var uri))
+        {
+            error = "Enter the base URL as an absolute address, e.g. https://api.openai.com/v1.";
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+        {
+            error = "Do not put credentials in the URL; use the API key field.";
+            return false;
+        }
+
+        var target = new Uri(OpenAiCompatibleProvider.BuildCompletionsUrl(endpoint.Trim()));
+        return _outbound.TryValidate(target, out error);
     }
 
     public bool ClaudeCliAvailable => _cliStatus.Available;
@@ -124,9 +151,9 @@ public class AiSettingsService
             case AiProvider.ClaudeCli:
                 return _cliStatus.Available ? new ClaudeCliProvider(_loggerFactory.CreateLogger<ClaudeCliProvider>()) : null;
             case AiProvider.AnthropicApi:
-                return new AnthropicApiProvider(_httpClientFactory.CreateClient("ai"), BuildConfig(settings));
+                return new AnthropicApiProvider(_httpClientFactory.CreateClient(OutboundHttp.AiClientName), BuildConfig(settings));
             case AiProvider.OpenAiCompatible:
-                return new OpenAiCompatibleProvider(_httpClientFactory.CreateClient("ai"), BuildConfig(settings));
+                return new OpenAiCompatibleProvider(_httpClientFactory.CreateClient(OutboundHttp.AiClientName), BuildConfig(settings));
             default:
                 return null;
         }

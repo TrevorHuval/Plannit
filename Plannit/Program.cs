@@ -11,6 +11,7 @@ using Plannit.Data;
 using Plannit.Models.Entities;
 using Plannit.Services;
 using Plannit.Services.Ai;
+using Plannit.Services.Net;
 using Plannit.Services.Sync;
 
 // Money is formatted with the current culture (93 "C" format sites). In a container there is
@@ -85,9 +86,13 @@ builder.Services.AddHostedService<MaintenanceBackgroundService>();
 builder.Services.AddSingleton<ClaudeCliStatus>();
 builder.Services.AddScoped<AiSettingsService>();
 builder.Services.AddScoped<SmartCategorizationService>();
-builder.Services.AddHttpClient("ai", c => c.Timeout = TimeSpan.FromSeconds(120));
+// Outbound HTTP to user-supplied destinations goes through the SSRF policy (Services/Net/OutboundPolicy.cs).
+builder.Services.AddOptions<OutboundOptions>().BindConfiguration(OutboundOptions.SectionName);
+builder.Services.AddHttpClient(OutboundHttp.AiClientName, c => c.Timeout = TimeSpan.FromSeconds(120))
+    .AddOutboundPolicy(OutboundPolicy.ForAi, OutboundHttp.AiMaxResponseBytes);
 builder.Services.AddScoped<SyncService>();
-builder.Services.AddHttpClient<SimpleFinClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddHttpClient<SimpleFinClient>(c => c.Timeout = TimeSpan.FromSeconds(60))
+    .AddOutboundPolicy(OutboundPolicy.ForSimpleFin, OutboundHttp.SimpleFinMaxResponseBytes);
 
 var dataProtectionKeyPath = builder.Configuration["DataProtection:KeyPath"];
 if (!string.IsNullOrEmpty(dataProtectionKeyPath))

@@ -54,7 +54,7 @@ public class SyncController : Controller
     {
         if (!ModelState.IsValid) return View(vm);
 
-        var (ok, message, connectionId) = await _sync.ConnectAsync(UserId, vm.SetupToken);
+        var (ok, message, connectionId) = await _sync.ConnectAsync(UserId, vm.SetupToken, HttpContext.RequestAborted);
         if (!ok)
         {
             ModelState.AddModelError(nameof(vm.SetupToken), message);

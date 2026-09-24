@@ -44,7 +44,7 @@ public class SmartCategorizeController : Controller
 
         var existing = await _smart.GetExistingCategoryNamesAsync();
         var request = _smart.BuildRequest(groups, existing);
-        var result = await categorizer.CategorizeAsync(request);
+        var result = await categorizer.CategorizeAsync(request, HttpContext.RequestAborted);
 
         var vm = new SmartCategorizeReviewViewModel
         {
