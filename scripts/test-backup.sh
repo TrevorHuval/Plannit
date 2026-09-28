@@ -6,7 +6,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(mktemp -d)"
 WRITER=0
-trap 'kill "$WRITER" 2>/dev/null || true; rm -rf "$ROOT"' EXIT
+trap '[ "$WRITER" != 0 ] && kill "$WRITER" 2>/dev/null; rm -rf "$ROOT"' EXIT
 pass() { echo "ok - $1"; }
 die()  { echo "not ok - $1" >&2; exit 1; }
 
