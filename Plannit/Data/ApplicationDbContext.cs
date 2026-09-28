@@ -37,6 +37,7 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<SyncConnection> SyncConnections => Set<SyncConnection>();
     public DbSet<SyncAccountMapping> SyncAccountMappings => Set<SyncAccountMapping>();
     public DbSet<SyncLog> SyncLogs => Set<SyncLog>();
+    public DbSet<TempUpload> TempUploads => Set<TempUpload>();
 
     private string? _currentUserId;
 
@@ -211,6 +212,16 @@ public class ApplicationDbContext : IdentityDbContext
             e.HasIndex(s => s.UserId).IsUnique();
             e.HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(s => _currentUserId != null && s.UserId == _currentUserId);
+        });
+
+        builder.Entity<TempUpload>(e =>
+        {
+            e.HasIndex(u => u.UserId);
+            e.HasIndex(u => u.ExpiresUtc);
+            e.Property(u => u.Kind).HasMaxLength(32);
+            e.Property(u => u.Extension).HasMaxLength(8);
+            e.HasOne(u => u.User).WithMany().HasForeignKey(u => u.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(u => _currentUserId != null && u.UserId == _currentUserId);
         });
 
         builder.Entity<AuditEvent>(e =>

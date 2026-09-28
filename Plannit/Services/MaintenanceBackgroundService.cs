@@ -47,7 +47,7 @@ public class MaintenanceBackgroundService : BackgroundService
 
     private async Task RunOnceAsync(CancellationToken ct)
     {
-        CleanupOldTempUploads();
+        await CleanupTempUploadsAsync();
 
         try
         {
@@ -115,29 +115,66 @@ public class MaintenanceBackgroundService : BackgroundService
         }
     }
 
-    private void CleanupOldTempUploads()
+    // Deletes expired or consumed registry rows together with their staged files, then any file with
+    // no registry row that is older than the legacy age limit (uploads staged before the registry
+    // existed, or files orphaned by a failed save). This is an intentionally cross-user job.
+    private async Task CleanupTempUploadsAsync()
     {
         var tempDir = Path.Combine(_env.ContentRootPath, "TempUploads");
-        if (!Directory.Exists(tempDir)) return;
-
-        var cutoff = DateTime.UtcNow - TempFileMaxAge;
         var deleted = 0;
-        foreach (var file in Directory.GetFiles(tempDir))
-        {
-            if (File.GetCreationTimeUtc(file) >= cutoff) continue;
 
-            try
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var now = DateTime.UtcNow;
+
+            var stale = await db.TempUploads.IgnoreQueryFilters()
+                .Where(u => u.ExpiresUtc < now || u.ConsumedUtc != null)
+                .ToListAsync();
+            foreach (var upload in stale)
             {
-                File.Delete(file);
-                deleted++;
+                var path = Path.Combine(tempDir, upload.Id.ToString("D") + upload.Extension);
+                if (TryDelete(path)) deleted++;
             }
-            catch (Exception ex)
+            if (stale.Count > 0)
             {
-                _logger.LogWarning(ex, "Failed to delete stale temp upload file {File}", LogSanitizer.Clean(Path.GetFileName(file)));
+                db.TempUploads.RemoveRange(stale);
+                await db.SaveChangesAsync();
             }
+
+            if (Directory.Exists(tempDir))
+            {
+                var registered = (await db.TempUploads.IgnoreQueryFilters().Select(u => u.Id).ToListAsync()).ToHashSet();
+                var cutoff = now - TempFileMaxAge;
+                foreach (var file in Directory.GetFiles(tempDir))
+                {
+                    var isRegistered = Guid.TryParse(Path.GetFileNameWithoutExtension(file), out var id) && registered.Contains(id);
+                    if (!isRegistered && File.GetCreationTimeUtc(file) < cutoff && TryDelete(file)) deleted++;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Temp upload cleanup failed.");
         }
 
         if (deleted > 0)
             _logger.LogInformation("Deleted {Count} stale temp upload file(s).", deleted);
+    }
+
+    private bool TryDelete(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return false;
+            File.Delete(path);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete stale temp upload file {File}", LogSanitizer.Clean(Path.GetFileName(path)));
+            return false;
+        }
     }
 }

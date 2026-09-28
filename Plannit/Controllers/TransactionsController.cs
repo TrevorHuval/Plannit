@@ -264,7 +264,7 @@ public class TransactionsController : Controller
 
         if (!ModelState.IsValid)
         {
-            var preview = _importWorkflow.ReadCsvPreview(model.TempFileId);
+            var preview = await _importWorkflow.ReadCsvPreviewAsync(model.TempFileId, model.AccountId);
             if (preview is not null)
             {
                 model.AvailableColumns = preview.Value.Headers;

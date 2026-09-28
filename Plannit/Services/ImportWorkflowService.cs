@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using Plannit.Data;
+using Plannit.Models.Entities;
 using Plannit.Models.ViewModels;
 using Plannit.Services.Ai;
 
@@ -64,6 +67,7 @@ public class ImportWorkflowService
     private readonly SmartCategorizationService _smartCategorization;
     private readonly NotificationService _notificationService;
     private readonly ILogger<ImportWorkflowService> _logger;
+    private readonly ApplicationDbContext _db;
     private readonly string _tempUploadPath;
 
     public ImportWorkflowService(
@@ -80,6 +84,7 @@ public class ImportWorkflowService
         SmartCategorizationService smartCategorization,
         NotificationService notificationService,
         IWebHostEnvironment env,
+        ApplicationDbContext db,
         ILogger<ImportWorkflowService> logger)
     {
         _transactionService = transactionService;
@@ -95,10 +100,16 @@ public class ImportWorkflowService
         _smartCategorization = smartCategorization;
         _notificationService = notificationService;
         _logger = logger;
+        _db = db;
         _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
     }
 
-    private static readonly string[] AllowedTempExtensions = [".csv", ".ofx", ".qfx", ".pdf"];
+    /// <summary>How long a staged upload stays usable before it expires.</summary>
+    public static readonly TimeSpan UploadLifetime = TimeSpan.FromHours(2);
+
+    private const string KindCsvMap = "CsvMap";
+    private const string KindPositionsCsv = "PositionsCsv";
+    private const string KindPdfStatement = "PdfStatement";
 
     /// <summary>
     /// Process a fresh multi-file upload: import what can be imported immediately,
@@ -123,7 +134,7 @@ public class ImportWorkflowService
             }
             else if (ext == ".pdf")
             {
-                var tempId = await SaveTempFileAsync(file, ".pdf");
+                var tempId = await SaveTempFileAsync(file, ".pdf", accountId, KindPdfStatement);
                 pendingQueue.Add(new PendingImportItemViewModel
                 {
                     Kind = "PdfStatement",
@@ -144,7 +155,7 @@ public class ImportWorkflowService
 
                 if (positionsStatement || PositionsCsvImportService.LooksLikePositionsExport(headers))
                 {
-                    var tempId = await SaveTempFileAsync(file, ".csv");
+                    var tempId = await SaveTempFileAsync(file, ".csv", accountId, KindPositionsCsv);
                     pendingQueue.Add(new PendingImportItemViewModel
                     {
                         Kind = "PositionsCsv",
@@ -170,7 +181,7 @@ public class ImportWorkflowService
                 }
                 else
                 {
-                    var tempId = await SaveTempFileAsync(file, ".csv");
+                    var tempId = await SaveTempFileAsync(file, ".csv", accountId, KindCsvMap);
                     pendingQueue.Add(new PendingImportItemViewModel
                     {
                         Kind = "CsvMap",
@@ -212,11 +223,14 @@ public class ImportWorkflowService
     /// </summary>
     public async Task<ImportStep> ConfirmCsvMapAsync(ImportMapViewModel model, string accountName, ImportWorkflowState priorState)
     {
-        var tempFilePath = GetSafeTempPath(model.TempFileId, ".csv");
-        if (tempFilePath is null || !File.Exists(tempFilePath))
+        // The file id is client-posted, so it only counts if the registry says this user staged it for
+        // this account and this step, and it is claimed atomically so it can be used exactly once.
+        var upload = await ClaimUploadAsync(model.TempFileId, model.AccountId, KindCsvMap);
+        if (upload is null)
         {
-            return new ImportExpiredStep { Message = "Upload expired. Please re-upload the file." };
+            return new ImportExpiredStep { Message = "Upload expired or invalid. Please re-upload the file." };
         }
+        var tempFilePath = TempPath(upload);
 
         await _csvImportService.SaveProfileAsync(model.AccountId, model.DateColumn, model.DateFormat,
             model.AmountColumn, model.DebitColumn, model.CreditColumn, model.DescriptionColumn,
@@ -242,15 +256,26 @@ public class ImportWorkflowService
     /// </summary>
     public async Task<ImportStep> ConfirmSnapshotAsync(SnapshotConfirmViewModel model, ImportWorkflowState priorState)
     {
-        var snapshot = await _snapshotImportService.UpsertSnapshotAsync(model.AccountId, model.AsOfDate, model.Balance);
+        var kind = model.SourceType switch
+        {
+            KindPositionsCsv => KindPositionsCsv,
+            KindPdfStatement => KindPdfStatement,
+            _ => null
+        };
+        var upload = kind is null ? null : await ClaimUploadAsync(model.TempFileId, model.AccountId, kind);
+        if (upload is null)
+        {
+            return new ImportExpiredStep { Message = "Upload expired or invalid. Please re-upload the file." };
+        }
+        var confirmTempPath = TempPath(upload);
 
-        var confirmTempPath = GetSafeTempPath(model.TempFileId, model.TempFileExtension);
+        var snapshot = await _snapshotImportService.UpsertSnapshotAsync(model.AccountId, model.AsOfDate, model.Balance);
 
         // A positions export also populates per-holding detail. The confirm form only
         // round-trips the total balance + date, so re-parse the temp file for the full
         // position rows (quantity/price/cost basis) and upsert holdings at the same date.
         var holdingsUpdated = 0;
-        if (model.SourceType == "PositionsCsv" && confirmTempPath is not null && File.Exists(confirmTempPath))
+        if (model.SourceType == KindPositionsCsv && File.Exists(confirmTempPath))
         {
             try
             {
@@ -271,10 +296,7 @@ public class ImportWorkflowService
             }
         }
 
-        if (confirmTempPath is not null)
-        {
-            DeleteTempFile(confirmTempPath);
-        }
+        DeleteTempFile(confirmTempPath);
 
         var result = new ImportResultViewModel
         {
@@ -334,11 +356,12 @@ public class ImportWorkflowService
     // Returns null when the temp file has expired/gone missing.
     private async Task<(string ViewName, object Model)?> BuildConfirmViewAsync(PendingImportItemViewModel item)
     {
-        var tempPath = GetSafeTempPath(item.TempFileId, item.TempFileExtension);
-        if (tempPath is null || !File.Exists(tempPath))
+        var upload = await FindUploadAsync(item.TempFileId, item.AccountId, item.Kind is KindPositionsCsv or KindPdfStatement ? item.Kind : KindCsvMap);
+        if (upload is null)
         {
             return null;
         }
+        var tempPath = TempPath(upload);
 
         switch (item.Kind)
         {
@@ -478,33 +501,70 @@ public class ImportWorkflowService
     /// Re-read a queued CSV's headers + preview rows so the controller can repopulate
     /// the MapColumns screen after a validation failure. Returns null if the temp file expired.
     /// </summary>
-    public (List<string> Headers, List<List<string>> PreviewRows)? ReadCsvPreview(string? tempFileId)
+    public async Task<(List<string> Headers, List<List<string>> PreviewRows)?> ReadCsvPreviewAsync(string? tempFileId, int accountId)
     {
-        var tempPath = GetSafeTempPath(tempFileId, ".csv");
-        if (tempPath is null || !File.Exists(tempPath)) return null;
+        var upload = await FindUploadAsync(tempFileId, accountId, KindCsvMap);
+        if (upload is null) return null;
+        var tempPath = TempPath(upload);
         using var stream = new FileStream(tempPath, FileMode.Open, FileAccess.Read);
         return _csvImportService.ReadPreview(stream);
     }
 
-    // Rebuilds the temp path from a parsed Guid and a whitelisted extension so
-    // client-posted identifiers can never traverse outside TempUploads.
-    private string? GetSafeTempPath(string? tempFileId, string? extension)
+    // ---- Upload registry (audit P2-04) ----
+
+    // The on-disk path is built only from the registry row (a Guid we generated plus a whitelisted
+    // extension we stored), never from anything the client posted.
+    private string TempPath(TempUpload upload) => Path.Combine(_tempUploadPath, upload.Id.ToString("D") + upload.Extension);
+
+    // Looks up a live upload owned by the current user (the tenancy filter scopes the query),
+    // staged for this account and step, unexpired, unconsumed, and still on disk.
+    private async Task<TempUpload?> FindUploadAsync(string? tempFileId, int accountId, string kind)
     {
         if (!Guid.TryParse(tempFileId, out var id)) return null;
-        var ext = string.IsNullOrEmpty(extension) ? ".csv" : extension.ToLowerInvariant();
-        if (!AllowedTempExtensions.Contains(ext)) return null;
-        return Path.Combine(_tempUploadPath, id.ToString("D") + ext);
+
+        var now = DateTime.UtcNow;
+        var upload = await _db.TempUploads.FirstOrDefaultAsync(u =>
+            u.Id == id && u.AccountId == accountId && u.Kind == kind && u.ConsumedUtc == null && u.ExpiresUtc > now);
+        return upload is not null && File.Exists(TempPath(upload)) ? upload : null;
     }
 
-    private async Task<string> SaveTempFileAsync(Microsoft.AspNetCore.Http.IFormFile file, string extension)
+    // Finds the upload and marks it consumed in a single conditional UPDATE, so a replayed or
+    // concurrent confirm loses the race and gets null.
+    private async Task<TempUpload?> ClaimUploadAsync(string? tempFileId, int accountId, string kind)
     {
-        var tempId = Guid.NewGuid().ToString();
-        var tempPath = Path.Combine(_tempUploadPath, tempId + extension);
-        using (var stream = new FileStream(tempPath, FileMode.Create))
+        var upload = await FindUploadAsync(tempFileId, accountId, kind);
+        if (upload is null) return null;
+
+        var now = DateTime.UtcNow;
+        var claimed = await _db.TempUploads
+            .Where(u => u.Id == upload.Id && u.ConsumedUtc == null && u.ExpiresUtc > now)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.ConsumedUtc, now));
+        return claimed == 1 ? upload : null;
+    }
+
+    private async Task<string> SaveTempFileAsync(Microsoft.AspNetCore.Http.IFormFile file, string extension, int accountId, string kind)
+    {
+        var userId = _db.CurrentUserId ?? throw new InvalidOperationException("No current user for upload.");
+        var id = Guid.NewGuid();
+        var upload = new TempUpload
+        {
+            Id = id,
+            UserId = userId,
+            AccountId = accountId,
+            Kind = kind,
+            Extension = extension,
+            CreatedUtc = DateTime.UtcNow,
+            ExpiresUtc = DateTime.UtcNow + UploadLifetime
+        };
+
+        using (var stream = new FileStream(TempPath(upload), FileMode.CreateNew))
         {
             await file.CopyToAsync(stream);
         }
-        return tempId;
+
+        _db.TempUploads.Add(upload);
+        await _db.SaveChangesAsync();
+        return id.ToString("D");
     }
 
     private void DeleteTempFile(string path)
