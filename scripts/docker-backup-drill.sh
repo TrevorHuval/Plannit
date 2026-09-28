@@ -74,7 +74,8 @@ docker volume rm "$V1" >/dev/null
 
 step "Restore into an empty volume"
 docker volume create "$V2" >/dev/null
-docker run --rm -v "$V2:/data" -v "$WORK:/in:ro" --entrypoint /app/scripts/restore-db.sh "$IMAGE" \
+# Root so it can read the private backup directory; restore-db.sh chowns the result to the app user.
+docker run --rm --user root -v "$V2:/data" -v "$WORK:/in:ro" --entrypoint /app/scripts/restore-db.sh "$IMAGE" \
     "/in/$(basename "$ARCHIVE")" /data
 
 step "Start the app on the restored volume"

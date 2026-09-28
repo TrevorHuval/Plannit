@@ -55,5 +55,11 @@ mkdir -p "$TARGET/keys"
 cp -a "$WORK/x/keys/." "$TARGET/keys/"
 chmod 700 "$TARGET/keys"
 
+# When run as root (needed to read a private backup directory from a container), hand the data to
+# the image's non-root app user so the app can write it. A no-op where that user does not exist.
+if [ "$(id -u)" = 0 ] && id app >/dev/null 2>&1; then
+    chown -R app:app "$TARGET"
+fi
+
 echo "Restored $ARCHIVE into $TARGET"
 echo "Next: start the app, then verify login and that integrations (AI key, bank sync) still decrypt."
