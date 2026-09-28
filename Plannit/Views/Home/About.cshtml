@@ -1,0 +1,55 @@
+@using Plannit.Services
+@inject IConfiguration Configuration
+@inject IEmailSender EmailSender
+@{
+    ViewData["Title"] = "About Plannit";
+    var canRegister = RegistrationPolicy.ShowRegistrationLinks(Configuration, EmailSender);
+    var operatorName = Configuration["Privacy:OperatorName"];
+    var contact = Configuration["Privacy:ContactEmail"];
+}
+
+<div class="page-header">
+    <h1>Plannit</h1>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="lead mb-2">A private place to track your net worth, understand your spending and plan your retirement.</p>
+        <p class="mb-3">
+            Plannit is a personal finance web app@(string.IsNullOrWhiteSpace(operatorName) ? "" : $" run by {operatorName}"). You enter or import your own balances and transactions, and Plannit turns them into clear pictures of where you stand and where you are headed. It does not move money and it never asks for your bank password.
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-primary"><i class="bi bi-box-arrow-in-right"></i> Sign in</a>
+            @if (canRegister)
+            {
+                <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-outline-primary"><i class="bi bi-person-plus"></i> Create an account</a>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">What you can do</h2>
+        <ul class="mb-0">
+            <li><strong>Net worth over time:</strong> track checking, savings, credit cards, loans, mortgages, retirement and brokerage accounts and see the trend.</li>
+            <li><strong>Import statements:</strong> bring in CSV, OFX/QFX and PDF statements; duplicates are detected and every import can be undone.</li>
+            <li><strong>Spending analytics:</strong> automatic and rule-based categories, budgets, recurring charges, bills and cash-flow forecasts.</li>
+            <li><strong>Retirement projections:</strong> scenarios with Monte Carlo simulation, life events and a FIRE estimate.</li>
+            <li><strong>Optional extras:</strong> AI-assisted categorization with a provider you choose, alert emails, and sign-in with Google.</li>
+        </ul>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Your data stays yours</h2>
+        <p class="mb-0">
+            Your data is only visible to your account, you can export it or delete your account at any time, and there is no advertising or tracking. Read exactly what is stored and where it goes in the <a asp-controller="Home" asp-action="Privacy">Privacy Policy</a>, and the rules for using the service in the <a asp-controller="Home" asp-action="Terms">Terms of Service</a>.
+            @if (!string.IsNullOrWhiteSpace(contact))
+            {
+                <text>Questions: <a href="mailto:@contact">@contact</a>.</text>
+            }
+        </p>
+    </div>
+</div>

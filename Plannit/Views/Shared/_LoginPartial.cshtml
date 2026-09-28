@@ -18,6 +18,9 @@
         <a asp-area="" asp-controller="Home" asp-action="Privacy" class="pl-footer-link">
             <i class="bi bi-shield-lock"></i> Privacy
         </a>
+        <a asp-area="" asp-controller="Home" asp-action="Terms" class="pl-footer-link">
+            <i class="bi bi-file-earmark-text"></i> Terms
+        </a>
         <form asp-area="Identity" asp-page="/Account/Logout"
               asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })"
               class="d-inline">
@@ -41,6 +44,9 @@ else
         </a>
         <a asp-area="" asp-controller="Home" asp-action="Privacy" class="pl-footer-link">
             <i class="bi bi-shield-lock"></i> Privacy
+        </a>
+        <a asp-area="" asp-controller="Home" asp-action="Terms" class="pl-footer-link">
+            <i class="bi bi-file-earmark-text"></i> Terms
         </a>
     </div>
 }

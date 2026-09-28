@@ -130,7 +130,7 @@ public class AuthenticationIntegrationTests
         using var client = factory.CreateClientNoRedirect();
 
         var login = await client.GetStringAsync(PathBase + "/Identity/Account/Login");
-        var home = await client.GetStringAsync(PathBase + "/Home/Privacy");
+        var home = await client.GetStringAsync(PathBase + "/privacy");
 
         Assert.DoesNotContain("/Account/Register", login);
         Assert.DoesNotContain("/Account/Register", home);

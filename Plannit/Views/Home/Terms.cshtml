@@ -1,0 +1,105 @@
+@inject IConfiguration Configuration
+@{
+    ViewData["Title"] = "Terms of Service";
+    var operatorName = Configuration["Privacy:OperatorName"];
+    var contact = Configuration["Privacy:ContactEmail"];
+    var who = string.IsNullOrWhiteSpace(operatorName) ? "the operator of this server" : operatorName;
+}
+
+<div class="page-header">
+    <h1>Terms of Service</h1>
+</div>
+<p class="text-muted small mb-3">Last updated September 28, 2026. <a asp-controller="Home" asp-action="About">About Plannit</a> &middot; <a asp-controller="Home" asp-action="Privacy">Privacy Policy</a></p>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="mb-0">
+            These terms govern your use of Plannit, a personal finance web app run by @who ("we", "us"). By creating an account or using Plannit you agree to them. If you do not agree, do not use the service.
+        </p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Not financial advice</h2>
+        <p class="mb-0">
+            Plannit is a tracking and planning tool. Its projections, simulations, forecasts, categories and alerts are estimates built from the numbers you enter and the assumptions you choose. They are not financial, investment, tax or legal advice and they are not guarantees about the future. Make your own decisions, and consult a qualified professional when they matter.
+        </p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Your account</h2>
+        <ul class="mb-0">
+            <li>You must provide a working email address and keep your credentials secure. You are responsible for activity under your account, so use a strong password and consider turning on two-factor authentication.</li>
+            <li>Tell us promptly if you think your account has been accessed without permission.</li>
+            <li>One person per account. Do not share or sell access.</li>
+        </ul>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Your data</h2>
+        <p class="mb-0">
+            You keep ownership of everything you enter or import. You give us permission to store and process it only to run the service for you, as described in the <a asp-controller="Home" asp-action="Privacy">Privacy Policy</a>. You are responsible for the accuracy of what you enter and for having the right to import the statements you upload. You can export your data and delete your account at any time.
+        </p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Acceptable use</h2>
+        <p class="mb-2">You agree not to:</p>
+        <ul class="mb-0">
+            <li>attempt to access other people's data, probe or disrupt the service, or bypass its limits or security;</li>
+            <li>use automated means to create accounts, send email through the service, or generate load;</li>
+            <li>upload malware or content you have no right to use, or use the service to break the law.</li>
+        </ul>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Availability and changes</h2>
+        <p class="mb-0">
+            Plannit is run as a small personal project and is provided "as is" and "as available". It may be slow, change, or be unavailable, and features can be added or removed. We take backups to recover from failures but do not promise that data will never be lost, so keep your own copy of anything important (Settings &rarr; Data Export downloads a partial copy). We may limit the number of accounts or usage, and we may suspend or delete accounts that break these terms or endanger the service. You may stop using Plannit and delete your account whenever you like.
+        </p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Third-party services</h2>
+        <p class="mb-0">
+            Optional features connect to services you choose, such as Google sign-in, an AI provider, or a bank-data provider. Those services have their own terms and privacy practices, and we are not responsible for them.
+        </p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Disclaimer and limit of liability</h2>
+        <p class="mb-0">
+            To the fullest extent the law allows, Plannit is provided without warranties of any kind, and we are not liable for any indirect or consequential loss, lost profits, or financial decisions made using the service. Where liability cannot be excluded, it is limited to the greater of the amount you paid us for the service (nothing, as it is free) or 100 US dollars. Nothing here limits rights you have by law that cannot be waived.
+        </p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Changes and contact</h2>
+        <p class="mb-0">
+            We may update these terms; the date above shows the latest version, and continuing to use Plannit after a change means you accept it. Significant changes will be announced in the app or by email.
+            @if (!string.IsNullOrWhiteSpace(contact))
+            {
+                <text>Questions about these terms: <a href="mailto:@contact">@contact</a>.</text>
+            }
+            else
+            {
+                <text>For questions, contact the person who runs this server.</text>
+            }
+        </p>
+    </div>
+</div>

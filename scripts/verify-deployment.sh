@@ -101,8 +101,14 @@ for route in /Transactions /Reports /Settings /Projections; do
     esac
 done
 
+# 5b. Public pages a Google OAuth consent screen links to (must be 200, not a login redirect).
+for page in about privacy terms; do
+    CODE="$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$BASE/$page" 2>/dev/null || true)"
+    [ "$CODE" = 200 ] && pass "/$page is public (200)" || fail "/$page returned ${CODE:-no response} (needs to be public)"
+done
+
 # 6. Privacy page.
-CODE="$(curl -sS -m 20 -o "$BODY_FILE" -w '%{http_code}' "$BASE/Home/Privacy" 2>/dev/null || true)"
+CODE="$(curl -sS -m 20 -o "$BODY_FILE" -w '%{http_code}' "$BASE/privacy" 2>/dev/null || true)"
 if [ "$CODE" = 200 ] && ! grep -q "Use this page to detail" "$BODY_FILE"; then pass "privacy page is published (no template text)"; else fail "privacy page missing or still the template (HTTP ${CODE:-none})"; fi
 
 # 7. Backend must not be reachable around the proxy.

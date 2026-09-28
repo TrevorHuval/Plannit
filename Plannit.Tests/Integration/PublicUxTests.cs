@@ -45,7 +45,7 @@ public class PublicUxTests : IDisposable
         Assert.Contains("an uppercase letter", html);
         Assert.DoesNotContain("data-val-length-min=\"6\"", html);
         Assert.DoesNotContain("at least 6", html);
-        Assert.Contains($"{PathBase}/Home/Privacy", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"{PathBase}/privacy", html, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -164,7 +164,7 @@ public class PublicUxTests : IDisposable
         var factory = NewFactory();
         using var client = factory.CreateClientNoRedirect();
 
-        var response = await client.GetAsync($"{PathBase}/Home/Privacy");
+        var response = await client.GetAsync($"{PathBase}/privacy");
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -185,14 +185,14 @@ public class PublicUxTests : IDisposable
     {
         var plain = NewFactory(("BankSync:Enabled", "false"));
         using var plainClient = plain.CreateClientNoRedirect();
-        var plainHtml = await plainClient.GetStringAsync($"{PathBase}/Home/Privacy");
+        var plainHtml = await plainClient.GetStringAsync($"{PathBase}/privacy");
 
         Assert.DoesNotContain("SimpleFIN", plainHtml);
         Assert.DoesNotContain("sign in with Google", plainHtml);
 
         var full = NewFactory(("BankSync:Enabled", "true"), ("Authentication:Google:ClientId", "c"), ("Authentication:Google:ClientSecret", "s"));
         using var fullClient = full.CreateClientNoRedirect();
-        var fullHtml = await fullClient.GetStringAsync($"{PathBase}/Home/Privacy");
+        var fullHtml = await fullClient.GetStringAsync($"{PathBase}/privacy");
 
         Assert.Contains("Bank connections (SimpleFIN)", fullHtml);
         Assert.Contains("sign in with Google", fullHtml);
@@ -208,7 +208,7 @@ public class PublicUxTests : IDisposable
             ("Privacy:BackupRetention", "Encrypted backups are kept for 30 days."));
         using var client = factory.CreateClientNoRedirect();
 
-        var html = await client.GetStringAsync($"{PathBase}/Home/Privacy");
+        var html = await client.GetStringAsync($"{PathBase}/privacy");
 
         Assert.Contains("run by Example Operator", html);
         Assert.Contains("mailto:privacy@example.invalid", html);
@@ -223,11 +223,11 @@ public class PublicUxTests : IDisposable
         using var client = factory.CreateClientNoRedirect();
 
         var login = await client.GetStringAsync($"{PathBase}/Identity/Account/Login");
-        var privacy = await client.GetStringAsync($"{PathBase}/Home/Privacy");
+        var privacy = await client.GetStringAsync($"{PathBase}/privacy");
 
         Assert.Contains("name=\"viewport\"", privacy);
-        Assert.Contains($"{PathBase}/Home/Privacy", login, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains($"{PathBase}/Home/Privacy", privacy, StringComparison.OrdinalIgnoreCase); // sidebar link
+        Assert.Contains($"{PathBase}/privacy", login, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"{PathBase}/privacy", privacy, StringComparison.OrdinalIgnoreCase); // sidebar link
     }
 
     // ---------------------------------------------------------------------------------------
@@ -355,7 +355,7 @@ public class PublicUxTests : IDisposable
 
     [Theory]
     [InlineData("/Plannit/Identity/Account/Login", "/plannit/Identity/Account/Login")]
-    [InlineData("/PLANNIT/Home/Privacy?x=1", "/plannit/Home/Privacy?x=1")]
+    [InlineData("/PLANNIT/privacy?x=1", "/plannit/privacy?x=1")]
     [InlineData("/Plannit", "/plannit")]
     public async Task PathBase_WithOtherCasing_RedirectsToTheCanonicalSpelling(string requested, string expected)
     {
@@ -388,5 +388,110 @@ public class PublicUxTests : IDisposable
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/plannit/Identity/Account/Login")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/healthz")).StatusCode); // container health check has no prefix
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Pages a Google OAuth consent screen points at: home page, privacy policy, terms of service
+    // ---------------------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("/plannit/about")]
+    [InlineData("/plannit/privacy")]
+    [InlineData("/plannit/terms")]
+    public async Task ConsentScreenPages_ArePublic_NotRedirectedToLogin(string path)
+    {
+        var factory = NewFactory();
+        using var client = factory.CreateClientNoRedirect();
+
+        var response = await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task HomePage_DescribesTheApp_AndLinksToPrivacyAndTerms()
+    {
+        var factory = NewFactory();
+        using var client = factory.CreateClientNoRedirect();
+
+        var html = await client.GetStringAsync("/plannit/about");
+
+        Assert.Contains("net worth", html);
+        Assert.Contains("Retirement projections", html);
+        Assert.Contains("/plannit/privacy", html);
+        Assert.Contains("/plannit/terms", html);
+        Assert.Contains("Sign in", html);
+    }
+
+    [Fact]
+    public async Task HomePage_OffersSignup_OnlyWhenRegistrationIsOpen()
+    {
+        var closed = NewFactory(("AllowRegistration", "false"));
+        var open = NewFactory(("AllowRegistration", "true"), ("Identity:RequireConfirmedAccount", "false"));
+        using var closedClient = closed.CreateClientNoRedirect();
+        using var openClient = open.CreateClientNoRedirect();
+
+        Assert.DoesNotContain("Create an account", await closedClient.GetStringAsync("/plannit/about"));
+        Assert.Contains("Create an account", await openClient.GetStringAsync("/plannit/about"));
+    }
+
+    [Fact]
+    public async Task TermsPage_StatesTheKeyTerms()
+    {
+        var factory = NewFactory(("Privacy:ContactEmail", "hello@example.invalid"));
+        using var client = factory.CreateClientNoRedirect();
+
+        var html = await client.GetStringAsync("/plannit/terms");
+
+        Assert.Contains("Not financial advice", html);
+        Assert.Contains("Acceptable use", html);
+        Assert.Contains("as is", html);
+        Assert.Contains("Disclaimer and limit of liability", html);
+        Assert.Contains("mailto:hello@example.invalid", html);
+        Assert.Contains("/plannit/privacy", html);
+    }
+
+    [Fact]
+    public async Task RegisterPage_LinksToTermsAndPrivacy_BeforeTheButton()
+    {
+        var factory = NewFactory();
+        using var client = factory.CreateClientNoRedirect();
+
+        var html = await client.GetStringAsync("/plannit/Identity/Account/Register");
+
+        Assert.Contains("you agree to the", html);
+        Assert.Contains("/plannit/terms", html);
+        Assert.Contains("/plannit/privacy", html);
+    }
+
+    [Fact]
+    public async Task PrivacyPage_DisclosesGoogleUserDataUse_OnlyWhenGoogleSignInIsConfigured()
+    {
+        var without = NewFactory();
+        var with = NewFactory(("Authentication:Google:ClientId", "id"), ("Authentication:Google:ClientSecret", "secret"));
+        using var withoutClient = without.CreateClientNoRedirect();
+        using var withClient = with.CreateClientNoRedirect();
+
+        Assert.DoesNotContain("Sign in with Google", await withoutClient.GetStringAsync("/plannit/privacy"));
+
+        var html = await withClient.GetStringAsync("/plannit/privacy");
+        Assert.Contains("Sign in with Google", html);
+        Assert.Contains("your email address, whether Google has verified it", html);
+        Assert.Contains("does not request access to your Google contacts", html);
+        Assert.Contains("not shared with anyone, sold, used for advertising", html);
+        Assert.Contains("Google API Services User Data Policy", html);
+        Assert.Contains("Limited Use", html);
+    }
+
+    [Fact]
+    public async Task LegacyPrivacyUrl_RedirectsPermanentlyToTheNewOne()
+    {
+        var factory = NewFactory();
+        using var client = factory.CreateClientNoRedirect();
+
+        var response = await client.GetAsync("/plannit/Home/Privacy");
+
+        Assert.Equal(HttpStatusCode.MovedPermanently, response.StatusCode);
+        Assert.Equal("/plannit/privacy", response.Headers.Location!.OriginalString);
     }
 }

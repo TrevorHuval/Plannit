@@ -31,6 +31,7 @@
                 <label asp-for="Input.ConfirmPassword">Confirm password</label>
                 <span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
             </div>
+            <p class="form-text mb-3">By creating an account you agree to the <a asp-controller="Home" asp-action="Terms" target="_blank">Terms of Service</a> and the <a asp-controller="Home" asp-action="Privacy" target="_blank">Privacy Policy</a>.</p>
             <button id="registerSubmit" type="submit" class="w-100 btn btn-lg btn-primary">Create account</button>
         </form>
 
@@ -38,6 +39,8 @@
             <span>Already have an account? <a asp-page="./Login" asp-route-returnUrl="@Model.ReturnUrl">Sign in</a></span>
             <span class="pl-auth-dot" aria-hidden="true">·</span>
             <a asp-controller="Home" asp-action="Privacy">Privacy</a>
+            <span class="pl-auth-dot" aria-hidden="true">·</span>
+            <a asp-controller="Home" asp-action="Terms">Terms</a>
         </p>
     </div>
 </div>

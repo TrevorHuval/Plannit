@@ -16,8 +16,9 @@
 }
 
 <div class="page-header">
-    <h1>Privacy</h1>
+    <h1>Privacy Policy</h1>
 </div>
+<p class="text-muted small mb-3">Last updated September 28, 2026. <a asp-controller="Home" asp-action="About">About Plannit</a> &middot; <a asp-controller="Home" asp-action="Terms">Terms of Service</a></p>
 
 <div class="card mb-3">
     <div class="card-body">
@@ -93,6 +94,21 @@
             <h2 class="h5">Email</h2>
             <p class="mb-0">
                 Plannit sends account emails (confirmation, password reset) and, if you turn it on, alert emails. Alerts go only to an address you have verified, and are sent through the mail service this server is configured with. Alert emails contain the alert text (for example a budget or bill name and amount).
+            </p>
+        </div>
+    </div>
+}
+
+@if (googleLogin)
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h2 class="h5">Sign in with Google</h2>
+            <p class="mb-2">
+                If you choose Sign in with Google, Plannit asks Google only for the basic sign-in information: your email address, whether Google has verified it, and a stable account identifier. It does not request access to your Google contacts, Drive, Gmail, calendar or any other Google data.
+            </p>
+            <p class="mb-0">
+                Plannit uses that information only to create your account and sign you in. It is not shared with anyone, sold, used for advertising, or used to train AI models. You can unlink Google under Manage &rarr; External logins, or delete your account, at any time. Plannit's use of information received from Google APIs follows the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including its Limited Use requirements.
             </p>
         </div>
     </div>

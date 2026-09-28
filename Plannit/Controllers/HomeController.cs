@@ -141,11 +141,23 @@ public class HomeController : Controller
         return View(vm);
     }
 
+    /// <summary>Public application home page (linked from the Google OAuth consent screen).</summary>
     [AllowAnonymous]
-    public IActionResult Privacy()
-    {
-        return View();
-    }
+    [HttpGet("about")]
+    public IActionResult About() => View();
+
+    [AllowAnonymous]
+    [HttpGet("privacy")]
+    public IActionResult Privacy() => View();
+
+    [AllowAnonymous]
+    [HttpGet("terms")]
+    public IActionResult Terms() => View();
+
+    // The privacy page used to live at /Home/Privacy; keep old links and bookmarks working.
+    [AllowAnonymous]
+    [HttpGet("Home/Privacy")]
+    public IActionResult LegacyPrivacy() => RedirectToActionPermanent(nameof(Privacy));
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     [AllowAnonymous]
