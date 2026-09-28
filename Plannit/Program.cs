@@ -81,6 +81,7 @@ builder.Services.AddScoped<ForecastService>();
 builder.Services.AddScoped<SavingsGoalService>();
 builder.Services.AddScoped<LoanService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<EmailBudget>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddHostedService<MaintenanceBackgroundService>();
 builder.Services.AddSingleton<ClaudeCliStatus>();
@@ -194,11 +195,13 @@ app.Use(async (context, next) =>
 
 app.UseRouting();
 
+// Explicit so it runs after UsePathBase; the implicit auto-inserted authentication
+// middleware would run first and build login redirects without the path prefix. It runs before
+// the rate limiter so expensive-endpoint limits can be keyed on the signed-in user, not just the IP.
+app.UseAuthentication();
+
 app.UseRateLimiter();
 
-// Explicit so it runs after UsePathBase; the implicit auto-inserted authentication
-// middleware would run first and build login redirects without the path prefix.
-app.UseAuthentication();
 app.UseAuthorization();
 
 app.Use(async (context, next) =>

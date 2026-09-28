@@ -30,6 +30,9 @@ public class NotificationSettingsViewModel
     [Display(Name = "Stale account balances (30+ days)")]
     public bool StaleAccountEnabled { get; set; } = true;
 
+    /// <summary>The saved address has been proven to belong to the user; alerts are only mailed to verified addresses.</summary>
+    public bool EmailVerified { get; set; }
+
     public bool SmtpConfigured { get; set; }
     public string? TestResult { get; set; }
     public bool TestSucceeded { get; set; }

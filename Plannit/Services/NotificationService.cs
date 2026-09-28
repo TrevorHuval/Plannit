@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Plannit.Data;
 using Plannit.Models.Entities;
@@ -24,7 +27,10 @@ public class NotificationService
     private readonly BillService _billService;
     private readonly ForecastService _forecastService;
     private readonly NetWorthService _netWorthService;
+    private readonly EmailBudget _emailBudget;
     private readonly ILogger<NotificationService> _logger;
+
+    private static readonly TimeSpan VerificationLifetime = TimeSpan.FromHours(24);
 
     public NotificationService(
         ApplicationDbContext db,
@@ -33,6 +39,7 @@ public class NotificationService
         BillService billService,
         ForecastService forecastService,
         NetWorthService netWorthService,
+        EmailBudget emailBudget,
         ILogger<NotificationService> logger)
     {
         _db = db;
@@ -41,6 +48,7 @@ public class NotificationService
         _billService = billService;
         _forecastService = forecastService;
         _netWorthService = netWorthService;
+        _emailBudget = emailBudget;
         _logger = logger;
     }
 
@@ -64,7 +72,15 @@ public class NotificationService
             _db.NotificationPreferences.Add(prefs);
         }
 
-        prefs.Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        var newEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        if (!string.Equals(prefs.Email, newEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            // A different address has proven nothing: stop mailing it until it is verified.
+            prefs.EmailVerifiedUtc = null;
+            prefs.EmailVerificationTokenHash = null;
+            prefs.EmailVerificationExpiresUtc = null;
+        }
+        prefs.Email = newEmail;
         prefs.EmailEnabled = emailEnabled;
         prefs.DigestMode = digestMode;
         prefs.BudgetOverageEnabled = budgetOverage;
@@ -77,19 +93,99 @@ public class NotificationService
         return prefs;
     }
 
-    public async Task<(bool Ok, string Message)> SendTestEmailAsync(string toEmail)
+    /// <summary>True when the saved address has been proven to belong to the user.</summary>
+    public static bool IsEmailVerified(NotificationPreferences prefs) =>
+        prefs.EmailVerifiedUtc.HasValue && !string.IsNullOrWhiteSpace(prefs.Email);
+
+    /// <summary>
+    /// Emails a one-time verification link to the saved address. Budgeted per user and globally; the
+    /// token is stored only as a hash and expires after 24 hours. <paramref name="buildLink"/> turns
+    /// the raw token into an absolute URL (the caller knows the scheme, host and PathBase).
+    /// </summary>
+    public async Task<(bool Ok, string Message)> RequestEmailVerificationAsync(string userId, Func<string, string> buildLink, CancellationToken ct = default)
     {
         if (!_emailSender.IsConfigured)
-            return (false, "SMTP is not configured on this server. Set Smtp:Enabled and the connection details in configuration.");
+            return (false, "Email is not configured on this server.");
+
+        var prefs = await _db.NotificationPreferences.FirstOrDefaultAsync(ct);
+        if (prefs is null || string.IsNullOrWhiteSpace(prefs.Email))
+            return (false, "Save an email address first.");
+        if (IsEmailVerified(prefs))
+            return (true, "This address is already verified.");
+
+        var (allowed, reason) = await _emailBudget.TryReserveAsync(userId, EmailBudget.UserTriggered, ct);
+        if (!allowed) return (false, reason!);
+
+        var token = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        prefs.EmailVerificationTokenHash = HashToken(token);
+        prefs.EmailVerificationExpiresUtc = DateTime.UtcNow + VerificationLifetime;
+        await _db.SaveChangesAsync(ct);
 
         try
         {
-            await _emailSender.SendAsync(toEmail, "Plannit test email", "This is a test email from Plannit's notification settings. If you received this, SMTP is working.");
-            return (true, $"Test email sent to {toEmail}.");
+            await _emailSender.SendAsync(prefs.Email!, "Verify your Plannit alert email",
+                "Someone asked Plannit to send financial alerts to this address. If that was you, open this link " +
+                $"(valid for 24 hours) while signed in to confirm it:\n\n{buildLink(token)}\n\n" +
+                "If you did not ask for this, ignore this message; nothing will be sent to you.", ct: ct);
         }
         catch (Exception ex)
         {
-            return (false, $"Send failed: {ex.Message}");
+            _logger.LogWarning(ex, "Verification email failed for user {UserId}", userId);
+            return (false, "The verification email could not be sent. Try again later.");
+        }
+
+        return (true, "Verification email sent. Open the link in it while signed in to this account.");
+    }
+
+    /// <summary>Marks the saved address verified when the token matches, is unexpired, and belongs to the current user.</summary>
+    public async Task<bool> VerifyEmailAsync(string? token, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return false;
+
+        // The tenancy filter means only the signed-in user's own preferences row can match.
+        var prefs = await _db.NotificationPreferences.FirstOrDefaultAsync(ct);
+        if (prefs?.EmailVerificationTokenHash is null || prefs.EmailVerificationExpiresUtc is null) return false;
+        if (prefs.EmailVerificationExpiresUtc < DateTime.UtcNow) return false;
+
+        var supplied = Encoding.UTF8.GetBytes(HashToken(token.Trim()));
+        var stored = Encoding.UTF8.GetBytes(prefs.EmailVerificationTokenHash);
+        if (!CryptographicOperations.FixedTimeEquals(supplied, stored)) return false;
+
+        prefs.EmailVerifiedUtc = DateTime.UtcNow;
+        prefs.EmailVerificationTokenHash = null;
+        prefs.EmailVerificationExpiresUtc = null;
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private static string HashToken(string token) =>
+        Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+    /// <summary>
+    /// Sends a fixed-content test message to the user's <em>verified</em> address only; the recipient is
+    /// never taken from the request. Budgeted like verification mail.
+    /// </summary>
+    public async Task<(bool Ok, string Message)> SendTestEmailAsync(string userId, CancellationToken ct = default)
+    {
+        if (!_emailSender.IsConfigured)
+            return (false, "Email is not configured on this server.");
+
+        var prefs = await _db.NotificationPreferences.AsNoTracking().FirstOrDefaultAsync(ct);
+        if (prefs is null || !IsEmailVerified(prefs))
+            return (false, "Verify your email address first.");
+
+        var (allowed, reason) = await _emailBudget.TryReserveAsync(userId, EmailBudget.UserTriggered, ct);
+        if (!allowed) return (false, reason!);
+
+        try
+        {
+            await _emailSender.SendAsync(prefs.Email!, "Plannit test email", "This is a test email from Plannit's notification settings. If you received this, email is working.", ct: ct);
+            return (true, "Test email sent.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Test email failed for user {UserId}", userId);
+            return (false, "The test email could not be sent. Try again later.");
         }
     }
 
@@ -312,11 +408,18 @@ public class NotificationService
 
     private async Task SendImmediateEmailsAsync(NotificationPreferences prefs, List<Notification> notifications, CancellationToken ct)
     {
-        if (!prefs.EmailEnabled || !_emailSender.IsConfigured || string.IsNullOrWhiteSpace(prefs.Email)) return;
+        if (!prefs.EmailEnabled || !_emailSender.IsConfigured || !IsEmailVerified(prefs)) return;
 
         var anySent = false;
         foreach (var n in notifications)
         {
+            var (allowed, _) = await _emailBudget.TryReserveAsync(prefs.UserId, EmailBudget.Alert, ct);
+            if (!allowed)
+            {
+                _logger.LogWarning("Alert email budget exhausted for user {UserId}; remaining alerts stay in-app only.", prefs.UserId);
+                break;
+            }
+
             try
             {
                 await _emailSender.SendAsync(prefs.Email!, n.Title, n.Message, ct: ct);
@@ -336,10 +439,13 @@ public class NotificationService
     // created by today's daily run and any import-time alerts created earlier in the day.
     private async Task SendDigestIfDueAsync(NotificationPreferences prefs, CancellationToken ct)
     {
-        if (!prefs.EmailEnabled || !_emailSender.IsConfigured || string.IsNullOrWhiteSpace(prefs.Email)) return;
+        if (!prefs.EmailEnabled || !_emailSender.IsConfigured || !IsEmailVerified(prefs)) return;
 
         var pending = await _db.Notifications.Where(n => !n.EmailSent).OrderBy(n => n.CreatedUtc).ToListAsync(ct);
         if (pending.Count == 0) return;
+
+        var (digestAllowed, _) = await _emailBudget.TryReserveAsync(prefs.UserId, EmailBudget.Alert, ct);
+        if (!digestAllowed) return;
 
         var body = string.Join("\n\n", pending.Select(n => $"{n.Title}\n{n.Message}"));
         try

@@ -17,6 +17,12 @@ public class ProjectionsController : Controller
         _projectionService = projectionService;
     }
 
+    /// <summary>Scenarios one user may keep, and life events per scenario (Monte Carlo cost scales with both).</summary>
+    public const int MaxScenariosPerUser = 25;
+    public const int MaxEventsPerScenario = 50;
+    /// <summary>Scenarios the compare page will simulate at once (it runs a full Monte Carlo for each).</summary>
+    public const int MaxCompareScenarios = 6;
+
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     public async Task<IActionResult> Index()
@@ -48,6 +54,11 @@ public class ProjectionsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(ScenarioFormViewModel vm)
     {
+        if (vm.Events.Count > MaxEventsPerScenario)
+            ModelState.AddModelError("", $"A scenario can have at most {MaxEventsPerScenario} life events.");
+        if ((await _projectionService.GetScenariosAsync()).Count >= MaxScenariosPerUser)
+            ModelState.AddModelError("", $"You can keep at most {MaxScenariosPerUser} scenarios. Delete one to add another.");
+
         if (!ModelState.IsValid)
             return View(vm);
 
@@ -104,6 +115,9 @@ public class ProjectionsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, ScenarioFormViewModel vm)
     {
+        if (vm.Events.Count > MaxEventsPerScenario)
+            ModelState.AddModelError("", $"A scenario can have at most {MaxEventsPerScenario} life events.");
+
         if (!ModelState.IsValid)
             return View(vm);
 
@@ -193,15 +207,17 @@ public class ProjectionsController : Controller
         return View(vm);
     }
 
-    public async Task<IActionResult> Compare()
+    public async Task<IActionResult> Compare(CancellationToken ct)
     {
-        var scenarios = await _projectionService.GetScenariosAsync();
-        if (scenarios.Count < 2)
+        var allScenarios = await _projectionService.GetScenariosAsync();
+        if (allScenarios.Count < 2)
             return RedirectToAction(nameof(Index));
 
+        var scenarios = allScenarios.Take(MaxCompareScenarios).ToList();
         var items = new List<CompareItem>();
         foreach (var scenario in scenarios)
         {
+            ct.ThrowIfCancellationRequested();
             var fullScenario = await _projectionService.GetScenarioAsync(scenario.Id);
             if (fullScenario is null) continue;
 
@@ -225,7 +241,7 @@ public class ProjectionsController : Controller
             });
         }
 
-        return View(new ScenarioCompareViewModel { Items = items });
+        return View(new ScenarioCompareViewModel { Items = items, TotalScenarios = allScenarios.Count });
     }
 
     private async Task<HashSet<int>> GetOwnedAccountIdsAsync()

@@ -26,6 +26,9 @@ public class TempUpload
 
     public DateTime ExpiresUtc { get; set; }
 
+    /// <summary>Size of the staged file, used for the per-user storage quota.</summary>
+    public long SizeBytes { get; set; }
+
     /// <summary>Set atomically when a confirm step claims the upload; a claimed upload can never be reused.</summary>
     public DateTime? ConsumedUtc { get; set; }
 

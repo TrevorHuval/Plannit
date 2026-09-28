@@ -77,6 +77,17 @@
                         <label asp-for="Email" class="form-label"></label>
                         <input asp-for="Email" class="form-control" placeholder="you@example.com" />
                         <span asp-validation-for="Email" class="text-danger"></span>
+                        @if (!string.IsNullOrWhiteSpace(Model.Email))
+                        {
+                            @if (Model.EmailVerified)
+                            {
+                                <div class="form-text text-success"><i class="bi bi-patch-check"></i> Verified. Alerts are emailed to this address.</div>
+                            }
+                            else
+                            {
+                                <div class="form-text text-warning"><i class="bi bi-exclamation-triangle"></i> Not verified. Save the address, then send a verification email; alerts are not emailed until you confirm it.</div>
+                            }
+                        }
                     </div>
 
                     <div class="mb-3">
@@ -89,9 +100,18 @@
 
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
-                        <button type="submit" formaction="@Url.Action("SendTestEmail")" class="btn btn-outline-primary">
-                            <i class="bi bi-envelope-check"></i> Send test email
-                        </button>
+                        @if (Model.EmailVerified)
+                        {
+                            <button type="submit" formaction="@Url.Action("SendTestEmail")" class="btn btn-outline-primary">
+                                <i class="bi bi-envelope-check"></i> Send test email
+                            </button>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(Model.Email))
+                        {
+                            <button type="submit" formaction="@Url.Action("SendVerificationEmail")" class="btn btn-outline-primary">
+                                <i class="bi bi-envelope-check"></i> Send verification email
+                            </button>
+                        }
                     </div>
                 </form>
             </div>
@@ -105,7 +125,7 @@
                 <ul class="mb-0 ps-3 text-muted">
                     <li>Checks run once a day. Import-time large-transaction checks run right after a file finishes importing.</li>
                     <li>Each condition only notifies once while it stays true — a budget that's still over 100% won't re-alert every day.</li>
-                    <li>Save your email above, then use <strong>Send test email</strong> to confirm SMTP is working before relying on it.</li>
+                    <li>Save your email above and confirm it with the verification email; alerts are only mailed to a verified address. Verification and test emails are limited per day.</li>
                 </ul>
             </div>
         </div>

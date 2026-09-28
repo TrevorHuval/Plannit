@@ -68,6 +68,7 @@ public class ImportWorkflowService
     private readonly NotificationService _notificationService;
     private readonly ILogger<ImportWorkflowService> _logger;
     private readonly ApplicationDbContext _db;
+    private readonly IConfiguration _config;
     private readonly string _tempUploadPath;
 
     public ImportWorkflowService(
@@ -85,6 +86,7 @@ public class ImportWorkflowService
         NotificationService notificationService,
         IWebHostEnvironment env,
         ApplicationDbContext db,
+        IConfiguration config,
         ILogger<ImportWorkflowService> logger)
     {
         _transactionService = transactionService;
@@ -101,8 +103,12 @@ public class ImportWorkflowService
         _notificationService = notificationService;
         _logger = logger;
         _db = db;
+        _config = config;
         _tempUploadPath = Path.Combine(env.ContentRootPath, "TempUploads");
     }
+
+    /// <summary>Raised when the user already holds too many staged uploads (audit P2-08).</summary>
+    private sealed class UploadQuotaExceededException(string message) : Exception(message);
 
     /// <summary>How long a staged upload stays usable before it expires.</summary>
     public static readonly TimeSpan UploadLifetime = TimeSpan.FromHours(2);
@@ -121,6 +127,8 @@ public class ImportWorkflowService
         var pendingQueue = new List<PendingImportItemViewModel>();
         Directory.CreateDirectory(_tempUploadPath);
 
+        try
+        {
         foreach (var file in files)
         {
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -193,6 +201,13 @@ public class ImportWorkflowService
                     });
                 }
             }
+        }
+
+        }
+        catch (UploadQuotaExceededException ex)
+        {
+            var done = completed.Count > 0 ? $" {completed.Count} file(s) were already imported before the limit was reached." : "";
+            return new ImportExpiredStep { Message = ex.Message + done };
         }
 
         if (pendingQueue.Count > 0)
@@ -542,9 +557,30 @@ public class ImportWorkflowService
         return claimed == 1 ? upload : null;
     }
 
+    // Live (unconsumed, unexpired) uploads count against a per-user file and byte quota, so abandoned
+    // uploads cannot grow storage without bound; they free up when confirmed or when they expire.
+    private async Task EnsureUploadQuotaAsync(long incomingBytes)
+    {
+        var maxFiles = Math.Max(1, _config.GetValue("Uploads:MaxPendingFilesPerUser", 20));
+        var maxBytes = Math.Max(1L, _config.GetValue("Uploads:MaxPendingBytesPerUser", 50L * 1024 * 1024));
+        var now = DateTime.UtcNow;
+
+        var live = _db.TempUploads.Where(u => u.ConsumedUtc == null && u.ExpiresUtc > now);
+        var count = await live.CountAsync();
+        var bytes = count == 0 ? 0L : await live.SumAsync(u => u.SizeBytes);
+
+        if (count >= maxFiles || bytes + incomingBytes > maxBytes)
+        {
+            throw new UploadQuotaExceededException(
+                $"You already have {count} upload(s) waiting to be confirmed. Finish or wait for them to expire " +
+                $"(about {(int)UploadLifetime.TotalHours} hours) before uploading more.");
+        }
+    }
+
     private async Task<string> SaveTempFileAsync(Microsoft.AspNetCore.Http.IFormFile file, string extension, int accountId, string kind)
     {
         var userId = _db.CurrentUserId ?? throw new InvalidOperationException("No current user for upload.");
+        await EnsureUploadQuotaAsync(file.Length);
         var id = Guid.NewGuid();
         var now = DateTime.UtcNow;
         var upload = new TempUpload
@@ -555,7 +591,8 @@ public class ImportWorkflowService
             Kind = kind,
             Extension = extension,
             CreatedUtc = now,
-            ExpiresUtc = now + UploadLifetime
+            ExpiresUtc = now + UploadLifetime,
+            SizeBytes = file.Length
         };
 
         using (var stream = new FileStream(TempPath(upload), FileMode.CreateNew))

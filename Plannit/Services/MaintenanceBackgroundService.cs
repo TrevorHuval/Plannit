@@ -62,6 +62,16 @@ public class MaintenanceBackgroundService : BackgroundService
             _logger.LogError(ex, "Audit event pruning failed.");
         }
 
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<EmailBudget>().PruneAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Email dispatch pruning failed.");
+        }
+
         await RunNotificationChecksAsync(ct);
 
         if (SyncService.IsFeatureEnabled(_config))

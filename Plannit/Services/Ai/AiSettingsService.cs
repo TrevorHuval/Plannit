@@ -24,6 +24,7 @@ public class AiSettingsService
     private readonly ILogger<AiSettingsService> _logger;
     private readonly ILoggerFactory _loggerFactory;
     private readonly OutboundPolicy _outbound;
+    private readonly IConfiguration _config;
 
     public AiSettingsService(
         ApplicationDbContext db,
@@ -32,8 +33,10 @@ public class AiSettingsService
         ClaudeCliStatus cliStatus,
         ILogger<AiSettingsService> logger,
         ILoggerFactory loggerFactory,
-        IOptions<OutboundOptions> outbound)
+        IOptions<OutboundOptions> outbound,
+        IConfiguration config)
     {
+        _config = config;
         _db = db;
         _protector = dataProtection.CreateProtector(ProtectorPurpose);
         _httpClientFactory = httpClientFactory;
@@ -65,7 +68,28 @@ public class AiSettingsService
         return _outbound.TryValidate(target, out error);
     }
 
-    public bool ClaudeCliAvailable => _cliStatus.Available;
+    /// <summary>
+    /// The Claude CLI runs under the server's own login, so every user who could use it would spend
+    /// the operator's account (audit P2-08). It is offered only to users named in
+    /// <c>Ai:ClaudeCli:AllowedUsers</c> (user ids or email addresses); when that list is empty it is
+    /// offered to everyone only on instances where registration is closed (personal use).
+    /// </summary>
+    public bool ClaudeCliAllowedForCurrentUser()
+    {
+        var allowed = _config.GetSection("Ai:ClaudeCli:AllowedUsers").Get<string[]>()?
+            .Where(a => !string.IsNullOrWhiteSpace(a)).Select(a => a.Trim()).ToArray() ?? [];
+        if (allowed.Length == 0)
+            return !RegistrationPolicy.IsRegistrationEnabled(_config);
+
+        var id = _db.CurrentUserId;
+        if (id is null) return false;
+        if (allowed.Contains(id, StringComparer.Ordinal)) return true;
+
+        var email = _db.Users.Where(u => u.Id == id).Select(u => u.NormalizedEmail).FirstOrDefault();
+        return email is not null && allowed.Any(a => string.Equals(a.ToUpperInvariant(), email, StringComparison.Ordinal));
+    }
+
+    public bool ClaudeCliAvailable => _cliStatus.Available && ClaudeCliAllowedForCurrentUser();
     public string? ClaudeCliVersion => _cliStatus.Version;
 
     public Task<AiSettings?> GetAsync() =>
@@ -81,7 +105,7 @@ public class AiSettingsService
     private bool IsUsable(AiSettings s) => s.Provider switch
     {
         AiProvider.None => false,
-        AiProvider.ClaudeCli => _cliStatus.Available,
+        AiProvider.ClaudeCli => ClaudeCliAvailable,
         AiProvider.AnthropicApi => !string.IsNullOrEmpty(s.ApiKeyProtected),
         AiProvider.OpenAiCompatible => !string.IsNullOrWhiteSpace(s.Endpoint) && !string.IsNullOrWhiteSpace(s.Model),
         _ => false
@@ -149,7 +173,7 @@ public class AiSettingsService
         switch (settings.Provider)
         {
             case AiProvider.ClaudeCli:
-                return _cliStatus.Available ? new ClaudeCliProvider(_loggerFactory.CreateLogger<ClaudeCliProvider>()) : null;
+                return ClaudeCliAvailable ? new ClaudeCliProvider(_loggerFactory.CreateLogger<ClaudeCliProvider>()) : null;
             case AiProvider.AnthropicApi:
                 return new AnthropicApiProvider(_httpClientFactory.CreateClient(OutboundHttp.AiClientName), BuildConfig(settings));
             case AiProvider.OpenAiCompatible:

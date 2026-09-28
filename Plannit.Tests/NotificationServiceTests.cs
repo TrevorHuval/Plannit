@@ -48,7 +48,7 @@ public class NotificationServiceTests : IDisposable
         var budgetService = new BudgetService(db);
         var forecastService = new ForecastService(db, billService);
         var netWorthService = new NetWorthService(db, new MemoryCache(new MemoryCacheOptions()));
-        return new NotificationService(db, new NoOpEmailSender(), budgetService, billService, forecastService, netWorthService, NullLogger<NotificationService>.Instance);
+        return new NotificationService(db, new NoOpEmailSender(), budgetService, billService, forecastService, netWorthService, new EmailBudget(db, new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build()), NullLogger<NotificationService>.Instance);
     }
 
     private class NoOpEmailSender : IEmailSender

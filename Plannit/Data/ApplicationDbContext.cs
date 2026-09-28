@@ -38,6 +38,7 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<SyncAccountMapping> SyncAccountMappings => Set<SyncAccountMapping>();
     public DbSet<SyncLog> SyncLogs => Set<SyncLog>();
     public DbSet<TempUpload> TempUploads => Set<TempUpload>();
+    public DbSet<EmailDispatch> EmailDispatches => Set<EmailDispatch>();
 
     private string? _currentUserId;
 
@@ -212,6 +213,15 @@ public class ApplicationDbContext : IdentityDbContext
             e.HasIndex(s => s.UserId).IsUnique();
             e.HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(s => _currentUserId != null && s.UserId == _currentUserId);
+        });
+
+        builder.Entity<EmailDispatch>(e =>
+        {
+            e.HasIndex(d => new { d.UserId, d.SentUtc });
+            e.HasIndex(d => d.SentUtc);
+            e.Property(d => d.Kind).HasMaxLength(16);
+            e.HasOne(d => d.User).WithMany().HasForeignKey(d => d.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(d => _currentUserId != null && d.UserId == _currentUserId);
         });
 
         builder.Entity<TempUpload>(e =>

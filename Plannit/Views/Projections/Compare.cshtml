@@ -10,6 +10,11 @@
     </div>
 </div>
 
+@if (Model.TotalScenarios > Model.Items.Count)
+{
+    <div class="alert alert-info">Showing the first @Model.Items.Count of @Model.TotalScenarios scenarios (by name). Comparison runs a full simulation for each, so it is limited to @Plannit.Controllers.ProjectionsController.MaxCompareScenarios at a time.</div>
+}
+
 <div class="card">
     <div class="table-responsive">
         <table class="table table-hover mb-0">

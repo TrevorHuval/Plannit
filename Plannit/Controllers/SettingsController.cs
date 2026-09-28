@@ -166,18 +166,42 @@ public class SettingsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendVerificationEmail()
+    {
+        var (ok, message) = await _notifications.RequestEmailVerificationAsync(
+            UserId,
+            token => Url.Action(nameof(VerifyNotificationEmail), "Settings", new { token }, Request.Scheme)!,
+            HttpContext.RequestAborted);
+
+        var vm = await BuildNotificationViewModelAsync();
+        vm.TestSucceeded = ok;
+        vm.TestResult = message;
+        return View("Notifications", vm);
+    }
+
+    // Target of the emailed link. Requires sign-in (controller-level [Authorize]); the token only
+    // matches the signed-in user's own preferences row.
+    [HttpGet]
+    public async Task<IActionResult> VerifyNotificationEmail(string? token)
+    {
+        if (await _notifications.VerifyEmailAsync(token, HttpContext.RequestAborted))
+        {
+            await _audit.LogAsync(UserId, "NotificationEmailVerified", null, HttpContext.Connection.RemoteIpAddress?.ToString());
+            TempData["Message"] = "Email address verified. Alerts will be emailed to it.";
+        }
+        else
+        {
+            TempData["Error"] = "That verification link is invalid or has expired. Request a new one.";
+        }
+        return RedirectToAction(nameof(Notifications));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> SendTestEmail()
     {
+        var (ok, message) = await _notifications.SendTestEmailAsync(UserId, HttpContext.RequestAborted);
         var vm = await BuildNotificationViewModelAsync();
-
-        if (string.IsNullOrWhiteSpace(vm.Email))
-        {
-            vm.TestSucceeded = false;
-            vm.TestResult = "Enter and save an email address first.";
-            return View("Notifications", vm);
-        }
-
-        var (ok, message) = await _notifications.SendTestEmailAsync(vm.Email);
         vm.TestSucceeded = ok;
         vm.TestResult = message;
         return View("Notifications", vm);
@@ -196,6 +220,7 @@ public class SettingsController : Controller
             LowForecastBalanceEnabled = prefs.LowForecastBalanceEnabled,
             LargeTransactionEnabled = prefs.LargeTransactionEnabled,
             StaleAccountEnabled = prefs.StaleAccountEnabled,
+            EmailVerified = NotificationService.IsEmailVerified(prefs),
             SmtpConfigured = _emailSender.IsConfigured
         };
     }

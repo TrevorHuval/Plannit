@@ -112,6 +112,7 @@ public class AccountInfo
 public class ScenarioCompareViewModel
 {
     public List<CompareItem> Items { get; set; } = [];
+    public int TotalScenarios { get; set; }
 }
 
 public class CompareItem

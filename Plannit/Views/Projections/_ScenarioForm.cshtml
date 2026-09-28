@@ -2,6 +2,7 @@
 
 <form asp-action="@(Model.Id == 0 ? "Create" : "Edit")" method="post">
     <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
 
     <div class="card mb-4">
         <div class="card-header">

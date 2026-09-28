@@ -51,9 +51,10 @@
                             <option value="@((int)AiProvider.AnthropicApi)">Anthropic API (API key)</option>
                             <option value="@((int)AiProvider.OpenAiCompatible)">OpenAI-compatible endpoint (OpenAI, Ollama, LM Studio…)</option>
                         </select>
+                        <span asp-validation-for="Provider" class="text-danger"></span>
                         @if (!Model.ClaudeCliAvailable)
                         {
-                            <div class="form-text">The Claude CLI provider appears here only when the <code>claude</code> command is installed on this machine.</div>
+                            <div class="form-text">The Claude CLI provider appears here only when the <code>claude</code> command is installed on this machine and this server's operator has allowed your account to use it (it runs under the server's own Claude login).</div>
                         }
                         else
                         {
