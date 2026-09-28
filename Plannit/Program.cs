@@ -271,6 +271,8 @@ if (!app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    // Snapshot first: a migration that fails halfway has no way back on a single-file database.
+    PreMigrationBackup.CreateIfPending(db, app.Configuration, app.Logger);
     db.Database.Migrate();
 }
 

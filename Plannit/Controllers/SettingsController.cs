@@ -71,10 +71,10 @@ public class SettingsController : Controller
 
     public async Task<IActionResult> ExportJson()
     {
-        var json = await _dataService.ExportFullBackupJsonAsync();
-        await _audit.LogAsync(UserId, "DataExport", "Full JSON backup", HttpContext.Connection.RemoteIpAddress?.ToString());
+        var json = await _dataService.ExportPartialDataJsonAsync();
+        await _audit.LogAsync(UserId, "DataExport", "Partial JSON data export", HttpContext.Connection.RemoteIpAddress?.ToString());
         var bytes = Encoding.UTF8.GetBytes(json);
-        return File(bytes, "application/json", $"plannit-backup-{DateTime.UtcNow:yyyy-MM-dd}.json");
+        return File(bytes, "application/json", $"plannit-partial-export-{DateTime.UtcNow:yyyy-MM-dd}.json");
     }
 
     // ===== AI Smart Categorization settings =====

@@ -43,7 +43,7 @@ Built with **.NET 10 / ASP.NET Core MVC**, EF Core + SQLite, ASP.NET Core Identi
 - **Pure, tested domain logic** — the projection engine is a static, side-effect-free function covered by known-answer unit tests (fixed-rate growth, depletion age, withdrawal ordering, inflation effects)
 - **Defensive import pipeline** — untrusted statement files are size-capped, extension-whitelisted, staged under generated GUID names, and parsed with per-row error reporting that never fails an entire batch
 - **Security hardening** — anti-forgery on all mutating endpoints, non-backtracking regex evaluation for user-authored rules (ReDoS-safe), path-traversal-proof temp file handling, sanitized reflected input
-- **Ops-ready** — multi-stage Dockerfile, data-protection keys and SQLite persisted to a mounted volume, automatic migrations in production, hot backups via `sqlite3 .backup`, documented PostgreSQL migration path
+- **Ops-ready** — multi-stage Dockerfile, data-protection keys and SQLite persisted to a mounted volume, automatic migrations in production, fail-closed backup and restore scripts (database + key ring), automatic pre-migration snapshots, documented PostgreSQL migration path
 
 ## Running locally
 

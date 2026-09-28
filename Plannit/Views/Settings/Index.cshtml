@@ -10,9 +10,10 @@
     <div class="col-md-6">
         <div class="card h-100">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-cloud-download"></i> Data Export</h5>
-                <p class="card-text">Download a full backup of all your data as a JSON file. Includes accounts, snapshots, transactions, categories, rules, budgets, and projection scenarios.</p>
-                <a asp-action="ExportJson" class="btn btn-primary"><i class="bi bi-download"></i> Export Full Backup (JSON)</a>
+                <h5 class="card-title"><i class="bi bi-cloud-download"></i> Data Export <span class="badge bg-secondary ms-1">Partial</span></h5>
+                <p class="card-text">Download a JSON copy of your core financial records: accounts, balance snapshots, transactions, categories, rules, budgets and projection scenarios.</p>
+                <p class="card-text small text-muted">This is <strong>not a complete backup</strong> and cannot be re-imported. It leaves out holdings, bills, savings goals, loan terms, notification and bank-sync settings, AI settings and history. Transactions reference accounts by an internal id that is not exported. The file lists what is missing.</p>
+                <a asp-action="ExportJson" class="btn btn-primary"><i class="bi bi-download"></i> Export Partial Data (JSON)</a>
             </div>
         </div>
     </div>

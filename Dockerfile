@@ -11,12 +11,19 @@ RUN dotnet publish Plannit/Plannit.csproj -c Release -a $TARGETARCH -o /app/publ
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
+# sqlite3 is required by the backup/restore scripts (online .backup of the live database).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
 # The official aspnet image ships a non-root `app` user (UID/GID 1654); reuse it
 # rather than creating a second account with the same ids.
 RUN mkdir -p /data /data/keys \
     && chown -R app:app /data /app
 
 COPY --from=build --chown=app:app /app/publish .
+COPY --chown=app:app scripts/backup-db.sh scripts/restore-db.sh /app/scripts/
+RUN chmod 0755 /app/scripts/*.sh
 
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080

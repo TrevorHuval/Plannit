@@ -64,7 +64,12 @@ public class DataManagementService
             .CountAsync(t => t.CategoryId != null || t.Notes != null || t.SplitGroupId != null);
     }
 
-    public async Task<string> ExportFullBackupJsonAsync()
+    /// <summary>
+    /// Portable JSON copy of the core financial data. This is a <em>partial data export</em>, not a backup:
+    /// see <see cref="FullExportModel.NotIncluded"/>. Operational backups are the database snapshots
+    /// described in DEPLOY.md (audit P2-05/P2-06).
+    /// </summary>
+    public async Task<string> ExportPartialDataJsonAsync()
     {
         var accounts = await _db.Accounts
             .AsNoTracking()
@@ -84,6 +89,11 @@ public class DataManagementService
         var export = new FullExportModel
         {
             ExportedAt = DateTime.UtcNow,
+            Kind = FullExportModel.PartialExportKind,
+            SchemaVersion = 1,
+            Scope = FullExportModel.ScopeDescription,
+            NotIncluded = FullExportModel.NotIncludedItems.ToList(),
+            Limitations = FullExportModel.LimitationNotes.ToList(),
             Accounts = accounts.Select(a => new ExportAccount
             {
                 Name = a.Name,
@@ -340,6 +350,35 @@ public class DataManagementService
 
 public class FullExportModel
 {
+    public const string PartialExportKind = "plannit-partial-data-export";
+
+    public const string ScopeDescription =
+        "Partial data export of core financial records: accounts, balance snapshots, transactions, categories, category rules, budgets and retirement projection scenarios. It is not a complete backup and there is no import/restore feature.";
+
+    public static readonly string[] NotIncludedItems =
+    [
+        "Investment holdings and holding snapshots",
+        "Bills",
+        "Savings goals",
+        "Loan and mortgage terms (interest rate, minimum payment, original principal)",
+        "Notification settings and notifications",
+        "Bank sync connections and account mappings",
+        "AI provider settings",
+        "Import batch history and audit log",
+        "Login, password and two-factor settings"
+    ];
+
+    public static readonly string[] LimitationNotes =
+    [
+        "Transactions reference accounts by an internal AccountId that is not exported with the accounts, so account names must be matched by hand (and are ambiguous when two accounts share a name).",
+        "Bank credentials and API keys are deliberately never exported."
+    ];
+
+    public string Kind { get; set; } = PartialExportKind;
+    public int SchemaVersion { get; set; }
+    public string Scope { get; set; } = ScopeDescription;
+    public List<string> NotIncluded { get; set; } = new();
+    public List<string> Limitations { get; set; } = new();
     public DateTime ExportedAt { get; set; }
     public List<ExportAccount> Accounts { get; set; } = new();
     public List<ExportTransaction> Transactions { get; set; } = new();
