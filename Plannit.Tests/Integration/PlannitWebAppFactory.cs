@@ -54,7 +54,9 @@ public class PlannitWebAppFactory : WebApplicationFactory<Program>
                 ["ConnectionStrings:DefaultConnection"] = $"DataSource={DatabasePath};Pooling=False",
                 ["AllowRegistration"] = "true",
                 // Most tests just need a signed-in user; the confirmation flow has its own tests.
-                ["Identity:RequireConfirmedAccount"] = "false"
+                ["Identity:RequireConfirmedAccount"] = "false",
+                // TestServer is plain HTTP; Secure cookies would never be sent back.
+                ["Cookies:RequireSecure"] = "false"
             };
             foreach (var (key, value) in Settings)
                 values[key] = value;

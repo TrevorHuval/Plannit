@@ -108,12 +108,25 @@ public class ExternalLoginIntegrationTests
     }
 
     [Fact]
-    public async Task CspFormAction_AllowsRedirectToProviders()
+    public async Task CspFormAction_AllowsRedirectOnlyToConfiguredProviders()
     {
-        using var factory = new PlannitWebAppFactory();
-        var resp = await factory.CreateClient().GetAsync("/Identity/Account/Login");
-        var csp = resp.Headers.GetValues("Content-Security-Policy").Single();
-        Assert.Contains("form-action 'self' https://accounts.google.com https://appleid.apple.com", csp);
+        using var none = new PlannitWebAppFactory();
+        var noneCsp = (await none.CreateClient().GetAsync("/Identity/Account/Login")).Headers.GetValues("Content-Security-Policy").Single();
+        Assert.Contains("form-action 'self'", noneCsp);
+        Assert.DoesNotContain("google", noneCsp);
+        Assert.DoesNotContain("apple", noneCsp);
+
+        using var both = new PlannitWebAppFactory
+        {
+            Settings =
+            {
+                ["Authentication:Google:ClientId"] = "id", ["Authentication:Google:ClientSecret"] = "secret",
+                ["Authentication:Apple:ClientId"] = "svc", ["Authentication:Apple:TeamId"] = "team",
+                ["Authentication:Apple:KeyId"] = "key", ["Authentication:Apple:PrivateKey"] = "pem"
+            }
+        };
+        var bothCsp = (await both.CreateClient().GetAsync("/Identity/Account/Login")).Headers.GetValues("Content-Security-Policy").Single();
+        Assert.Contains("form-action 'self' https://accounts.google.com https://appleid.apple.com", bothCsp);
     }
 
     [Fact]

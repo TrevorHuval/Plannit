@@ -1,13 +1,133 @@
+@using Plannit.Services
+@using Plannit.Services.Sync
+@inject IConfiguration Configuration
+@inject IEmailSender EmailSender
 @{
-    ViewData["Title"] = "Privacy Policy";
+    ViewData["Title"] = "Privacy";
+    var operatorName = Configuration["Privacy:OperatorName"];
+    var contact = Configuration["Privacy:ContactEmail"];
+    var backupNote = Configuration["Privacy:BackupRetention"];
+    var hostingNote = Configuration["Privacy:HostingNote"];
+    var bankSync = SyncService.IsFeatureEnabled(Configuration);
+    var googleLogin = ExternalLoginProviders.IsGoogleConfigured(Configuration);
+    var appleLogin = ExternalLoginProviders.IsAppleConfigured(Configuration);
+    var mail = EmailSender.IsConfigured;
+    var uploadHours = (int)ImportWorkflowService.UploadLifetime.TotalHours;
 }
 
 <div class="page-header">
-    <h1>@ViewData["Title"]</h1>
+    <h1>Privacy</h1>
 </div>
 
-<div class="card">
+<div class="card mb-3">
     <div class="card-body">
-        <p>Use this page to detail your site's privacy policy.</p>
+        <p class="mb-0">
+            Plannit is a personal finance tracker@(string.IsNullOrWhiteSpace(operatorName) ? "" : $" run by {operatorName}").
+            This page describes what the software stores and where it sends data. It describes how Plannit behaves; it is not a contract or legal advice.
+            @if (!string.IsNullOrWhiteSpace(contact))
+            {
+                <text>Questions, account recovery or deletion help: <a href="mailto:@contact">@contact</a>.</text>
+            }
+            else
+            {
+                <text>Contact the person who runs this server for questions, account recovery or deletion help.</text>
+            }
+        </p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">What is stored</h2>
+        <ul class="mb-0">
+            <li><strong>Your account:</strong> your email address and a salted hash of your password (never the password itself)@(googleLogin || appleLogin ? ", plus the identifier of any external sign-in you link" : "").</li>
+            <li><strong>Your financial data:</strong> whatever you enter or import: accounts, balances, transactions, categories and rules, budgets, bills, savings goals, holdings, projection scenarios and notification settings. It is kept in a database on this server and is only shown to your account.</li>
+            <li><strong>Secrets you provide</strong> (an AI API key@(bankSync ? ", bank-sync credentials" : "")) are encrypted before they are stored.</li>
+            <li><strong>A security log</strong> of sign-ins, failed sign-ins, exports, imports, deletions and settings changes, with the time and IP address. Entries are deleted after @Plannit.Services.MaintenanceBackgroundService.AuditRetentionDays days.</li>
+            <li><strong>Server logs</strong> record requests (method, path, status, timing, user id) and errors, not the contents of your data.</li>
+        </ul>
+        @if (!string.IsNullOrWhiteSpace(hostingNote))
+        {
+            <p class="mt-2 mb-0">@hostingNote</p>
+        }
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Uploaded statements</h2>
+        <p class="mb-0">
+            CSV positions files and PDF statements you upload for review are held temporarily, are usable only by you, and stop being usable after @uploadHours hours or as soon as you confirm the import. A daily cleanup then deletes the files. Only the transactions and balances you confirm are kept; the original file is not. OFX/QFX files and CSVs with a saved mapping are read straight into your data without being staged.
+        </p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">AI categorization (optional)</h2>
+        <p class="mb-2">
+            Off unless you configure a provider in Settings. When you run it, Plannit sends the provider a list of merchants from your uncategorized transactions (merchant name, a few sample transaction descriptions, how many transactions, and their average amount) together with your category names. It does not send balances, account names or account numbers.
+        </p>
+        <p class="mb-0">
+            Where that data goes depends on the provider you pick: a hosted provider (such as Anthropic or an OpenAI-compatible service) receives it and handles it under its own terms; an endpoint you point at software running on your own network does not leave your network. Nothing is sent unless you start categorization.
+        </p>
+    </div>
+</div>
+
+@if (bankSync)
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h2 class="h5">Bank connections (SimpleFIN)</h2>
+            <p class="mb-0">
+                If you link a bank through SimpleFIN, Plannit stores the encrypted access credential SimpleFIN issues and periodically fetches balances and transactions from SimpleFIN for the accounts you map. Removing the connection deletes the stored credential. Plannit never sees your bank password.
+            </p>
+        </div>
+    </div>
+}
+
+@if (mail)
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h2 class="h5">Email</h2>
+            <p class="mb-0">
+                Plannit sends account emails (confirmation, password reset) and, if you turn it on, alert emails. Alerts go only to an address you have verified, and are sent through the mail service this server is configured with. Alert emails contain the alert text (for example a budget or bill name and amount).
+            </p>
+        </div>
+    </div>
+}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Cookies and third parties</h2>
+        <p class="mb-0">
+            Plannit sets only the cookies it needs to work: your sign-in, form-protection and short-lived page state. There is no advertising, analytics or tracking, and the pages load their scripts, styles and fonts from this server rather than from third parties.
+            @if (googleLogin || appleLogin)
+            {
+                <text>If you choose to sign in with @(googleLogin && appleLogin ? "Google or Apple" : googleLogin ? "Google" : "Apple"), your browser is sent to that provider to authenticate and it tells Plannit your email address.</text>
+            }
+        </p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Backups, exports and deleting your data</h2>
+        <ul class="mb-0">
+            <li><strong>Export:</strong> Settings &rarr; Data Export downloads a partial JSON copy of your core records (the file lists what it leaves out).</li>
+            <li><strong>Delete your account:</strong> Manage &rarr; Personal data &rarr; Delete removes your account and the financial data attached to it from the live database. Signing in is required.</li>
+            <li><strong>Backups:</strong> the server keeps database backups so it can recover from failures.
+                @if (!string.IsNullOrWhiteSpace(backupNote))
+                {
+                    <text>@backupNote</text>
+                }
+                else
+                {
+                    <text>Data you delete can remain in older backups until they are rotated out.</text>
+                }
+            </li>
+            <li><strong>Recovery:</strong> use &ldquo;Forgot password?&rdquo; on the sign-in page@(mail ? "" : " (needs the server's email to be configured)"), or contact the operator. Two-factor authentication can be turned on under Manage.</li>
+        </ul>
     </div>
 </div>

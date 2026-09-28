@@ -63,7 +63,12 @@
                 <span>New here? <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Create an account</a></span>
                 <span class="pl-auth-dot" aria-hidden="true">·</span>
             }
-            <a id="resend-confirmation" asp-page="./ResendEmailConfirmation">Resend confirmation email</a>
+            @if (RegistrationPolicy.IsConfirmedAccountRequired(Configuration) && EmailSender.IsConfigured)
+            {
+                <a id="resend-confirmation" asp-page="./ResendEmailConfirmation">Resend confirmation email</a>
+                <span class="pl-auth-dot" aria-hidden="true">·</span>
+            }
+            <a asp-controller="Home" asp-action="Privacy">Privacy</a>
         </p>
     </div>
 </div>

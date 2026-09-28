@@ -3,6 +3,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -54,6 +55,32 @@ builder.Services.AddOptions<IdentityOptions>().Configure<IConfiguration>((option
 // Identity's default UI sends confirmation/reset mail through its own IEmailSender abstraction;
 // without this registration it silently resolves NoOpEmailSender and no mail is ever sent.
 builder.Services.AddScoped<Microsoft.AspNetCore.Identity.UI.Services.IEmailSender, IdentityEmailSender>();
+// Cookies are HTTPS-only outside Development. Sign-in, external-login and TempData cookies are always
+// marked Secure. The antiforgery cookie is Secure whenever the app sees the request as HTTPS: its
+// "Always" mode would throw on every form if the proxy's scheme were misdetected, so instead set
+// Hosting:AssumeHttps=true when a TLS-terminating proxy fronts the app (see the middleware below and
+// DEPLOY.md). Cookies:RequireSecure=false is for plain-HTTP test hosts only.
+// Resolved lazily from the container's configuration (like the DbContext above) so host-level
+// overrides apply.
+static CookieSecurePolicy CookiePolicy(IConfiguration config, IHostEnvironment env) =>
+    !env.IsDevelopment() && config.GetValue("Cookies:RequireSecure", true)
+        ? CookieSecurePolicy.Always
+        : CookieSecurePolicy.SameAsRequest;
+builder.Services.AddAntiforgery(o => o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest);
+builder.Services.AddOptions<Microsoft.AspNetCore.Mvc.CookieTempDataProviderOptions>()
+    .Configure<IConfiguration, IHostEnvironment>((o, config, env) => o.Cookie.SecurePolicy = CookiePolicy(config, env));
+builder.Services.AddOptions<Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme)
+    .Configure<IConfiguration, IHostEnvironment>((o, config, env) =>
+    {
+        o.Cookie.SecurePolicy = CookiePolicy(config, env);
+        o.Cookie.HttpOnly = true;
+        o.Cookie.SameSite = SameSiteMode.Lax;
+        // Sliding: an active session lasts, an abandoned "remember me" cookie expires after 14 days.
+        o.ExpireTimeSpan = TimeSpan.FromDays(14);
+        o.SlidingExpiration = true;
+    });
+builder.Services.AddOptions<Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions>(IdentityConstants.ExternalScheme)
+    .Configure<IConfiguration, IHostEnvironment>((o, config, env) => o.Cookie.SecurePolicy = CookiePolicy(config, env));
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddHealthChecks()
@@ -160,6 +187,18 @@ if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
     app.UseForwardedHeaders();
 }
 
+// Operator-asserted: every request reaches this app through a TLS-terminating proxy, so treat the
+// scheme as https even if X-Forwarded-Proto is missing or not trusted. Makes generated links use
+// https, the antiforgery cookie Secure, and HTTPS redirection/HSTS behave. Off by default.
+if (app.Configuration.GetValue<bool>("Hosting:AssumeHttps"))
+{
+    app.Use((context, next) =>
+    {
+        context.Request.Scheme = Uri.UriSchemeHttps;
+        return next();
+    });
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
@@ -180,6 +219,7 @@ if (!app.Environment.IsDevelopment())
 // FOUC-prevention script; all other sources are locked to self (assets are vendored).
 // form-action also lists the external login providers: browsers apply it to the
 // redirect that follows the "Continue with Google/Apple" form post.
+var formActionExtras = ExternalLoginProviders.FormActionSources(app.Configuration);
 app.Use(async (context, next) =>
 {
     var headers = context.Response.Headers;
@@ -189,7 +229,7 @@ app.Use(async (context, next) =>
     headers["Content-Security-Policy"] =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; " +
-        $"form-action 'self' {ExternalLoginProviders.FormActionSources}";
+        $"form-action 'self' {formActionExtras}";
     await next();
 });
 

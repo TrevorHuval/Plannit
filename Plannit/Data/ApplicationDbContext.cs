@@ -158,7 +158,7 @@ public class ApplicationDbContext : IdentityDbContext
         {
             e.HasIndex(c => c.UserId);
             e.HasOne(c => c.User).WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(c => c.Parent).WithMany(c => c.Children).HasForeignKey(c => c.ParentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(c => c.Parent).WithMany(c => c.Children).HasForeignKey(c => c.ParentId).OnDelete(DeleteBehavior.NoAction);
             e.HasQueryFilter(c => _currentUserId != null && c.UserId == _currentUserId);
         });
 

@@ -353,7 +353,11 @@ public class AuthenticationIntegrationTests
                 ["ForwardedHeaders:TrustProxyNetwork"] = "true"
             }
         };
-        using var client = factory.CreateClientNoRedirect();
+        // The antiforgery cookie is Secure once the app sees https, so the test transport must be https too.
+        using var client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false, BaseAddress = new Uri("https://localhost")
+        });
         client.DefaultRequestHeaders.Add("X-Forwarded-Proto", "https");
         client.DefaultRequestHeaders.Add("X-Forwarded-For", "203.0.113.5");
 

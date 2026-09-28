@@ -13,7 +13,9 @@ public class MaintenanceBackgroundService : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromDays(1);
     private static readonly TimeSpan TempFileMaxAge = TimeSpan.FromHours(24);
-    private static readonly TimeSpan AuditRetention = TimeSpan.FromDays(90);
+    /// <summary>How long security-log (audit) events are kept before the daily sweep prunes them.</summary>
+    public const int AuditRetentionDays = 90;
+    private static readonly TimeSpan AuditRetention = TimeSpan.FromDays(AuditRetentionDays);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IWebHostEnvironment _env;

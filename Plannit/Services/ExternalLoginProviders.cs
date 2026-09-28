@@ -22,8 +22,20 @@ namespace Plannit.Services;
 /// </summary>
 public static class ExternalLoginProviders
 {
-    /// <summary>Origins the login form may be redirected to; appended to the CSP <c>form-action</c> directive.</summary>
-    public const string FormActionSources = "https://accounts.google.com https://appleid.apple.com";
+    private const string GoogleOrigin = "https://accounts.google.com";
+    private const string AppleOrigin = "https://appleid.apple.com";
+
+    /// <summary>
+    /// Origins the login form may be redirected to, appended to the CSP <c>form-action</c> directive.
+    /// Only configured providers are listed, so an instance without Apple sign-in never allows Apple.
+    /// </summary>
+    public static string FormActionSources(IConfiguration config)
+    {
+        var origins = new List<string>();
+        if (IsGoogleConfigured(config)) origins.Add(GoogleOrigin);
+        if (IsAppleConfigured(config)) origins.Add(AppleOrigin);
+        return string.Join(' ', origins);
+    }
 
     private const string EmailVerifiedClaim = "email_verified";
 
