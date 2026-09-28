@@ -352,4 +352,41 @@ public class PublicUxTests : IDisposable
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Theory]
+    [InlineData("/Plannit/Identity/Account/Login", "/plannit/Identity/Account/Login")]
+    [InlineData("/PLANNIT/Home/Privacy?x=1", "/plannit/Home/Privacy?x=1")]
+    [InlineData("/Plannit", "/plannit")]
+    public async Task PathBase_WithOtherCasing_RedirectsToTheCanonicalSpelling(string requested, string expected)
+    {
+        var factory = NewFactory();
+        using var client = factory.CreateClientNoRedirect();
+
+        var response = await client.GetAsync(requested);
+
+        Assert.Equal(HttpStatusCode.TemporaryRedirect, response.StatusCode);
+        Assert.Equal(expected, response.Headers.Location!.OriginalString);
+    }
+
+    [Fact]
+    public async Task PathBase_WithOtherCasing_PostIsRedirectedToo_KeepingTheMethod()
+    {
+        var factory = NewFactory();
+        using var client = factory.CreateClientNoRedirect();
+
+        var response = await client.PostAsync("/Plannit/Identity/Account/ExternalLogin", new FormUrlEncodedContent(new Dictionary<string, string>()));
+
+        Assert.Equal(HttpStatusCode.TemporaryRedirect, response.StatusCode); // 307 makes clients replay the POST
+        Assert.Equal("/plannit/Identity/Account/ExternalLogin", response.Headers.Location!.OriginalString);
+    }
+
+    [Fact]
+    public async Task PathBase_Canonical_IsNotRedirected_AndUnprefixedHealthCheckStillWorks()
+    {
+        var factory = NewFactory();
+        using var client = factory.CreateClientNoRedirect();
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/plannit/Identity/Account/Login")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/healthz")).StatusCode); // container health check has no prefix
+    }
 }

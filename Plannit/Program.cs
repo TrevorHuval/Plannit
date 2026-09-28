@@ -179,7 +179,23 @@ var app = builder.Build();
 var pathBase = app.Configuration["PathBase"];
 if (!string.IsNullOrWhiteSpace(pathBase))
 {
-    app.UsePathBase("/" + pathBase.Trim().Trim('/'));
+    var canonicalPathBase = "/" + pathBase.Trim().Trim('/');
+    app.UsePathBase(canonicalPathBase);
+
+    // UsePathBase matches case-insensitively but keeps the casing the client typed, so /Plannit would
+    // generate /Plannit/... links and OAuth redirect URIs (Google rejects those as unregistered).
+    // Send any other casing to the canonical spelling; 307 keeps the method for form posts.
+    app.Use((context, next) =>
+    {
+        var actual = context.Request.PathBase;
+        if (actual.HasValue && !string.Equals(actual.Value, canonicalPathBase, StringComparison.Ordinal))
+        {
+            context.Response.StatusCode = StatusCodes.Status307TemporaryRedirect;
+            context.Response.Headers.Location = canonicalPathBase + context.Request.Path + context.Request.QueryString;
+            return Task.CompletedTask;
+        }
+        return next();
+    });
 }
 
 if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
