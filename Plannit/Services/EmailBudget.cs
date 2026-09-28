@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Plannit.Data;
 using Plannit.Models.Entities;
@@ -21,6 +23,7 @@ public class EmailBudget
 {
     public const string UserTriggered = "UserTriggered";
     public const string Alert = "Alert";
+    public const string Account = "Account";
 
     private readonly ApplicationDbContext _db;
     private readonly IConfiguration _config;
@@ -75,6 +78,36 @@ public class EmailBudget
         }
 
         return (true, null);
+    }
+
+    /// <summary>
+    /// Reserves an account email (registration confirmation, resend, password reset) to an address.
+    /// These are sent to whoever types an address on a public form, so each recipient may receive at
+    /// most <c>Email:AccountMailPerRecipientPerHour</c> (3) per hour, and the global daily cap applies.
+    /// Callers must drop over-limit sends silently: an error would reveal which addresses are known.
+    /// </summary>
+    public async Task<bool> TryReserveAccountMailAsync(string recipient, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(recipient.Trim().ToLowerInvariant())));
+        var perRecipient = Math.Max(1, _config.GetValue("Email:AccountMailPerRecipientPerHour", 3));
+        var globalLimit = Math.Max(1, _config.GetValue("Email:GlobalDailyLimit", 500));
+
+        var reservation = new EmailDispatch { Kind = Account, RecipientHash = hash, SentUtc = now };
+        _db.EmailDispatches.Add(reservation);
+        await _db.SaveChangesAsync(ct);
+
+        var recipientCount = await _db.EmailDispatches.IgnoreQueryFilters()
+            .CountAsync(d => d.RecipientHash == hash && d.SentUtc > now.AddHours(-1), ct);
+        var globalCount = await _db.EmailDispatches.IgnoreQueryFilters()
+            .CountAsync(d => d.SentUtc > now.AddHours(-24), ct);
+
+        if (recipientCount > perRecipient || globalCount > globalLimit)
+        {
+            await ReleaseAsync(reservation, ct);
+            return false;
+        }
+        return true;
     }
 
     /// <summary>Deletes rows older than the counting window; called from the daily sweep.</summary>

@@ -54,6 +54,18 @@ public static class RegistrationPolicy
         return true;
     }
 
+    /// <summary>
+    /// Optional ceiling on total accounts (<c>Registration:MaxUsers</c>, 0 or unset = no limit), a brake
+    /// on sign-up abuse and on how many people a small server hosts.
+    /// </summary>
+    public static async Task<bool> IsUserLimitReachedAsync(IConfiguration config, Plannit.Data.ApplicationDbContext db)
+    {
+        var max = config.GetValue("Registration:MaxUsers", 0);
+        return max > 0 && await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(db.Users) >= max;
+    }
+
+    public const string UserLimitMessage = "Registration is full right now. Please try again later.";
+
     /// <summary>Whether public pages should render a link to the Register page.</summary>
     public static bool ShowRegistrationLinks(IConfiguration config, IEmailSender emailSender) =>
         CanRegister(config, emailSender, out _);

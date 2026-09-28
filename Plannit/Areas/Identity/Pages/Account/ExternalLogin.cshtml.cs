@@ -28,6 +28,7 @@ namespace Plannit.Areas.Identity.Pages.Account
         private readonly IEmailSender _emailSender;
         private readonly IConfiguration _configuration;
         private readonly AuditService _auditService;
+        private readonly Plannit.Data.ApplicationDbContext _db;
         private readonly ILogger<ExternalLoginModel> _logger;
 
         public ExternalLoginModel(
@@ -37,6 +38,7 @@ namespace Plannit.Areas.Identity.Pages.Account
             IEmailSender emailSender,
             IConfiguration configuration,
             AuditService auditService,
+            Plannit.Data.ApplicationDbContext db,
             ILogger<ExternalLoginModel> logger)
         {
             _signInManager = signInManager;
@@ -45,6 +47,7 @@ namespace Plannit.Areas.Identity.Pages.Account
             _emailSender = emailSender;
             _configuration = configuration;
             _auditService = auditService;
+            _db = db;
             _logger = logger;
         }
 
@@ -209,6 +212,12 @@ namespace Plannit.Areas.Identity.Pages.Account
         /// </summary>
         private bool CanEnroll(ExternalLoginInfo info, out string reason)
         {
+            if (RegistrationPolicy.IsUserLimitReachedAsync(_configuration, _db).GetAwaiter().GetResult())
+            {
+                reason = RegistrationPolicy.UserLimitMessage;
+                return false;
+            }
+
             if (!RegistrationPolicy.IsRegistrationEnabled(_configuration))
             {
                 reason = "Registration is disabled.";

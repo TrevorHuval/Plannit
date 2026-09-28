@@ -8,12 +8,16 @@ namespace Plannit.Models.Entities;
 public class EmailDispatch
 {
     public int Id { get; set; }
-    public string UserId { get; set; } = null!;
+    /// <summary>Null for account mail (registration, resend, password reset) sent before any user is signed in.</summary>
+    public string? UserId { get; set; }
 
-    /// <summary>"UserTriggered" (verification and test mail) or "Alert" (notification mail).</summary>
+    /// <summary>SHA-256 of the lower-cased recipient, so per-address limits work without storing addresses.</summary>
+    public string? RecipientHash { get; set; }
+
+    /// <summary>"UserTriggered" (verification and test mail), "Alert" (notification mail) or "Account" (Identity mail).</summary>
     public string Kind { get; set; } = null!;
 
     public DateTime SentUtc { get; set; }
 
-    public Microsoft.AspNetCore.Identity.IdentityUser User { get; set; } = null!;
+    public Microsoft.AspNetCore.Identity.IdentityUser? User { get; set; }
 }

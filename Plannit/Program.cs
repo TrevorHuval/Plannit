@@ -274,6 +274,13 @@ app.Use(async (context, next) =>
             await context.Response.WriteAsync(reason);
             return;
         }
+
+        if (await RegistrationPolicy.IsUserLimitReachedAsync(config, context.RequestServices.GetRequiredService<ApplicationDbContext>()))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsync(RegistrationPolicy.UserLimitMessage);
+            return;
+        }
     }
 
     var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);

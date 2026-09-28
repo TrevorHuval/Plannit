@@ -219,7 +219,9 @@ public class ApplicationDbContext : IdentityDbContext
         {
             e.HasIndex(d => new { d.UserId, d.SentUtc });
             e.HasIndex(d => d.SentUtc);
+            e.HasIndex(d => new { d.RecipientHash, d.SentUtc });
             e.Property(d => d.Kind).HasMaxLength(16);
+            e.Property(d => d.RecipientHash).HasMaxLength(64);
             e.HasOne(d => d.User).WithMany().HasForeignKey(d => d.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(d => _currentUserId != null && d.UserId == _currentUserId);
         });

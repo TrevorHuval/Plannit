@@ -98,6 +98,9 @@ public sealed class CapturingEmailSender : IEmailSender
 
     public bool IsConfigured { get; set; } = true;
 
+    /// <summary>Simulates an SMTP outage: sends throw after the call is made.</summary>
+    public bool FailSends { get; set; }
+
     public IReadOnlyList<Message> Sent
     {
         get { lock (_sent) return _sent.ToList(); }
@@ -107,6 +110,8 @@ public sealed class CapturingEmailSender : IEmailSender
     {
         if (!IsConfigured)
             throw new InvalidOperationException("SMTP is not configured on this server.");
+        if (FailSends)
+            throw new InvalidOperationException("SMTP outage (test).");
         lock (_sent) _sent.Add(new Message(toEmail, subject, body, isHtml));
         return Task.CompletedTask;
     }

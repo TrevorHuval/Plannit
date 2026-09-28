@@ -272,7 +272,8 @@ public class AbuseControlTests : IDisposable
     [Fact]
     public async Task GlobalDailyCap_StopsMailAcrossUsers()
     {
-        var factory = NewFactory(false, ("Email:GlobalDailyLimit", "1"));
+        // Both sign-ups already sent an account mail, so a cap of 3 leaves room for exactly one more.
+        var factory = NewFactory(false, ("Email:GlobalDailyLimit", "3"));
         var a = await NewActorAsync(factory, "global-a@example.invalid");
         var b = await NewActorAsync(factory, "global-b@example.invalid");
         await SaveNotificationEmailAsync(a, "ga@example.invalid");
