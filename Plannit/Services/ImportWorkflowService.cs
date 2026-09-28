@@ -546,6 +546,7 @@ public class ImportWorkflowService
     {
         var userId = _db.CurrentUserId ?? throw new InvalidOperationException("No current user for upload.");
         var id = Guid.NewGuid();
+        var now = DateTime.UtcNow;
         var upload = new TempUpload
         {
             Id = id,
@@ -553,8 +554,8 @@ public class ImportWorkflowService
             AccountId = accountId,
             Kind = kind,
             Extension = extension,
-            CreatedUtc = DateTime.UtcNow,
-            ExpiresUtc = DateTime.UtcNow + UploadLifetime
+            CreatedUtc = now,
+            ExpiresUtc = now + UploadLifetime
         };
 
         using (var stream = new FileStream(TempPath(upload), FileMode.CreateNew))
