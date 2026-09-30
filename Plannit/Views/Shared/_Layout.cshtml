@@ -1,3 +1,4 @@
+@inject Plannit.Services.AnalyticsSettings Analytics
 @{
     var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
 }
@@ -10,6 +11,10 @@
     <script>
         (function(){var t=localStorage.getItem('pl-theme');if(!t)t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';document.documentElement.setAttribute('data-bs-theme',t);})();
     </script>
+    @if (Analytics.Enabled)
+    {
+        <script src="~/js/ga-init.js" asp-append-version="true" data-ga-id="@Analytics.MeasurementId"></script>
+    }
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/lib/bootstrap-icons/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />

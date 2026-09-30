@@ -45,6 +45,10 @@ Built with **.NET 10 / ASP.NET Core MVC**, EF Core + SQLite, ASP.NET Core Identi
 - **Security hardening** — anti-forgery on all mutating endpoints, non-backtracking regex evaluation for user-authored rules (ReDoS-safe), path-traversal-proof temp file handling, sanitized reflected input
 - **Ops-ready** — multi-stage Dockerfile, data-protection keys and SQLite persisted to a mounted volume, automatic migrations in production, fail-closed backup and restore scripts (database + key ring), automatic pre-migration snapshots, documented PostgreSQL migration path
 
+## Analytics
+
+Optional Google Analytics 4 (free tier). Set `Analytics:MeasurementId` (env `Analytics__MeasurementId`) to a GA4 `G-XXXXXXXXXX` ID — public by design, not a secret — and every page loads `wwwroot/js/ga-init.js`, which reports the default page view per load. Unset, no tag is emitted and the CSP gains no Google sources; a malformed ID fails at startup. Visitors sending Do Not Track never load `gtag.js`, and Google Signals and ad personalization are off. The Docker image takes it as the `GA_MEASUREMENT_ID` build arg, which CI sets in the publish job.
+
 ## Running locally
 
 ```bash

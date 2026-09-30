@@ -25,6 +25,9 @@ COPY --from=build --chown=app:app /app/publish .
 COPY --chown=app:app scripts/backup-db.sh scripts/restore-db.sh /app/scripts/
 RUN chmod 0755 /app/scripts/*.sh
 
+# GA4 measurement ID (public, not a secret). Empty means no analytics tag and no extra CSP sources.
+ARG GA_MEASUREMENT_ID=
+ENV Analytics__MeasurementId=$GA_MEASUREMENT_ID
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ConnectionStrings__DefaultConnection="DataSource=/data/plannit.db;Cache=Shared"

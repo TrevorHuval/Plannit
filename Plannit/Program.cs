@@ -25,6 +25,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddSingleton<ICacheVersionProvider, CacheVersionProvider>();
+builder.Services.AddSingleton<AnalyticsSettings>();
 builder.Services.AddMemoryCache();
 // The connection string is read from the container's IConfiguration when the context is first
 // built, not captured here: configuration added later in the host build (e.g. by the
@@ -235,17 +236,16 @@ if (!app.Environment.IsDevelopment())
 // FOUC-prevention script; all other sources are locked to self (assets are vendored).
 // form-action also lists the external login providers: browsers apply it to the
 // redirect that follows the "Continue with Google/Apple" form post.
+// When Analytics:MeasurementId is set the policy also allows Google Analytics 4 (see AnalyticsSettings).
 var formActionExtras = ExternalLoginProviders.FormActionSources(app.Configuration);
+var csp = app.Services.GetRequiredService<AnalyticsSettings>().BuildCsp(formActionExtras);
 app.Use(async (context, next) =>
 {
     var headers = context.Response.Headers;
     headers["X-Frame-Options"] = "DENY";
     headers["X-Content-Type-Options"] = "nosniff";
     headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    headers["Content-Security-Policy"] =
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; " +
-        $"form-action 'self' {formActionExtras}";
+    headers["Content-Security-Policy"] = csp;
     await next();
 });
 
