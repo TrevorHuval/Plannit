@@ -73,12 +73,12 @@ namespace Plannit.Areas.Identity.Pages.Account
 
         public void OnGet(string returnUrl = null)
         {
-            ReturnUrl = returnUrl;
+            ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
         }
 
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
         {
-            returnUrl ??= Url.Content("~/");
+            returnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
             ReturnUrl = returnUrl;
 
             if (!ModelState.IsValid)

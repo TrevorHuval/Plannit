@@ -82,7 +82,7 @@ namespace Plannit.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnGetCallbackAsync(string returnUrl = null, string remoteError = null)
         {
-            returnUrl = SafeReturnUrl(returnUrl);
+            returnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
             if (remoteError != null)
             {
                 return FailToLogin($"Error from external provider: {remoteError}", returnUrl);
@@ -135,7 +135,7 @@ namespace Plannit.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnPostConfirmationAsync(string returnUrl = null)
         {
-            returnUrl = SafeReturnUrl(returnUrl);
+            returnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
             var info = await _signInManager.GetExternalLoginInfoAsync();
             if (info == null)
             {
@@ -236,8 +236,5 @@ namespace Plannit.Areas.Identity.Pages.Account
             ErrorMessage = message;
             return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
         }
-
-        private string SafeReturnUrl(string returnUrl) =>
-            !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
     }
 }
