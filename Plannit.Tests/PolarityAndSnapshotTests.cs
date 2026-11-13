@@ -95,6 +95,54 @@ public class PolarityAndSnapshotTests : IDisposable
     }
 
     [Fact]
+    public async Task CsvImportAsync_IdenticalSameDayRowsInOneFile_BothImported()
+    {
+        using var db = CreateContext();
+        var acct = new Account { UserId = UserId, Name = "Checking", Type = AccountType.Checking };
+        db.Accounts.Add(acct);
+        await db.SaveChangesAsync();
+
+        var csv = "Date,Description,Amount\n07/01/2026,Coffee,-5.75\n07/01/2026,Coffee,-5.75\n";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
+        var result = await new CsvImportService(db).ImportAsync(stream, acct.Id, "c.csv",
+            "Date", "MM/dd/yyyy", "Amount", null, null, "Description");
+
+        Assert.Equal(2, result.ImportedCount);
+    }
+
+    [Fact]
+    public async Task GetActiveAccountsAsync_ExcludesLiabilities()
+    {
+        using var db = CreateContext();
+        db.Accounts.AddRange(
+            new Account { UserId = UserId, Name = "Save", Type = AccountType.Savings },
+            new Account { UserId = UserId, Name = "Home loan", Type = AccountType.Mortgage });
+        await db.SaveChangesAsync();
+
+        var accounts = await new ProjectionService(db).GetActiveAccountsAsync();
+
+        Assert.Equal(["Save"], accounts.Select(a => a.Name));
+    }
+
+    [Fact]
+    public async Task SplitTransactionAsync_FirstSplitKeepsImportHashAndFitId()
+    {
+        using var db = CreateContext();
+        var acct = new Account { UserId = UserId, Name = "Checking", Type = AccountType.Checking };
+        db.Accounts.Add(acct);
+        await db.SaveChangesAsync();
+        var txn = new Transaction { AccountId = acct.Id, Date = new DateOnly(2026, 7, 1), Amount = -10, Description = "Shop", ImportHash = "h1", OfxFitId = "f1" };
+        db.Transactions.Add(txn);
+        await db.SaveChangesAsync();
+
+        var result = await new DataManagementService(db).SplitTransactionAsync(txn.Id, [(-6m, "A", null), (-4m, "B", null)]);
+
+        Assert.Equal("h1", result[0].ImportHash);
+        Assert.Equal("f1", result[0].OfxFitId);
+        Assert.Null(result[1].ImportHash);
+    }
+
+    [Fact]
     public void SuggestInvertAmounts_LiabilityWithMostlyPositiveAmounts_ReturnsTrue()
     {
         using var db = CreateContext();

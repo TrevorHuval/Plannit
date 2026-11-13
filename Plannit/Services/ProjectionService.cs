@@ -15,11 +15,13 @@ public class ProjectionService
 
     public async Task<List<Account>> GetActiveAccountsAsync()
     {
-        return await _db.Accounts
+        // Assets only: liabilities are stored positive and would project as growing assets.
+        var accounts = await _db.Accounts
             .Where(a => a.IsActive)
             .Include(a => a.Snapshots)
             .OrderBy(a => a.Type).ThenBy(a => a.Name)
             .ToListAsync();
+        return accounts.Where(a => !NetWorthService.IsLiability(a.Type)).ToList();
     }
 
     public async Task<ProjectionScenario?> GetScenarioAsync(int id)

@@ -54,6 +54,14 @@ public class BillServiceTests : IDisposable
     }
 
     [Fact]
+    public void ProjectOccurrences_MonthEndAnchor_DoesNotDriftTo28th()
+    {
+        var occurrences = BillService.ProjectOccurrences(new DateOnly(2026, 1, 31), RecurringCadence.Monthly, new DateOnly(2026, 1, 1), new DateOnly(2026, 3, 31));
+
+        Assert.Equal(new[] { new DateOnly(2026, 1, 31), new DateOnly(2026, 2, 28), new DateOnly(2026, 3, 31) }, occurrences);
+    }
+
+    [Fact]
     public void ProjectOccurrences_StaleAnchorBeforeRange_FastForwardsIntoRange()
     {
         // NextDue is two months overdue relative to the visible window — projection should

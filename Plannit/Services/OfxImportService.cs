@@ -33,6 +33,12 @@ public class OfxImportService
             .Select(t => t.ImportHash!)
             .ToHashSetAsync();
 
+        // Rows saved without a bank id (CSV imports): a row that has an id still dedupes against these.
+        var idlessHashes = await _db.Transactions
+            .Where(t => t.AccountId == accountId && t.ImportHash != null && t.OfxFitId == null)
+            .Select(t => t.ImportHash!)
+            .ToHashSetAsync();
+
         var existingFitIds = await _db.Transactions
             .Where(t => t.AccountId == accountId && t.OfxFitId != null)
             .Select(t => t.OfxFitId!)
@@ -85,13 +91,14 @@ public class OfxImportService
 
                 var hash = CsvImportService.ComputeImportHash(accountId, ofxTxn.Date.Value, ofxTxn.Amount.Value, description);
 
-                if (existingHashes.Contains(hash))
+                // A row with a FitId only hash-matches id-less saved rows; hashes are never added in-loop,
+                // so two identical same-day purchases in one file both import.
+                if ((string.IsNullOrEmpty(ofxTxn.FitId) ? existingHashes : idlessHashes).Contains(hash))
                 {
                     result.DuplicateCount++;
                     continue;
                 }
 
-                existingHashes.Add(hash);
                 if (!string.IsNullOrEmpty(ofxTxn.FitId))
                     existingFitIds.Add(ofxTxn.FitId);
 

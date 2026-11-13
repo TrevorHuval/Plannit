@@ -82,15 +82,15 @@ public class BillService
         var guard = 0;
         while (date < rangeStart && guard < 1000)
         {
-            date = RecurringDetectionService.EstimateNextDate(date, cadence);
             guard++;
+            date = RecurringDetectionService.EstimateNthDate(anchor, cadence, guard);
         }
 
         while (date <= rangeEnd && guard < 2000)
         {
             result.Add(date);
-            date = RecurringDetectionService.EstimateNextDate(date, cadence);
             guard++;
+            date = RecurringDetectionService.EstimateNthDate(anchor, cadence, guard);
         }
 
         return result;

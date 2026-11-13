@@ -34,7 +34,8 @@ public class DebtController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        var principal = account.OriginalPrincipal ?? LatestBalance(account);
+        // Schedule starts today, so use the current balance; original principal only without snapshots.
+        var principal = account.Snapshots.Count > 0 ? LatestBalance(account) : account.OriginalPrincipal ?? 0m;
         var schedule = LoanService.RunAmortizationSchedule(principal, account.InterestRate.Value, account.MinimumPayment.Value);
 
         var vm = new AmortizationViewModel

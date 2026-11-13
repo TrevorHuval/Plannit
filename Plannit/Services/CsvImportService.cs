@@ -210,8 +210,6 @@ public class CsvImportService
                     continue;
                 }
 
-                existingHashes.Add(hash);
-
                 transactions.Add(new Transaction
                 {
                     AccountId = accountId,

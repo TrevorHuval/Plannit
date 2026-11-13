@@ -320,7 +320,7 @@ public class ProjectionsController : Controller
             LifeExpectancy = scenario.LifeExpectancy,
             AnnualRetirementSpending = scenario.AnnualRetirementSpending,
             InflationRate = scenario.InflationRate,
-            AccountAssumptions = scenario.AccountAssumptions.Select(a => new AccountAssumptionInput
+            AccountAssumptions = scenario.AccountAssumptions.Where(a => !NetWorthService.IsLiability(a.Account.Type)).Select(a => new AccountAssumptionInput
             {
                 AccountId = a.AccountId,
                 AccountName = a.Account.Name,

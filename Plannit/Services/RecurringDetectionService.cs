@@ -236,14 +236,18 @@ public class RecurringDetectionService
     // Internal (not private): BillService/ForecastService reuse this cadence math to
     // project future occurrences and advance a persisted Bill's NextDue on reconciliation,
     // rather than re-deriving the same day-stepping logic.
-    internal static DateOnly EstimateNextDate(DateOnly lastDate, RecurringCadence cadence) => cadence switch
+    internal static DateOnly EstimateNextDate(DateOnly lastDate, RecurringCadence cadence) =>
+        EstimateNthDate(lastDate, cadence, 1);
+
+    // Computed from the anchor (not chained) so Jan 31 -> Feb 28 -> Mar 31, not Mar 28.
+    internal static DateOnly EstimateNthDate(DateOnly anchor, RecurringCadence cadence, int n) => cadence switch
     {
-        RecurringCadence.Weekly => lastDate.AddDays(7),
-        RecurringCadence.Biweekly => lastDate.AddDays(14),
-        RecurringCadence.Monthly => lastDate.AddMonths(1),
-        RecurringCadence.Quarterly => lastDate.AddMonths(3),
-        RecurringCadence.Yearly => lastDate.AddYears(1),
-        _ => lastDate.AddMonths(1)
+        RecurringCadence.Weekly => anchor.AddDays(7 * n),
+        RecurringCadence.Biweekly => anchor.AddDays(14 * n),
+        RecurringCadence.Monthly => anchor.AddMonths(n),
+        RecurringCadence.Quarterly => anchor.AddMonths(3 * n),
+        RecurringCadence.Yearly => anchor.AddYears(n),
+        _ => anchor.AddMonths(n)
     };
 
     internal static int CadencePeriodDays(RecurringCadence cadence) => cadence switch

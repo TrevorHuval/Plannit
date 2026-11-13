@@ -338,6 +338,12 @@ public class SyncService
             .Select(t => t.ImportHash!)
             .ToHashSetAsync();
 
+        // Rows saved without a bank id (CSV imports): a row that has an id still dedupes against these.
+        var idlessHashes = await _db.Transactions
+            .Where(t => t.AccountId == accountId && t.ImportHash != null && t.OfxFitId == null)
+            .Select(t => t.ImportHash!)
+            .ToHashSetAsync();
+
         var batch = new ImportBatch
         {
             AccountId = accountId,
@@ -359,13 +365,12 @@ public class SyncService
 
             var description = txn.BestDescription;
             var hash = CsvImportService.ComputeImportHash(accountId, txn.Posted.Value, txn.Amount.Value, description);
-            if (existingHashes.Contains(hash))
+            if ((string.IsNullOrEmpty(txn.Id) ? existingHashes : idlessHashes).Contains(hash))
             {
                 result.DuplicatesSkipped++;
                 continue;
             }
 
-            existingHashes.Add(hash);
             if (!string.IsNullOrEmpty(txn.Id)) existingFitIds.Add(txn.Id);
 
             toAdd.Add(new Transaction

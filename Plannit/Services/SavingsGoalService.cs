@@ -41,6 +41,10 @@ public class SavingsGoalService
 
     public async Task<SavingsGoal> CreateAsync(string userId, string name, decimal targetAmount, DateOnly? targetDate, int? linkedAccountId, decimal? manualProgress)
     {
+        // Query filter scopes Accounts to the current user; drop ids that aren't theirs.
+        if (linkedAccountId is not null && !await _db.Accounts.AnyAsync(a => a.Id == linkedAccountId))
+            linkedAccountId = null;
+
         var goal = new SavingsGoal
         {
             UserId = userId,
@@ -59,6 +63,9 @@ public class SavingsGoalService
     {
         var goal = await _db.SavingsGoals.FirstOrDefaultAsync(g => g.Id == id);
         if (goal is null) return false;
+
+        if (linkedAccountId is not null && !await _db.Accounts.AnyAsync(a => a.Id == linkedAccountId))
+            linkedAccountId = null;
 
         goal.Name = name;
         goal.TargetAmount = targetAmount;

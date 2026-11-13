@@ -441,6 +441,20 @@ public class TenancyTests : IDisposable
     }
 
     [Fact]
+    public async Task SavingsGoalService_Create_DropsOtherUsersLinkedAccount()
+    {
+        using var db = CreateContext(_userBId);
+        var service = new SavingsGoalService(db);
+
+        var goal = await service.CreateAsync(_userBId, "Trip", 1000, null, _accountAId, 50);
+        Assert.Null(goal.LinkedAccountId);
+
+        Assert.True(await service.UpdateAsync(goal.Id, "Trip", 1000, null, _accountAId, 50));
+        using var check = CreateContext(_userBId);
+        Assert.Null((await check.SavingsGoals.FirstAsync(g => g.Id == goal.Id)).LinkedAccountId);
+    }
+
+    [Fact]
     public async Task BudgetService_CreateOrUpdate_Fails_ForOtherUsersCategory()
     {
         using var db = CreateContext(_userBId);

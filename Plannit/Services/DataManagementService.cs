@@ -315,8 +315,12 @@ public class DataManagementService
 
         foreach (var (amount, description, categoryId) in splits)
         {
+            // First split inherits the import identity so re-importing doesn't re-add the original.
+            var first = newTransactions.Count == 0;
             newTransactions.Add(new Transaction
             {
+                ImportHash = first ? original.ImportHash : null,
+                OfxFitId = first ? original.OfxFitId : null,
                 AccountId = original.AccountId,
                 Date = original.Date,
                 Amount = amount,
