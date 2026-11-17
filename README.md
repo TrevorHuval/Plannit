@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/TrevorHuval/Plannit/actions/workflows/ci.yml/badge.svg)](https://github.com/TrevorHuval/Plannit/actions/workflows/ci.yml) [![CodeQL](https://github.com/TrevorHuval/Plannit/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/TrevorHuval/Plannit/security/code-scanning)
 
-**Live demo: [trevorhuval.com/plannit](https://trevorhuval.com/plannit)** — create an account (email verification may be required), add a few balances, and explore. Deployed on AWS EC2 via GitHub Actions and multi-arch Docker images.
+**Live demo: [plannit.trevorhuval.com](https://plannit.trevorhuval.com)** — create an account (email verification may be required), add a few balances, and explore. GitHub Actions publishes multi-arch Docker images to GHCR, and the [trevorhuval-infra](https://github.com/TrevorHuval/trevorhuval-infra) stack runs them on AWS EC2.
 
 ![Dashboard: net worth, allocation, and history](.github/images/dashboard.png)
 
@@ -43,7 +43,7 @@ Built with **.NET 10 / ASP.NET Core MVC**, EF Core + SQLite, ASP.NET Core Identi
 - **Pure, tested domain logic** — the projection engine is a static, side-effect-free function covered by known-answer unit tests (fixed-rate growth, depletion age, withdrawal ordering, inflation effects)
 - **Defensive import pipeline** — untrusted statement files are size-capped, extension-whitelisted, staged under generated GUID names, and parsed with per-row error reporting that never fails an entire batch
 - **Security hardening** — anti-forgery on all mutating endpoints, non-backtracking regex evaluation for user-authored rules (ReDoS-safe), path-traversal-proof temp file handling, sanitized reflected input
-- **Ops-ready** — multi-stage Dockerfile, data-protection keys and SQLite persisted to a mounted volume, automatic migrations in production, fail-closed backup and restore scripts (database + key ring), automatic pre-migration snapshots, documented PostgreSQL migration path
+- **Ops-ready** — multi-stage Dockerfile running as a non-root user with a built-in health check, data-protection keys and SQLite persisted to a mounted volume, automatic migrations in production, fail-closed backup and restore scripts (database + key ring), automatic pre-migration snapshots, documented PostgreSQL migration path
 
 ## Analytics
 
@@ -78,6 +78,6 @@ docker build -t plannit .
 docker run -d -p 8080:8080 -v plannit-data:/data plannit
 ```
 
-Data (SQLite database + data-protection keys) lives in `/data` — always mount a volume. Registration is off unless `AllowRegistration=true` is set, and open registration requires working SMTP for email verification (see `DEPLOY.md`).
+The image runs as the non-root `app` user and has a `/healthz` HEALTHCHECK. Data (SQLite database + data-protection keys) lives in `/data` — always mount a volume writable by that user (UID 1654). Registration is off unless `AllowRegistration=true` is set, and open registration requires working SMTP for email verification (see `DEPLOY.md`).
 
 To host under a sub-path behind a reverse proxy (e.g. `https://example.com/plannit`), set `PathBase=/plannit` and forward the full path unchanged; set `ForwardedHeaders__TrustProxyNetwork=true` (or list the proxy in `ForwardedHeaders__KnownProxies__0`) so HTTPS redirects and client IPs are read from the proxy's `X-Forwarded-*` headers.
