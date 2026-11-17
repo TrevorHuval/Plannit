@@ -56,6 +56,21 @@ public class AnalyticsTests : IDisposable
     }
 
     [Fact]
+    public async Task PrivacyPage_DisclosesAnalytics_OnlyWhenItIsOn()
+    {
+        using var on = NewFactory(Id).CreateClientNoRedirect();
+        using var off = NewFactory(null).CreateClientNoRedirect();
+
+        var withAnalytics = await on.GetStringAsync($"{PathBase}/privacy");
+        var without = await off.GetStringAsync($"{PathBase}/privacy");
+
+        Assert.Contains("Google Analytics", withAnalytics);
+        Assert.DoesNotContain("no advertising, analytics or tracking", withAnalytics);
+        Assert.Contains("no advertising, analytics or tracking", without);
+        Assert.DoesNotContain("Google Analytics", without);
+    }
+
+    [Fact]
     public async Task InitScript_IsServedSameOrigin()
     {
         using var client = NewFactory(Id).CreateClientNoRedirect();

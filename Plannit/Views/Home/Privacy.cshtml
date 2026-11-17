@@ -2,6 +2,7 @@
 @using Plannit.Services.Sync
 @inject IConfiguration Configuration
 @inject IEmailSender EmailSender
+@inject Plannit.Services.AnalyticsSettings Analytics
 @{
     ViewData["Title"] = "Privacy";
     var operatorName = Configuration["Privacy:OperatorName"];
@@ -118,7 +119,14 @@
     <div class="card-body">
         <h2 class="h5">Cookies and third parties</h2>
         <p class="mb-0">
-            Plannit sets only the cookies it needs to work: your sign-in, form-protection and short-lived page state. There is no advertising, analytics or tracking, and the pages load their scripts, styles and fonts from this server rather than from third parties.
+            @if (Analytics.Enabled)
+            {
+                <text>Plannit sets the cookies it needs to work (your sign-in, form-protection and short-lived page state) and uses Google Analytics to count page visits. Google Analytics loads a script from Google, sets its own cookies, and sends Google the address and title of each page you open together with general browser and device information. Plannit does not send Google your account balances or transactions, and browsers with Do Not Track turned on are not measured. There is no advertising, and all other scripts, styles and fonts load from this server.</text>
+            }
+            else
+            {
+                <text>Plannit sets only the cookies it needs to work: your sign-in, form-protection and short-lived page state. There is no advertising, analytics or tracking, and the pages load their scripts, styles and fonts from this server rather than from third parties.</text>
+            }
             @if (googleLogin || appleLogin)
             {
                 <text>If you choose to sign in with @(googleLogin && appleLogin ? "Google or Apple" : googleLogin ? "Google" : "Apple"), your browser is sent to that provider to authenticate and it tells Plannit your email address.</text>

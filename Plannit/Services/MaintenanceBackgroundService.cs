@@ -82,16 +82,16 @@ public class MaintenanceBackgroundService : BackgroundService
 
     private async Task RunBankSyncAsync(CancellationToken ct)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var syncService = scope.ServiceProvider.GetRequiredService<SyncService>();
-
-        var userIds = await db.Users.Select(u => u.Id).ToListAsync(ct);
-        foreach (var userId in userIds)
+        foreach (var userId in await GetUserIdsAsync(ct))
         {
             if (ct.IsCancellationRequested) break;
             try
             {
+                // One scope (and so one DbContext) per user: rows tracked or left unsaved for one
+                // user must never be carried into the next user's unit of work.
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var syncService = scope.ServiceProvider.GetRequiredService<SyncService>();
                 db.SetCurrentUser(userId);
                 var synced = await syncService.SyncActiveConnectionsAsync(ct);
                 if (synced > 0)
@@ -106,15 +106,15 @@ public class MaintenanceBackgroundService : BackgroundService
 
     private async Task RunNotificationChecksAsync(CancellationToken ct)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var notificationService = scope.ServiceProvider.GetRequiredService<NotificationService>();
-
-        var userIds = await db.Users.Select(u => u.Id).ToListAsync(ct);
-        foreach (var userId in userIds)
+        foreach (var userId in await GetUserIdsAsync(ct))
         {
+            if (ct.IsCancellationRequested) break;
             try
             {
+                // One scope per user, for the same reason as the bank sync loop above.
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var notificationService = scope.ServiceProvider.GetRequiredService<NotificationService>();
                 db.SetCurrentUser(userId);
                 var created = await notificationService.RunDailyChecksAsync(userId, ct);
                 if (created > 0)
@@ -125,6 +125,13 @@ public class MaintenanceBackgroundService : BackgroundService
                 _logger.LogError(ex, "Notification checks failed for user {UserId}.", userId);
             }
         }
+    }
+
+    private async Task<List<string>> GetUserIdsAsync(CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await db.Users.Select(u => u.Id).ToListAsync(ct);
     }
 
     // Deletes expired or consumed registry rows together with their staged files, then any file with
