@@ -11,12 +11,26 @@ public class OfxImportService
 {
     private readonly ApplicationDbContext _db;
     private readonly SnapshotImportService _snapshotImportService;
+    private readonly IConfiguration? _config;
 
-    public OfxImportService(ApplicationDbContext db, SnapshotImportService snapshotImportService)
+    public OfxImportService(ApplicationDbContext db, SnapshotImportService snapshotImportService, IConfiguration? config = null)
     {
         _db = db;
         _snapshotImportService = snapshotImportService;
+        _config = config;
     }
+
+    // Statement files are untrusted input, so every pattern that runs over them uses the
+    // non-backtracking engine: matching time is linear in the file size, where the default engine
+    // could be driven to quadratic or worse by a crafted file (a 40 KB tag value took seconds, a
+    // 10 MB one would not finish). The timeout is a backstop, not the defence.
+    private const RegexOptions Linear = RegexOptions.IgnoreCase | RegexOptions.NonBacktracking;
+    internal static readonly TimeSpan MatchTimeout = TimeSpan.FromSeconds(10);
+
+    private static readonly Regex LedgerBalanceBlock = new(@"<LEDGERBAL>(.*?)</LEDGERBAL>", Linear | RegexOptions.Singleline, MatchTimeout);
+    private static readonly Regex StatementTransactionBlock = new(@"<STMTTRN>(.*?)</STMTTRN>", Linear | RegexOptions.Singleline, MatchTimeout);
+    private static readonly Regex StatementTransactionOpen = new(@"<STMTTRN>", Linear, MatchTimeout);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Regex> TagPatterns = new(StringComparer.OrdinalIgnoreCase);
 
     public async Task<ImportResultViewModel> ImportAsync(Stream ofxStream, int accountId, string fileName)
     {
@@ -25,8 +39,31 @@ public class OfxImportService
         using var reader = new StreamReader(ofxStream);
         var content = await reader.ReadToEndAsync();
 
-        var ofxTransactions = ParseTransactions(content);
+        List<OfxTransaction> ofxTransactions;
+        (decimal? Balance, DateOnly? AsOfDate) ledger;
+        try
+        {
+            ofxTransactions = ParseTransactions(content);
+            ledger = ParseLedgerBalance(content);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            result.Errors.Add(new ImportRowError { RowNumber = 0, Message = "This file took too long to read and was not imported." });
+            result.ErrorCount++;
+            return result;
+        }
+        var maxRows = ImportLimits.MaxRowsPerFile(_config);
+        if (ofxTransactions.Count > maxRows)
+        {
+            ofxTransactions.RemoveRange(maxRows, ofxTransactions.Count - maxRows);
+            result.Errors.Add(new ImportRowError { RowNumber = maxRows + 1, Message = ImportLimits.RowLimitMessage(maxRows) });
+            result.ErrorCount++;
+        }
         result.TotalRows = ofxTransactions.Count;
+
+        var maxTransactions = ImportLimits.MaxTransactionsPerUser(_config);
+        // The tenancy filter scopes this count to the current user.
+        var allowance = maxTransactions - await _db.Transactions.CountAsync();
 
         var existingHashes = await _db.Transactions
             .Where(t => t.AccountId == accountId && t.ImportHash != null)
@@ -75,7 +112,9 @@ public class OfxImportService
                     continue;
                 }
 
-                var description = ofxTxn.Name ?? ofxTxn.Memo ?? "";
+                var description = ImportLimits.Clamp(ofxTxn.Name ?? ofxTxn.Memo ?? "", ImportLimits.MaxDescriptionLength);
+                if (ofxTxn.FitId is { Length: > ImportLimits.MaxBankIdLength })
+                    ofxTxn.FitId = ofxTxn.FitId[..ImportLimits.MaxBankIdLength];
                 if (string.IsNullOrWhiteSpace(description))
                 {
                     result.Errors.Add(new ImportRowError { RowNumber = rowNumber, Message = "No NAME or MEMO found" });
@@ -97,6 +136,13 @@ public class OfxImportService
                 {
                     result.DuplicateCount++;
                     continue;
+                }
+
+                if (transactions.Count >= allowance)
+                {
+                    result.Errors.Add(new ImportRowError { RowNumber = rowNumber, Message = ImportLimits.TransactionLimitMessage(maxTransactions) });
+                    result.ErrorCount++;
+                    break;
                 }
 
                 if (!string.IsNullOrEmpty(ofxTxn.FitId))
@@ -136,7 +182,7 @@ public class OfxImportService
         result.ImportedCount = transactions.Count;
         result.ImportBatchId = transactions.Count > 0 ? batch.Id : null;
 
-        var (ledgerBalance, ledgerDate) = ParseLedgerBalance(content);
+        var (ledgerBalance, ledgerDate) = ledger;
         if (ledgerBalance.HasValue && ledgerDate.HasValue)
         {
             var snapshot = await _snapshotImportService.UpsertSnapshotAsync(accountId, ledgerDate.Value, ledgerBalance.Value);
@@ -153,7 +199,7 @@ public class OfxImportService
 
     internal static (decimal? Balance, DateOnly? AsOfDate) ParseLedgerBalance(string content)
     {
-        var match = Regex.Match(content, @"<LEDGERBAL>(.*?)</LEDGERBAL>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        var match = LedgerBalanceBlock.Match(content);
         if (!match.Success) return (null, null);
 
         var block = match.Groups[1].Value;
@@ -166,11 +212,7 @@ public class OfxImportService
     {
         var transactions = new List<OfxTransaction>();
 
-        var stmtTrnPattern = new Regex(
-            @"<STMTTRN>(.*?)</STMTTRN>",
-            RegexOptions.Singleline | RegexOptions.IgnoreCase);
-
-        foreach (Match match in stmtTrnPattern.Matches(content))
+        foreach (Match match in StatementTransactionBlock.Matches(content))
         {
             var block = match.Groups[1].Value;
             transactions.Add(ParseTransaction(block));
@@ -178,8 +220,7 @@ public class OfxImportService
 
         if (transactions.Count == 0)
         {
-            var openPattern = new Regex(@"<STMTTRN>", RegexOptions.IgnoreCase);
-            var openMatches = openPattern.Matches(content);
+            var openMatches = StatementTransactionOpen.Matches(content);
 
             for (int i = 0; i < openMatches.Count; i++)
             {
@@ -208,9 +249,9 @@ public class OfxImportService
 
     internal static string? GetTagValue(string block, string tagName)
     {
-        var pattern = new Regex(
-            $@"<{tagName}>\s*(.+?)(?:\s*<|\s*$)",
-            RegexOptions.IgnoreCase | RegexOptions.Multiline);
+        var pattern = TagPatterns.GetOrAdd(tagName, static name => new Regex(
+            $@"<{Regex.Escape(name)}>\s*(.+?)(?:\s*<|\s*$)",
+            Linear | RegexOptions.Multiline, MatchTimeout));
         var match = pattern.Match(block);
         if (!match.Success) return null;
 

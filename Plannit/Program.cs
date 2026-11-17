@@ -15,6 +15,11 @@ using Plannit.Services.Ai;
 using Plannit.Services.Net;
 using Plannit.Services.Sync;
 
+// Backstop for every regular expression that does not set its own timeout: a pattern that meets
+// pathological input fails after this long instead of holding a core. Must be set before the first
+// Regex is created. The parsers for uploaded files do not rely on it; they use the non-backtracking engine.
+AppContext.SetData("REGEX_DEFAULT_MATCH_TIMEOUT", TimeSpan.FromSeconds(10));
+
 // Money is formatted with the current culture (93 "C" format sites). In a container there is
 // no LANG, so .NET falls back to the invariant culture and prints "¤" instead of "$".
 var defaultCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
