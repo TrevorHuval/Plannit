@@ -157,13 +157,13 @@ public class AccountsController : Controller
     {
         if (!ModelState.IsValid)
         {
-            if (!string.IsNullOrEmpty(returnUrl)) return LocalRedirect(returnUrl);
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)) return LocalRedirect(returnUrl);
             return RedirectToAction(nameof(Details), new { id = model.AccountId });
         }
 
         await _accountService.AddSnapshotAsync(model.AccountId, model.Date, model.Balance);
 
-        if (!string.IsNullOrEmpty(returnUrl)) return LocalRedirect(returnUrl);
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)) return LocalRedirect(returnUrl);
         return RedirectToAction(nameof(Details), new { id = model.AccountId });
     }
 

@@ -58,6 +58,7 @@ public class ApplicationDbContext : IdentityDbContext
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        ClampStoredText();
         StampRowVersions();
         BumpCacheVersionIfNeeded();
         return base.SaveChanges(acceptAllChangesOnSuccess);
@@ -65,9 +66,36 @@ public class ApplicationDbContext : IdentityDbContext
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        ClampStoredText();
         StampRowVersions();
         BumpCacheVersionIfNeeded();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>Longest text value stored in any column of the app's own tables.</summary>
+    public const int MaxStoredTextLength = 2000;
+
+    // SQLite does not enforce column lengths and several inputs (notes, names, rule text, values
+    // taken from bank files and provider responses) reach the database without a length check, so a
+    // signed-in user could store megabytes per request and fill the disk. This is the single place
+    // every tracked write passes through: anything longer than the ceiling is shortened here.
+    // Identity's own tables are left alone, as are encrypted values, which must round-trip intact
+    // (each user holds at most one AI key and the bank-sync URL comes from the provider).
+    private void ClampStoredText()
+    {
+        foreach (var entry in ChangeTracker.Entries())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Modified)) continue;
+            if (entry.Metadata.ClrType.Namespace != typeof(Account).Namespace) continue;
+
+            foreach (var property in entry.Properties)
+            {
+                if (property.Metadata.ClrType != typeof(string)) continue;
+                if (property.Metadata.Name.EndsWith("Protected", StringComparison.Ordinal)) continue;
+                if (property.CurrentValue is string { Length: > MaxStoredTextLength } value)
+                    property.CurrentValue = ImportLimits.Clamp(value, MaxStoredTextLength);
+            }
+        }
     }
 
     // Re-stamp the optimistic-concurrency token on every added/modified Account and

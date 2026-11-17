@@ -33,6 +33,7 @@ public class SyncService
     private readonly CategorizationService _categorization;
     private readonly IDataProtector _protector;
     private readonly ILogger<SyncService> _logger;
+    private readonly IConfiguration? _config;
 
     public SyncService(
         ApplicationDbContext db,
@@ -40,8 +41,10 @@ public class SyncService
         SnapshotImportService snapshotImport,
         CategorizationService categorization,
         IDataProtectionProvider dataProtection,
-        ILogger<SyncService> logger)
+        ILogger<SyncService> logger,
+        IConfiguration? config = null)
     {
+        _config = config;
         _db = db;
         _client = client;
         _snapshotImport = snapshotImport;
@@ -353,9 +356,16 @@ public class SyncService
 
         var toAdd = new List<Transaction>();
 
-        foreach (var txn in acct.Transactions)
+        // Same ceilings as file imports (see ImportLimits): the provider's response is not trusted to be small.
+        var maxRows = ImportLimits.MaxRowsPerFile(_config);
+        var allowance = ImportLimits.MaxTransactionsPerUser(_config) - await _db.Transactions.CountAsync();
+
+        foreach (var txn in acct.Transactions.Take(maxRows))
         {
             if (txn.Posted is null || txn.Amount is null) continue;
+            if (toAdd.Count >= allowance) break;
+            if (txn.Id is { Length: > ImportLimits.MaxBankIdLength })
+                txn.Id = txn.Id[..ImportLimits.MaxBankIdLength];
 
             if (!string.IsNullOrEmpty(txn.Id) && existingFitIds.Contains(txn.Id))
             {
@@ -363,7 +373,7 @@ public class SyncService
                 continue;
             }
 
-            var description = txn.BestDescription;
+            var description = ImportLimits.Clamp(txn.BestDescription, ImportLimits.MaxDescriptionLength);
             var hash = CsvImportService.ComputeImportHash(accountId, txn.Posted.Value, txn.Amount.Value, description);
             if ((string.IsNullOrEmpty(txn.Id) ? existingHashes : idlessHashes).Contains(hash))
             {

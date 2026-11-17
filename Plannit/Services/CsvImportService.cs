@@ -13,10 +13,12 @@ namespace Plannit.Services;
 public class CsvImportService
 {
     private readonly ApplicationDbContext _db;
+    private readonly IConfiguration? _config;
 
-    public CsvImportService(ApplicationDbContext db)
+    public CsvImportService(ApplicationDbContext db, IConfiguration? config = null)
     {
         _db = db;
+        _config = config;
     }
 
     public (List<string> Headers, List<List<string>> PreviewRows) ReadPreview(Stream csvStream, int maxRows = 5)
@@ -140,8 +142,20 @@ public class CsvImportService
         int rowNumber = 1;
         bool useSingleAmount = !string.IsNullOrEmpty(amountColumn);
 
+        var maxRows = ImportLimits.MaxRowsPerFile(_config);
+        var maxTransactions = ImportLimits.MaxTransactionsPerUser(_config);
+        // The tenancy filter scopes this count to the current user.
+        var allowance = maxTransactions - await _db.Transactions.CountAsync();
+
         while (csv.Read())
         {
+            if (result.TotalRows >= maxRows)
+            {
+                result.Errors.Add(new ImportRowError { RowNumber = rowNumber + 1, Message = ImportLimits.RowLimitMessage(maxRows) });
+                result.ErrorCount++;
+                break;
+            }
+
             rowNumber++;
             result.TotalRows++;
 
@@ -157,7 +171,7 @@ public class CsvImportService
 
                 if (!DateOnly.TryParseExact(dateStr.Trim(), dateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
                 {
-                    result.Errors.Add(new ImportRowError { RowNumber = rowNumber, Message = $"Cannot parse date '{dateStr}' with format '{dateFormat}'" });
+                    result.Errors.Add(new ImportRowError { RowNumber = rowNumber, Message = $"Cannot parse date '{ImportLimits.Clamp(dateStr, 50)}' with format '{dateFormat}'" });
                     result.ErrorCount++;
                     continue;
                 }
@@ -168,7 +182,7 @@ public class CsvImportService
                     var amountStr = csv.GetField(amountColumn!);
                     if (!TryParseAmount(amountStr, out amount))
                     {
-                        result.Errors.Add(new ImportRowError { RowNumber = rowNumber, Message = $"Cannot parse amount '{amountStr}'" });
+                        result.Errors.Add(new ImportRowError { RowNumber = rowNumber, Message = $"Cannot parse amount '{ImportLimits.Clamp(amountStr ?? "", 50)}'" });
                         result.ErrorCount++;
                         continue;
                     }
@@ -192,7 +206,7 @@ public class CsvImportService
 
                 if (invertAmounts) amount = -amount;
 
-                var originalDesc = csv.GetField(descriptionColumn) ?? "";
+                var originalDesc = ImportLimits.Clamp(csv.GetField(descriptionColumn) ?? "", ImportLimits.MaxDescriptionLength);
                 var description = originalDesc.Trim();
 
                 if (string.IsNullOrWhiteSpace(description))
@@ -208,6 +222,13 @@ public class CsvImportService
                 {
                     result.DuplicateCount++;
                     continue;
+                }
+
+                if (transactions.Count >= allowance)
+                {
+                    result.Errors.Add(new ImportRowError { RowNumber = rowNumber, Message = ImportLimits.TransactionLimitMessage(maxTransactions) });
+                    result.ErrorCount++;
+                    break;
                 }
 
                 transactions.Add(new Transaction

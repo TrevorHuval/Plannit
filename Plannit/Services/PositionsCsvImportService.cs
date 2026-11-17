@@ -12,6 +12,10 @@ public class PositionsCsvImportService
         headers.Any(h => h.Trim().Equals("Symbol", StringComparison.OrdinalIgnoreCase)) &&
         headers.Any(h => h.Trim().Equals("Current value", StringComparison.OrdinalIgnoreCase));
 
+    // Untrusted file content: non-backtracking keeps this linear however the cell is padded.
+    private static readonly Regex DownloadedDate = new(@"Date\s+downloaded\s+([A-Za-z]{3}-\d{1,2}-\d{4})",
+        RegexOptions.IgnoreCase | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(10));
+
     public PositionsImportPreview Parse(Stream csvStream)
     {
         using var reader = new StreamReader(csvStream);
@@ -67,7 +71,7 @@ public class PositionsCsvImportService
             var firstField = csv.GetField(0);
             if (firstField is null) continue;
 
-            var dateMatch = Regex.Match(firstField, @"Date\s+downloaded\s+([A-Za-z]{3}-\d{1,2}-\d{4})", RegexOptions.IgnoreCase);
+            var dateMatch = DownloadedDate.Match(firstField);
             if (dateMatch.Success &&
                 DateOnly.TryParseExact(dateMatch.Groups[1].Value, ["MMM-d-yyyy", "MMM-dd-yyyy"], CultureInfo.InvariantCulture, DateTimeStyles.None, out var downloadedDate))
             {
